@@ -13,6 +13,7 @@ using Gothic.Core.Models.Inventory;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
@@ -52,8 +53,7 @@ namespace Gothic.VR.Adapters.Player
         [Tooltip("Backpack slots (IVrSocket) which add/remove items to/from the inventory when used.")]
         [SerializeField] private GameObject[] _inventorySockets;
 
-        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\", faces the camera, " +
-                 "readable however the backpack is held).")]
+        [Tooltip("Vanilla equipped-slot background quad (\"EquippedLabel.prefab\"), placed behind an equipped item.")]
         [SerializeField] private GameObject _equippedLabelPrefab;
 
         [Tooltip("Immersion option lootTakeAll: the \"Take all\" text button below the page counter (inactive " +
@@ -97,6 +97,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly TextureService _textureService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VmService _vmService;
@@ -109,6 +110,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly LocalizationService _localizationService;
 
         private const string _equippedLabelName = "EquippedLabel";
+        private const float _equippedSlotWorldSize = 0.105f;
         private const string _takeAllTextKey = "backpack.takeAll";
         private const string _takeAllFallbackText = "Take all";
 
@@ -999,17 +1001,22 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Same [E] badge as in the NPC loot panel (VRNpcLoot).
+        /// Vanilla's INV_SLOT_EQUIPPED slot background behind an equipped item (same as in VRNpcLoot).
         /// </summary>
         private void AddEquippedLabel(Transform socket)
         {
-            const float worldScale = 0.013f;
-            const float worldOffsetUp = 0.06f;
+            if (_textureService.EquippedSlotMaterial == null)
+                return;
 
             var labelGo = Instantiate(_equippedLabelPrefab, socket, false);
             labelGo.name = _equippedLabelName;
-            labelGo.transform.position = socket.position + socket.up * worldOffsetUp;
-            labelGo.transform.localScale = Vector3.one * (worldScale / Mathf.Max(0.0001f, socket.lossyScale.x));
+            labelGo.GetComponent<MeshRenderer>().sharedMaterial = _textureService.EquippedSlotMaterial;
+            // Fills the inside of the slot ring (VR Socket Slot: ring radius 0.06 in the local XY plane, item in the
+            // middle). Transparent queue: the opaque item in the same plane stays in front.
+            labelGo.transform.localPosition = Vector3.zero;
+            labelGo.transform.localRotation = Quaternion.identity;
+            var parentScale = Mathf.Max(0.0001f, socket.lossyScale.x);
+            labelGo.transform.localScale = Vector3.one * (_equippedSlotWorldSize / parentScale);
         }
 
         private void SubtractItemFromHand(List<ContentItem> inventory, GameObject handItem)

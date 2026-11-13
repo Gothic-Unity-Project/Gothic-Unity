@@ -1,8 +1,10 @@
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Services.Caches;
 using Reflex.Attributes;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.Meshes
 {
@@ -18,6 +20,8 @@ namespace Gothic.Core.Services.Meshes
         // Menu
         public Material GothicLoadingMenuMaterial;
         public Material ButtonMaterial;
+        [Tooltip("Vanilla INV_SLOT_EQUIPPED.TGA: background of an equipped item's slot. Null if the texture is missing.")]
+        public Material EquippedSlotMaterial;
         public Material FillerMaterial;
         public Material ArrowUpMaterial;
         public Material ArrowDownMaterial;
@@ -69,6 +73,7 @@ namespace Gothic.Core.Services.Meshes
             StatusBarMiscMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
 
             // Menu
+            EquippedSlotMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
             ArrowUpMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
             ArrowDownMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
             ArrowLeftMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
@@ -97,6 +102,15 @@ namespace Gothic.Core.Services.Meshes
             BackgroundMaterial.mainTexture = _textureCacheService.TryGetTexture("LOG_PAPER.TGA");
             ButtonMaterial.mainTexture = _textureCacheService.TryGetTexture("INV_SLOT.TGA");
             FillerMaterial.mainTexture = _textureCacheService.TryGetTexture("MENU_BUTTONBACK.TGA");
+
+            var equippedSlotTexture = _textureCacheService.TryGetTexture("INV_SLOT_EQUIPPED.TGA");
+            if (equippedSlotTexture == null)
+            {
+                Logger.LogWarning("INV_SLOT_EQUIPPED.TGA not found: equipped items get no slot highlight.", LogCat.Mesh);
+                EquippedSlotMaterial = null;
+            }
+            else
+                EquippedSlotMaterial.mainTexture = equippedSlotTexture;
 
             // Menu
             ArrowUpMaterial.mainTexture = _textureCacheService.TryGetTexture("O.TGA");

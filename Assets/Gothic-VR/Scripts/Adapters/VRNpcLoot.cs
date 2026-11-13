@@ -16,6 +16,7 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Inventory;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.VR.Adapters.Player;
@@ -39,11 +40,12 @@ namespace Gothic.VR.Adapters
         private const float SocketHeight = 0.8f;
         private const float SocketSpacing = 0.22f;
         private const string _equippedLabelName = "EquippedLabel";
+        private const float _equippedSlotWorldSize = 0.105f;
 
         [Tooltip("Loot slot (VrSocketSlot, \"VR Socket Slot.prefab\").")]
         [SerializeField] private GameObject _slotPrefab;
 
-        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\", faces the camera).")]
+        [Tooltip("Vanilla equipped-slot background quad (\"EquippedLabel.prefab\"), placed behind an equipped item.")]
         [SerializeField] private GameObject _equippedLabelPrefab;
 
         [Tooltip("Seconds until an NPC's loot backpack nobody picked up disappears (the loot closes like clicking " +
@@ -57,6 +59,7 @@ namespace Gothic.VR.Adapters
 
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly TextureService _textureService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
@@ -525,10 +528,18 @@ namespace Gothic.VR.Adapters
             if (socketRoot == null)
                 return;
 
+            if (_textureService.EquippedSlotMaterial == null)
+                return;
+
             var labelGo = Instantiate(_equippedLabelPrefab, socketRoot.transform, false);
             labelGo.name = _equippedLabelName;
-            labelGo.transform.localPosition = new Vector3(0f, 0.09f, 0f);
-            labelGo.transform.localScale = Vector3.one * 0.013f;
+            labelGo.GetComponent<MeshRenderer>().sharedMaterial = _textureService.EquippedSlotMaterial;
+            // Fills the inside of the slot ring (VR Socket Slot: ring radius 0.06 in the local XY plane, item in the
+            // middle). Transparent queue: the opaque item in the same plane stays in front.
+            labelGo.transform.localPosition = Vector3.zero;
+            labelGo.transform.localRotation = Quaternion.identity;
+            var parentScale = Mathf.Max(0.0001f, socketRoot.transform.lossyScale.x);
+            labelGo.transform.localScale = Vector3.one * (_equippedSlotWorldSize / parentScale);
         }
     }
 }
