@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Models;
@@ -13,8 +14,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// <summary>
     /// A document (book, map, letter) is opened / closed with the trigger of the hand holding it (R in the simulator) -
     /// one hand is enough, like a rune. The pages (VRDocViewer's canvas) are held like a book: the reading hand at
-    /// their lower outer corner (left hand: lower left, right hand: lower right), facing the player's eyes whatever
-    /// way the item itself is turned in the hand. Added by VRVobItem on the first hand grab, stays on the item.
+    /// their lower outer corner (left hand: lower left, right hand: lower right). Opened, they start upright facing
+    /// the player's eyes, then move and turn with the reading hand like a held book. While open, the item's own mesh
+    /// is hidden. Added by VRVobItem on the first hand grab, stays on the item.
     /// </summary>
     public class VRDocReader : MonoBehaviour
     {
@@ -32,6 +34,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private VrHandSide _readingHand;
         private Transform _canvas;
         private Camera _camera;
+        // The pages' pose relative to the reading hand, captured when they opened or the hand changed.
+        private Transform _capturedCanvas;
+        private Transform _capturedHand;
+        private Vector3 _localPosition;
+        private Quaternion _localRotation;
+        private readonly List<Renderer> _hiddenRenderers = new();
 
         private void Awake()
         {
@@ -102,21 +110,97 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             var canvas = FindCanvas();
             if (canvas == null)
+            {
+                _capturedCanvas = null;
+                _capturedHand = null;
+                ShowItemMesh();
                 return;
+            }
 
             if (_camera == null)
                 _camera = Camera.main;
-            var hand = _vrPlayerService.GetHandModelGo(_readingHand);
-            if (_camera == null || hand == null)
+            var handGo = _vrPlayerService.GetHandModelGo(_readingHand);
+            if (_camera == null || handGo == null)
                 return;
 
-            PlaceAtHand((RectTransform)canvas, _camera.transform, hand.transform.position);
+            var hand = handGo.transform;
+            var rect = (RectTransform)canvas;
+            UpdateScale(rect);
+
+            if (canvas != _capturedCanvas)
+                HideItemMesh(canvas);
+
+            if (canvas != _capturedCanvas || hand != _capturedHand)
+            {
+                // Upright and facing the eyes once - from then on the pages move and turn with the hand.
+                GetUprightPose(rect, _camera.transform, hand.position, out var position, out var rotation);
+                var toLocal = Quaternion.Inverse(hand.rotation);
+                _localPosition = toLocal * (position - hand.position);
+                _localRotation = toLocal * rotation;
+                _capturedCanvas = canvas;
+                _capturedHand = hand;
+            }
+
+            canvas.SetPositionAndRotation(hand.position + hand.rotation * _localPosition,
+                hand.rotation * _localRotation);
+        }
+
+        private void OnDisable()
+        {
+            ShowItemMesh();
+        }
+
+        private void OnDestroy()
+        {
+            ShowItemMesh();
+        }
+
+        /// <summary>
+        /// The open pages replace the item - its own mesh hides (all renderers but the pages').
+        /// </summary>
+        private void HideItemMesh(Transform canvas)
+        {
+            ShowItemMesh();
+            foreach (var itemRenderer in GetComponentsInChildren<Renderer>())
+            {
+                if (!itemRenderer.enabled || itemRenderer.transform.IsChildOf(canvas))
+                    continue;
+                itemRenderer.enabled = false;
+                _hiddenRenderers.Add(itemRenderer);
+            }
+            Logger.Log($"[VRDocReader] {name}: item mesh hidden ({_hiddenRenderers.Count} renderers)", LogCat.VR);
+        }
+
+        private void ShowItemMesh()
+        {
+            if (_hiddenRenderers.Count == 0)
+                return;
+            foreach (var itemRenderer in _hiddenRenderers)
+            {
+                if (itemRenderer != null)
+                    itemRenderer.enabled = true;
+            }
+            Logger.Log($"[VRDocReader] {name}: item mesh shown again", LogCat.VR);
+            _hiddenRenderers.Clear();
+        }
+
+        /// <summary>
+        /// The pages' longer side is _pagesSize in the world, whatever the item's scale.
+        /// </summary>
+        private void UpdateScale(RectTransform canvas)
+        {
+            var size = canvas.rect.size;
+            var worldScale = _pagesSize / Mathf.Max(size.x, size.y, 1f);
+            var parentScale = canvas.parent.lossyScale;
+            canvas.localScale = new Vector3(worldScale / parentScale.x, worldScale / parentScale.y,
+                worldScale / parentScale.z);
         }
 
         /// <summary>
         /// The pages face the eyes upright, their lower outer corner in the reading hand.
         /// </summary>
-        private void PlaceAtHand(RectTransform canvas, Transform head, Vector3 hand)
+        private void GetUprightPose(RectTransform canvas, Transform head, Vector3 hand, out Vector3 position,
+            out Quaternion rotation)
         {
             var forward = hand - head.position;
             if (forward.sqrMagnitude < 0.0001f)
@@ -128,21 +212,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
             var size = canvas.rect.size;
             var worldScale = _pagesSize / Mathf.Max(size.x, size.y, 1f);
-            var parentScale = canvas.parent.lossyScale;
-            canvas.localScale = new Vector3(worldScale / parentScale.x, worldScale / parentScale.y,
-                worldScale / parentScale.z);
-
             var width = size.x * worldScale;
             var height = size.y * worldScale;
             // Left hand: the pages reach to the right and up; right hand: to the left and up.
             var side = _readingHand == VrHandSide.Left ? 1f : -1f;
-            var position = hand +
-                           right * (side * (width / 2f - _cornerInset)) +
-                           up * (height / 2f - _cornerInset) +
-                           forward * _behindHand;
+            position = hand +
+                       right * (side * (width / 2f - _cornerInset)) +
+                       up * (height / 2f - _cornerInset) +
+                       forward * _behindHand;
 
             // A world space canvas is read looking along its +Z.
-            canvas.SetPositionAndRotation(position, Quaternion.LookRotation(forward, up));
+            rotation = Quaternion.LookRotation(forward, up);
         }
     }
 }
