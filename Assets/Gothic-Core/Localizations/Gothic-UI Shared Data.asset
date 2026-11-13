@@ -351,6 +351,10 @@ MonoBehaviour:
     m_Key: menuitem.heroFallMode.value
     m_Metadata:
       m_Items: []
+  - m_Id: 193305458028961792
+    m_Key: backpack.takeAll
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

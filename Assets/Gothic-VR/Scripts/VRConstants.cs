@@ -58,7 +58,7 @@ namespace Gothic.VR
             public const string ItemDetailsPopup = "itemDetailsPopup";
             // 1 = the held backpack's opening pulls nearby world items and stores them (VRBackpackVacuum).
             public const string BackpackVacuum = "backpackVacuum";
-            // 1 = loot backpacks of dead NPCs and lidless containers show a green "X" that takes all (VRBackpack).
+            // 1 = loot backpacks of dead NPCs and lidless containers show a "Take all" button (VRBackpack).
             public const string LootTakeAll = "lootTakeAll";
 
             // 0 = off, 1 = light, 2 = strong: the edges of the view darken while the stick moves or turns the player.

@@ -4,6 +4,7 @@ using System.Linq;
 using Gothic.Core.Domain.Vm;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.UI;
 using Reflex.Attributes;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
@@ -138,6 +139,54 @@ namespace Gothic.Core.Services.Vm
         // Fight
         //
         public int FightAiMoveMax => _gameStateService.FightVm.GetSymbolByName("MAX_MOVE")!.GetInt(0);
+
+        //
+        // Messages
+        //
+
+        /// <summary>
+        /// Prints "12 Items received!" like the scripts' B_GiveInvItems (G1: _STR_MESSAGE_ITEM(S)_TAKEN,
+        /// G2: PRINT_ItemErhalten/PRINT_ItemsErhalten), in the game's language. Returns false if the text is missing.
+        /// </summary>
+        public bool PrintItemsTaken(int amount)
+        {
+            var vm = _gameStateService.GothicVm;
+            var text = amount == 1
+                ? FirstSymbolString(vm, "_STR_MESSAGE_ITEM_TAKEN", "PRINT_ItemErhalten")
+                : FirstSymbolString(vm, "_STR_MESSAGE_ITEMS_TAKEN", "PRINT_ItemsErhalten");
+            if (string.IsNullOrEmpty(text))
+                return false;
+            if (!text.StartsWith(" "))
+                text = " " + text;
+
+            var posY = vm.GetSymbolInt("_YPOS_MESSAGE_TAKEN");
+            if (posY < 0)
+                posY = vm.GetSymbolInt("YPOS_ItemTaken");
+            if (posY < 0)
+                posY = _itemsTakenDefaultPosY;
+            var seconds = vm.GetSymbolInt("_TIME_MESSAGE_TAKEN");
+            if (seconds <= 0)
+                seconds = _itemsTakenDefaultSeconds;
+
+            GlobalEventDispatcher.PrintScreen.Invoke(new PrintScreenMessage($"{amount}{text}",
+                PrintScreenMessage.Centered, posY, _itemsTakenFont, seconds));
+            return true;
+        }
+
+        private const int _itemsTakenDefaultPosY = 40;
+        private const int _itemsTakenDefaultSeconds = 4;
+        private const string _itemsTakenFont = "FONT_OLD_10_WHITE.TGA";
+
+        private static string FirstSymbolString(DaedalusVm vm, params string[] symbolNames)
+        {
+            foreach (var symbolName in symbolNames)
+            {
+                var value = vm.GetSymbolString(symbolName);
+                if (!string.IsNullOrEmpty(value))
+                    return value;
+            }
+            return string.Empty;
+        }
 
         //
         // Hero calls

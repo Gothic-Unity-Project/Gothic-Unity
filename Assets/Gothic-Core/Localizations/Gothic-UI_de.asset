@@ -362,6 +362,10 @@ MonoBehaviour:
     m_Localized: "mit K\xF6rper|blenden"
     m_Metadata:
       m_Items: []
+  - m_Id: 193305458028961792
+    m_Localized: Alles nehmen
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

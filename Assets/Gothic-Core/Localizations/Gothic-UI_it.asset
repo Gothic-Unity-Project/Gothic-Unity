@@ -22,6 +22,10 @@ MonoBehaviour:
     m_Localized: 
     m_Metadata:
       m_Items: []
+  - m_Id: 193305458028961792
+    m_Localized: Prendi tutto
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

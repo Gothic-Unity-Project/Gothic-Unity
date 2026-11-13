@@ -125,7 +125,7 @@ namespace Gothic.VR.Services.Context
                     CreateToggleChoice(gameMenu, "BACKPACK_VACUUM", VRConstants.IniNames.BackpackVacuum,
                         VRConstants.BackpackVacuumDefaultValue)),
                 (CreateToggleLabel(gameMenu, "LOOT_TAKE_ALL", "Loot: take all",
-                        "A loot backpack shows an X that takes everything"),
+                        "A loot backpack shows \"Take all\" below the pages"),
                     CreateToggleChoice(gameMenu, "LOOT_TAKE_ALL", VRConstants.IniNames.LootTakeAll,
                         VRConstants.LootTakeAllDefaultValue)),
                 (CreateToggleLabel(gameMenu, "HERO_BLOCK", "Blocking",
