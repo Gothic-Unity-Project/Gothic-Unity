@@ -69,9 +69,9 @@ namespace Gothic.Core.Services.Meshes
             StatusBarMiscMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
 
             // Menu
-            ArrowUpMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
-            ArrowDownMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
-            ArrowLeftMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
+            ArrowUpMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
+            ArrowDownMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
+            ArrowLeftMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
             
             // Misc
             WeaponTrailMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Transparent);
