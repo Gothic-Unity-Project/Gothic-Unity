@@ -25,7 +25,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
     /// <summary>
     /// Gothic's "use item from inventory" in VR (ItemUseService decides what is usable and runs it), e.g. G2 pouches
     /// (ItSe_*) or mod items. Lives while the item is grabbed with both hands; trigger (or R) uses it once.
-    /// Weapons, runes, documents and food are handled by VRRuneCaster, VRDocViewer and VRMouth.
+    /// Runes, documents and food are handled by VRRuneCaster, VRDocReader (one hand) and VRMouth.
     /// </summary>
     public class VRItemUser : MonoBehaviour
     {
