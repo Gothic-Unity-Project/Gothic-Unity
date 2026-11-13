@@ -212,6 +212,37 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!1 &2789336413270849983
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1320683191325799321}
+  m_Layer: 0
+  m_Name: Xri Attach Right
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1320683191325799321
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2789336413270849983}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.7071068, y: -0.000000061817246, z: -0.000000061817246, w: -0.7071068}
+  m_LocalPosition: {x: -0.00077, y: -0.00008, z: 0.0026}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5594178864967151085}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3034623789462469926
 GameObject:
   m_ObjectHideFlags: 0
@@ -2525,6 +2556,9 @@ PrefabInstance:
       addedObject: {fileID: 8508804596616669162}
     - targetCorrespondingSourceObject: {fileID: 8560556203703700366, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 1320683191325799321}
+    - targetCorrespondingSourceObject: {fileID: 8560556203703700366, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 2271751350983319797}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: -2445633797789926738, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
@@ -2802,6 +2836,7 @@ MonoBehaviour:
   m_MaxAngularVelocityDelta: 20
   _heldInterpolation: 1
   _isOneHandOnly: 1
+  _rightHandAttachTransform: {fileID: 1320683191325799321}
 --- !u!114 &6185002808432276180
 MonoBehaviour:
   m_ObjectHideFlags: 0
