@@ -73,7 +73,6 @@ namespace Gothic.Core.Services.Meshes
             StatusBarMiscMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Opaque);
 
             // Menu
-            EquippedSlotMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
             ArrowUpMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
             ArrowDownMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
             ArrowLeftMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
@@ -110,7 +109,11 @@ namespace Gothic.Core.Services.Meshes
                 EquippedSlotMaterial = null;
             }
             else
+            {
+                // Created only when the texture exists: a missing one would leave an unused material behind.
+                EquippedSlotMaterial = GetEmptyMaterial(MaterialExtension.BlendMode.Fade);
                 EquippedSlotMaterial.mainTexture = equippedSlotTexture;
+            }
 
             // Menu
             ArrowUpMaterial.mainTexture = _textureCacheService.TryGetTexture("O.TGA");
