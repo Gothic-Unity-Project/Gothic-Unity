@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Config;
@@ -16,6 +17,10 @@ namespace Gothic.Core.Domain.Config
 
         public static readonly string DefaultSteamGothic1Folder = GetSteamCommonFolder() + "Gothic" + GetSeparator();
         public static readonly string DefaultSteamGothic2Folder = GetSteamCommonFolder() + "Gothic II" + GetSeparator();
+
+        // Set by Steam when a game runs through Proton: ':'-separated "<library>/steamapps" and the Steam root.
+        private const string _protonLibraryPathsEnv = "STEAM_COMPAT_LIBRARY_PATHS";
+        private const string _protonClientPathEnv = "STEAM_COMPAT_CLIENT_INSTALL_PATH";
 
         private const string _settingsFileName = "GameSettings.json";
         private const string _settingsFileNameDev = "GameSettings.dev.json";
@@ -166,6 +171,43 @@ namespace Gothic.Core.Domain.Config
         }
 
         /// <summary>
+        /// A Windows build under Proton can't tell it's on Linux (Application.platform says Windows), so the default
+        /// C:\Program Files (x86)\Steam\... doesn't exist. Steam passes its library folders as environment
+        /// variables, which we map to Wine's Z: drive (= Linux root).
+        /// </summary>
+        private static bool TryFindProtonSteamFolder(GameVersion version, out string folder)
+        {
+            folder = null;
+
+            var libraries = new List<string>();
+            var libraryPaths = Environment.GetEnvironmentVariable(_protonLibraryPathsEnv);
+            if (!string.IsNullOrEmpty(libraryPaths))
+            {
+                libraries.AddRange(libraryPaths.Split(':', StringSplitOptions.RemoveEmptyEntries));
+            }
+
+            var clientPath = Environment.GetEnvironmentVariable(_protonClientPathEnv);
+            if (!string.IsNullOrEmpty(clientPath))
+            {
+                libraries.Add($"{clientPath.TrimEnd('/')}/steamapps");
+            }
+
+            var gameFolder = version == GameVersion.Gothic1 ? "Gothic" : "Gothic II";
+            foreach (var library in libraries)
+            {
+                var candidate = $"Z:{library.TrimEnd('/')}/common/{gameFolder}/";
+                if (!Directory.Exists(candidate))
+                    continue;
+
+                Logger.Log($"Proton detected: using >{candidate}< for {version}.", LogCat.Loading);
+                folder = candidate;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Check if the specified path inside GameSettings is a valid Gothic installation. If not, use a platform specific fallback:
         /// Standalone: C:\Program Files (x86)\Steam\steamapps\common\Gothic\
         /// Android: /storage/emulated/0/Android/data/com.gothic.unity/files/Gothic1/
@@ -189,6 +231,11 @@ namespace Gothic.Core.Domain.Config
                 {
                     return $"{Application.persistentDataPath}/Gothic2";
                 }
+            }
+            // Windows build running on Linux via Proton/Wine: Steam's Linux libraries are mapped to drive Z:.
+            else if (TryFindProtonSteamFolder(version, out var protonFolder))
+            {
+                return protonFolder;
             }
             // Standalone
             else
