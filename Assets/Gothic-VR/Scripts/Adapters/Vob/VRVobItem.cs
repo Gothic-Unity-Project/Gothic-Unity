@@ -285,8 +285,12 @@ namespace Gothic.VR.Adapters.Vob
                 Destroy(viewer);
             foreach (Transform child in transform)
             {
-                if (child.name == VRDocViewer.CanvasName)
-                    Destroy(child.gameObject);
+                if (child.name != VRDocViewer.CanvasName)
+                    continue;
+
+                // Destroy is deferred to the end of the frame - inactive, nothing finds the pages again before then.
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
             }
 
             if (!_isConsumedOnDocClose)
