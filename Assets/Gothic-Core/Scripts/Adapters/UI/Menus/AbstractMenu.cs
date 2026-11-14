@@ -217,8 +217,8 @@ namespace Gothic.Core.Adapters.UI.Menus
             var halfArrowHeight = material.mainTexture.height * go.transform.localScale.y / 2;
             rect.SetWidth(material.mainTexture.width);
             rect.SetHeight(material.mainTexture.height);
-            // The arrow sits centred on the menu border, right of the rows.
-            rect.SetPositionX(rowsRight + arrowWidth * 1.85f);
+            // The arrow sits left of the menu border, beside the rows.
+            rect.SetPositionX(rowsRight + arrowWidth * 1.15f);
             rect.SetPositionY(isTop ? rowsEdgeY - halfArrowHeight : rowsEdgeY + halfArrowHeight);
 
             var position = rect.localPosition;
