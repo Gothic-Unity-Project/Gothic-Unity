@@ -15,6 +15,7 @@ Videos and the main menu cost minutes per test run and block automated play sess
 | Field | Value | Effect |
 |---|---|---|
 | `SkipVideos` | `true` | Logo videos and every Daedalus `PlayVideo`/`PlayVideoEx` (chapter intros, G1 extro) are skipped. Default: off. |
+| `PreselectGameVersion` + `GameVersion` | `true` + `Gothic1`/`Gothic2` | Skips the game version selection - without it the boot stops there, menu off or not. |
 | `EnableMainMenu` | `false` | Bootstrap goes straight into a world. |
 | `PreselectWorldToSpawn` | e.g. G1 `NewWorld`, G2 `NewWorld`/`Addon` | World to load when the menu is off. |
 | `SpawnAtWaypoint` | waypoint / free point name | Optional spawn position. |
