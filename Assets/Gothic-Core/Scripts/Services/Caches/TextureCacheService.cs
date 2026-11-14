@@ -121,6 +121,11 @@ namespace Gothic.Core.Services.Caches
             Texture2D texture;
             var preparedKey = GetPreparedKey(key);
             var format = zkTexture.Format.AsUnityTextureFormat();
+            // RGB565 has no sRGB GPU format: in Linear color space its gamma bytes would be sampled as linear and the
+            // texture looks too bright (e.g. save game thumbnails). RGBA32 is created as sRGB.
+            var isR5G6B5 = format == TextureFormat.RGB565;
+            if (isR5G6B5)
+                format = TextureFormat.RGBA32;
 
             // TODO: DXT1 textures won't get MipMaps created. Unity limitation (even for v6.x). But normally all files do have MipMaps.
             //  if (zkTexture.Format == ZenKit.TextureFormat.Dxt1 && zkTexture.MipmapCount == 1)
@@ -135,7 +140,10 @@ namespace Gothic.Core.Services.Caches
             texture = new Texture2D(zkTexture.Width, zkTexture.Height, format, mipCount, false);
             for (var i = 0; i < mipCount; i++)
             {
-                texture.SetPixelData(zkTexture.GetMipmapPixels(i, format == TextureFormat.RGBA32), i);
+                var pixels = isR5G6B5
+                    ? zkTexture.GetR5G6B5MipmapRgba(i)
+                    : zkTexture.GetMipmapPixels(i, format == TextureFormat.RGBA32);
+                texture.SetPixelData(pixels, i);
             }
 
             texture.Apply(updateMipmaps, true);
