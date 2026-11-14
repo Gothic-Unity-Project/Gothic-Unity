@@ -16,6 +16,7 @@ using Gothic.Core.Services;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Inventory;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Vobs;
 using Gothic.VR.Adapters.Player;
@@ -43,7 +44,7 @@ namespace Gothic.VR.Adapters
         [Tooltip("Loot slot (VrSocketSlot, \"VR Socket Slot.prefab\").")]
         [SerializeField] private GameObject _slotPrefab;
 
-        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\", faces the camera).")]
+        [Tooltip("Vanilla equipped-slot background quad (\"EquippedLabel.prefab\"), placed behind an equipped item.")]
         [SerializeField] private GameObject _equippedLabelPrefab;
 
         [Tooltip("Seconds until an NPC's loot backpack nobody picked up disappears (the loot closes like clicking " +
@@ -57,6 +58,7 @@ namespace Gothic.VR.Adapters
 
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly TextureService _textureService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly VRWeaponService _vrWeaponService;
@@ -113,6 +115,15 @@ namespace Gothic.VR.Adapters
 
         public void Open(NpcContainer npc)
         {
+            // Vanilla: nothing to take (equipped items and armor don't count) - no inventory, only a "nothing to get".
+            if (!HasLoot(npc))
+            {
+                Logger.Log($"[VRNpcLoot] {npc.Instance.GetName(NpcNameSlot.Slot0)} has nothing to loot - not opened",
+                    LogCat.VR);
+                _npcInventoryService.PrintNothingToGet();
+                return;
+            }
+
             _npcContainer = npc;
             _lootOwner = _inventoryTransferService.GetOwner(npc);
             _isOpen = true;
@@ -267,7 +278,7 @@ namespace Gothic.VR.Adapters
         }
 
         /// <summary>
-        /// Everything the NPC gives away into the hero's inventory (like the loot's green X); an empty corpse closes its loot and can't be grabbed anymore.
+        /// Everything the NPC gives away into the hero's inventory (like the loot's "Take all" button); an empty corpse closes its loot and can't be grabbed anymore.
         /// </summary>
         public int TakeAll(NpcContainer npc)
         {
@@ -516,10 +527,12 @@ namespace Gothic.VR.Adapters
             if (socketRoot == null)
                 return;
 
-            var labelGo = Instantiate(_equippedLabelPrefab, socketRoot.transform, false);
+            if (_textureService.EquippedSlotMaterial == null)
+                return;
+
+            var labelGo = Instantiate(_equippedLabelPrefab);
             labelGo.name = _equippedLabelName;
-            labelGo.transform.localPosition = new Vector3(0f, 0.09f, 0f);
-            labelGo.transform.localScale = Vector3.one * 0.013f;
+            labelGo.GetComponent<VREquippedSlotMarker>().Place(socketRoot.transform, _textureService.EquippedSlotMaterial);
         }
     }
 }

@@ -25,6 +25,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         // Resources paths (VR context first): world space canvas and one page (background + text).
         private const string _canvasPrefabPath = "Prefabs/UI/DocViewerCanvas";
         private const string _pagePrefabPath = "Prefabs/UI/DocViewerPage";
+        /// <summary>
+        /// The built pages' world space canvas, null while nothing is shown.
+        /// </summary>
+        public Transform Canvas { get; private set; }
+
         private RectTransform _markerPage;
         private RectTransform _marker;
         private float _mapLeft;
@@ -53,6 +58,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void BuildViewer(DocModel doc)
         {
+            Canvas = null;
             foreach (Transform child in transform)
             {
                 if (child.name == CanvasName)
@@ -69,6 +75,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 worldPositionStays: false);
             if (canvasGo == null)
                 return;
+            Canvas = canvasGo.transform;
             var rootRt = (RectTransform)canvasGo.transform;
             rootRt.sizeDelta = twoPages ? new Vector2(1000, 700) : GetSinglePageSize(doc.Pages[0]);
 

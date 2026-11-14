@@ -13,6 +13,7 @@ using Gothic.Core.Models.Inventory;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Inventory;
+using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vm;
@@ -24,6 +25,7 @@ using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
+using Gothic.Services.UI;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
@@ -51,12 +53,11 @@ namespace Gothic.VR.Adapters.Player
         [Tooltip("Backpack slots (IVrSocket) which add/remove items to/from the inventory when used.")]
         [SerializeField] private GameObject[] _inventorySockets;
 
-        [Tooltip("The [E] badge above an equipped item's slot (\"EquippedLabel.prefab\", faces the camera, " +
-                 "readable however the backpack is held).")]
+        [Tooltip("Vanilla equipped-slot background quad (\"EquippedLabel.prefab\"), placed behind an equipped item.")]
         [SerializeField] private GameObject _equippedLabelPrefab;
 
-        [Tooltip("Immersion option lootTakeAll: the green \"X\" above the right page arrow (inactive child, " +
-                 "shown on a loot backpack only).")]
+        [Tooltip("Immersion option lootTakeAll: the \"Take all\" text button below the page counter (inactive " +
+                 "child, shown on a loot backpack only). Its label is localized (Gothic-UI table).")]
         [SerializeField] private GameObject _takeAllButton;
 
         [Tooltip("While the backpack is on the shoulder, its hand grab volumes are this many times larger - it " +
@@ -96,6 +97,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly TextureService _textureService;
         [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VmService _vmService;
@@ -105,8 +107,11 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly InventoryTransferService _inventoryTransferService;
         [Inject] private readonly IVrUiPointers _vrUiPointers;
+        [Inject] private readonly LocalizationService _localizationService;
 
         private const string _equippedLabelName = "EquippedLabel";
+        private const string _takeAllTextKey = "backpack.takeAll";
+        private const string _takeAllFallbackText = "Take all";
 
         private IInventoryOwner Owner => _owner ??= _inventoryTransferService.GetHeroOwner();
 
@@ -205,7 +210,7 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// Immersion option lootTakeAll (on by default): loot of a dead NPC or of a container without a lid (mummy)
-        /// shows the green "X" above the right page arrow (OnTakeAllClick). Not for knocked out NPCs (they're robbed
+        /// shows the "Take all" text button below the page counter (OnTakeAllClick). Not for knocked out NPCs (they're robbed
         /// item by item).
         /// </summary>
         private void ShowTakeAllButton()
@@ -220,7 +225,17 @@ namespace Gothic.VR.Adapters.Player
                 Logger.LogWarning("[VRBackpack] No take all button set - loot backpack without it.", LogCat.VR);
                 return;
             }
+            SetTakeAllText();
             _takeAllButton.SetActive(true);
+        }
+
+        private void SetTakeAllText()
+        {
+            var label = _takeAllButton.GetComponentInChildren<TMP_Text>(true);
+            if (label == null)
+                return;
+            var text = _localizationService?.GetText(_takeAllTextKey);
+            label.text = string.IsNullOrEmpty(text) ? _takeAllFallbackText : text;
         }
 
         private bool IsLootTakeAllOn()
@@ -232,7 +247,8 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Immersion option lootTakeAll: everything the loot holds goes into the hero's inventory at once.
+        /// Immersion option lootTakeAll: everything the loot holds goes into the hero's inventory at once. Prints
+        /// Gothic's own "12 Items received!" like the scripts do on an item transfer.
         /// </summary>
         public void OnTakeAllClick()
         {
@@ -244,6 +260,9 @@ namespace Gothic.VR.Adapters.Player
             var clip = _audioService.CreateAudioClip(_audioService.InvOpen.File);
             if (clip != null)
                 AudioSource.PlayClipAtPoint(clip, transform.position);
+            if (itemCount > 0 && !_vmService.PrintItemsTaken(itemCount))
+                Logger.LogWarning("[VRBackpack] No items taken text in the scripts - take all without message.",
+                    LogCat.VR);
             // A container (mummy) has no NPC and no event. Taking everything may have closed the loot (empty corpse)
             // and despawned this backpack.
             if (this != null && gameObject.activeInHierarchy && !IsRefreshedByNpcEvent)
@@ -981,17 +1000,16 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Same [E] badge as in the NPC loot panel (VRNpcLoot).
+        /// Vanilla's INV_SLOT_EQUIPPED slot background behind an equipped item (same as in VRNpcLoot).
         /// </summary>
         private void AddEquippedLabel(Transform socket)
         {
-            const float worldScale = 0.013f;
-            const float worldOffsetUp = 0.06f;
+            if (_textureService.EquippedSlotMaterial == null)
+                return;
 
-            var labelGo = Instantiate(_equippedLabelPrefab, socket, false);
+            var labelGo = Instantiate(_equippedLabelPrefab);
             labelGo.name = _equippedLabelName;
-            labelGo.transform.position = socket.position + socket.up * worldOffsetUp;
-            labelGo.transform.localScale = Vector3.one * (worldScale / Mathf.Max(0.0001f, socket.lossyScale.x));
+            labelGo.GetComponent<VREquippedSlotMarker>().Place(socket, _textureService.EquippedSlotMaterial);
         }
 
         private void SubtractItemFromHand(List<ContentItem> inventory, GameObject handItem)

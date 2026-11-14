@@ -17,7 +17,458 @@ MonoBehaviour:
   m_SharedData: {fileID: 11400000, guid: 688e24f0a7340a649aca39be8009e223, type: 2}
   m_Metadata:
     m_Items: []
-  m_TableData: []
+  m_TableData:
+  - m_Id: 193305458028961792
+    m_Localized: "Vz\xEDt v\u0161e"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266604883968
+    m_Localized: "Detaily p\u0159edm\u011Btu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244096
+    m_Localized: "Batoh v jedn\xE9 ruce, p\u0159edm\u011Bt ve druh\xE9 zobraz\xED
+      jeho text"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244097
+    m_Localized: "S\xE1n\xED batohu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244098
+    m_Localized: "Otev\u0159en\xFD batoh p\u0159itahuje p\u0159edm\u011Bty v okol\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244099
+    m_Localized: "Ko\u0159ist: vz\xEDt v\u0161e"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244100
+    m_Localized: "Batoh s ko\u0159ist\xED zobraz\xED \"Vz\xEDt v\u0161e\" pod str\xE1nkami"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244101
+    m_Localized: "Blokov\xE1n\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244102
+    m_Localized: "Ob\u011B ruce na zbrani na bl\xEDzko, oba spou\u0161t\u011B stisknuty:
+      odr\xE1\u017Een\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244103
+    m_Localized: Kroky
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244104
+    m_Localized: "Kroky zn\xED podle podkladu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244105
+    m_Localized: "\u010C\xEDsla z\xE1sah\u016F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244106
+    m_Localized: "-X \u017DP / +X MANA nad hlavami NPC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244107
+    m_Localized: "Velikost \u010D\xEDsel z\xE1sah\u016F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244108
+    m_Localized: "Velikost \u010D\xEDsel -X \u017DP / +X MANA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244109
+    m_Localized: "\u010C\xEDsla \u017DP"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244110
+    m_Localized: "\u017DP/MAX na ukazatel\xEDch zdrav\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244111
+    m_Localized: "Ch\u016Fze v dialoz\xEDch"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244112
+    m_Localized: "Pohyb b\u011Bhem rozhovoru - odchod dialog ukon\u010D\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244113
+    m_Localized: "Obnoven\xED sv\u011Btla"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244114
+    m_Localized: "Jak plynule sv\u011Btlo pochodn\u011B sleduje tvou ruku"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244115
+    m_Localized: "N\xEDzk\xE9|St\u0159edn\xED|Vysok\xE9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244116
+    m_Localized: Ruce hrdiny
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244117
+    m_Localized: "Tv\xE9 ruce jsou p\u011Bsti hrdiny"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244118
+    m_Localized: "Dor\xE1\u017Een\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244119
+    m_Localized: "Bodni a dr\u017E \u010Depel pro dor\xE1\u017Eku (vypnuto: jak\xFDkoli
+      z\xE1sah)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244120
+    m_Localized: "Ku\u0161e"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244121
+    m_Localized: "Nat\xE1hni t\u011Btivu pro nabit\xED (vypnuto: automaticky)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244122
+    m_Localized: "Jednor\xE1zov\xE9 svitky"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244123
+    m_Localized: "Sesl\xE1n\xED svitek spot\u0159ebuje (Gothic)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244124
+    m_Localized: "Vr\u017Een\xE1 kouzla"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244125
+    m_Localized: "\u0160vihni a pus\u0165 pro hozen\xED st\u0159eleck\xFDch kouzel"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244128
+    m_Localized: "Kruh obl\xEDben\xFDch"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244129
+    m_Localized: "Ob\u011B ruce nahoru + oba spou\u0161t\u011B: vybaven\xE1 kouzla
+      a zbran\u011B"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244130
+    m_Localized: "M\u011B\u0161ec kaps\xE1\u0159e"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438400
+    m_Localized: "G2: p\u0159i pl\xED\u017Een\xED m\u011B\u0161ec k uchopen\xED u
+      ka\u017Ed\xE9ho, koho m\u016F\u017Ee\u0161 okr\xE1st"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438401
+    m_Localized: "Velikost kruhu obl\xEDben\xFDch"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438402
+    m_Localized: "Jak daleko je kruh obl\xEDben\xFDch od tebe (prav\xE1 p\xE1\u010Dka,
+      kdy\u017E je otev\u0159en\xFD)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431630484627456
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632300761088
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411567790612480
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 411568419758080
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3119672320000
+    m_Localized: _
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906666962944
+    m_Localized: "5\xB0|10\xB0|15\xB0|20\xB0|25\xB0|30\xB0|35\xB0|40\xB0|45\xB0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431629377331200
+    m_Localized: "Sm\u011Br pohybu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631105384448
+    m_Localized: "kamera|lev\xFD ovlada\u010D|prav\xFD ovlada\u010D"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431631675809792
+    m_Localized: "Typ ot\xE1\u010Den\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431632934100992
+    m_Localized: "plynul\xE9|po kroc\xEDch"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431627489894400
+    m_Localized: "\u201EV\xFD\u0161ka hr\xE1\u010De\u201C = bez zm\u011Bny m\u011B\u0159\xEDtka"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431625069780992
+    m_Localized: "Sed\xEDc\xED re\u017Eim"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431628714631168
+    m_Localized: "vsed\u011B|vstoje|v\xFD\u0161ka hr\xE1\u010De"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907841368064
+    m_Localized: "Vyhlazuje drobn\xE9 z\xE1chv\u011Bvy kamery div\xE1ka (jen PCVR)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431907228999680
+    m_Localized: "Vyhlazen\xED div\xE1ka"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 432028503105536
+    m_Localized: "vypnuto|n\xEDzk\xE9|st\u0159edn\xED|vysok\xE9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431904846635008
+    m_Localized: "Rychlost plynul\xE9ho ot\xE1\u010Den\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431903147941888
+    m_Localized: "Plynul\xE9 ot\xE1\u010Den\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431906042011648
+    m_Localized: "\xDAhel oto\u010Den\xED na jedno kliknut\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431905500946432
+    m_Localized: "Ot\xE1\u010Den\xED po kroc\xEDch"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431600692486144
+    m_Localized: "P\u0159\xEDstupnost VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 431605876645888
+    m_Localized: "NASTAVEN\xCD P\u0158\xCDSTUPNOSTI VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790913176952832
+    m_Localized: Sloty hrdiny VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 62335082496
+    m_Localized: Batoh
+    m_Metadata:
+      m_Items: []
+  - m_Id: 792354008457216
+    m_Localized: "Ovl\xE1d\xE1n\xED VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692152860991488
+    m_Localized: Imerze VR
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692199996579840
+    m_Localized: "NASTAVEN\xCD IMERZE VR"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692428107997184
+    m_Localized: Mikrofon
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692483179208704
+    m_Localized: "Pou\u017E\xEDv\xE1 se pro p\u0159evod \u0159e\u010Di na text v
+      dialoz\xEDch, je-li vybr\xE1no"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692692542087168
+    m_Localized: Vypnuto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666525962240
+    m_Localized: "Fyzick\xE9 ruce"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666597265408
+    m_Localized: "Ruce se zastav\xED o zdi a p\u0159edm\u011Bty a postr\u010D\xED
+      voln\xE9 p\u0159edm\u011Bty"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 186269666597265409
+    m_Localized: vypnuto|zapnuto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188441999989669888
+    m_Localized: "V\xEDtr"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188442000027418624
+    m_Localized: "Stromy a tr\xE1va se vln\xED ve v\u011Btru - sni\u017Euje v\xFDkon
+      na Questu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682066042880
+    m_Localized: "Vin\u011Btace"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985920
+    m_Localized: "Ztmav\xED okraje pohledu, kdy\u017E t\u011B p\xE1\u010Dka pohybuje
+      nebo ot\xE1\u010D\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985921
+    m_Localized: "vypnuto|slab\xE1|siln\xE1"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985922
+    m_Localized: Velikost textu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985923
+    m_Localized: "Velikost titulk\u016F a voleb v dialoz\xEDch"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188130682107985924
+    m_Localized: "norm\xE1ln\xED|velk\xFD|v\u011Bt\u0161\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529716502528
+    m_Localized: "Vid\u011Bn\xED barev"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862656
+    m_Localized: "Uprav\xED barvy pro barvoslepost"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188218529745862657
+    m_Localized: "norm\xE1ln\xED|slab\xFD \u010Derven\xFD|slab\xFD zelen\xFD|slab\xFD
+      modr\xFD"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143623823360
+    m_Localized: "Dominantn\xED ruka"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572096
+    m_Localized: "Lev\xE1k: pohyb a menu na prav\xE9m ovlada\u010Di, ot\xE1\u010Den\xED,
+      teleport a skok na lev\xE9m"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572097
+    m_Localized: "prav\xE1k|lev\xE1k"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572098
+    m_Localized: "Tla\u010D\xEDtko skoku"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572099
+    m_Localized: "Tla\u010D\xEDtko, kter\xE9 sk\xE1\u010De - d\u0159ep pou\u017E\xEDv\xE1
+      druh\xE9 z obou tla\u010D\xEDtek"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572100
+    m_Localized: "spodn\xED tla\u010D\xEDtko|horn\xED tla\u010D\xEDtko|stisk p\xE1\u010Dky"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572101
+    m_Localized: "Tla\u010D\xEDtko menu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572102
+    m_Localized: "Tla\u010D\xEDtko, kter\xE9 otev\xEDr\xE1 menu, na ruce pro pohyb"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188454143661572103
+    m_Localized: "horn\xED tla\u010D\xEDtko|spodn\xED tla\u010D\xEDtko|tla\u010D\xEDtko
+      menu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279474184192
+    m_Localized: "Lezen\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070272
+    m_Localized: "Uchopen\xE9 \u0159\xEDmsy: vyt\xE1hnout se nebo prolnout (m\xE9n\u011B
+      pohybu)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070273
+    m_Localized: "vyt\xE1hnout|prolnut\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070274
+    m_Localized: "N\xE1pov\u011Bdy \u0159\xEDms"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070275
+    m_Localized: "U \u0159\xEDmsy se ruka zav\u0159e a zavibruje; z\xE1\u0159e \u0159\xEDmsu
+      nav\xEDc osv\xEDt\xED"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187174279558070276
+    m_Localized: "vypnuto|z\xE1\u0159e"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241054658560
+    m_Localized: "Posun v\xFD\u0161ky"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187053241104990208
+    m_Localized: "V\xFD\u0161ka kamery po 5 cm. St\u0159ed = bez posunu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268206768128
+    m_Localized: "Ukl\xE1d\xE1n\xED nen\xED mo\u017En\xE9: neb\u011B\u017E\xED \u017E\xE1dn\xE1
+      hra."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128256
+    m_Localized: "Ukl\xE1d\xE1n\xED nen\xED mo\u017En\xE9, dokud jsi mrtv\xFD."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 187128268236128257
+    m_Localized: "B\u011Bhem dialogu nelze ukl\xE1dat."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179017875456
+    m_Localized: "Na\u010Dten\xED selhalo: ulo\u017Eenou hru nelze p\u0159e\u010D\xEDst."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 188222179131121664
+    m_Localized: "Ulo\u017Een\xED selhalo. P\u0159edchoz\xED ulo\u017Een\xE1 hra
+      z\u016Fst\xE1v\xE1 zachov\xE1na."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692900000000000
+    m_Localized: "p\u0159esko\u010Dit"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694340444160
+    m_Localized: "P\xE1d hrdiny"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609984
+    m_Localized: "Omr\xE1\u010Den, mrtev nebo sp\xEDc\xED: pohled kles\xE1 s t\u011Blem
+      nebo se prolne (m\xE9n\u011B pohybu)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 191288694365609985
+    m_Localized: "s t\u011Blem|prolnut\xED"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -245,7 +245,8 @@ namespace Gothic.Core.Domain.Culling
         public void AddCullingEntry(VobContainer container)
         {
             var go = container.Go;
-            if (go == null)
+            // Already culled: a second entry would leave an orphan sphere behind (owners and the hand's grab both add).
+            if (go == null || _vobIndices.ContainsKey(go))
                 return;
 
             // Without culling, we simply enable (and therefore lazy-initialize) every VOB.
@@ -479,16 +480,22 @@ namespace Gothic.Core.Domain.Culling
                 return;
 
             // Meshes are always 1...n levels below initially created VobLoader GO. Therefore, we need to fetch its parent for track updates.
-            var rootGo = go.GetComponentInParent<VobLoader>().gameObject;
+            var loader = go.GetComponentInParent<VobLoader>();
+            var rootGo = loader.gameObject;
 
             CancelStopTrackVobPositionUpdates(rootGo);
 
-            if (!_vobIndices.TryGetValue(rootGo, out var entry))
+            // An item created outside the world list (chest/loot/trade slots, holsters) leaves its owner by hand: from
+            // now on it's culled like any world item.
+            if (!_vobIndices.ContainsKey(rootGo) && loader.Container != null)
             {
-                Logger.LogError($"Couldn't find object in Culling list {rootGo.name}. Culling updates will break.",
-                    LogCat.Vob);
-                return;
+                Logger.Log($"[Culling] {rootGo.name} grabbed without a culling entry - added.", LogCat.Vob);
+                AddCullingEntry(loader.Container);
             }
+
+            // No entry: no mesh bounds to cull by (e.g. ITMICELLO).
+            if (!_vobIndices.TryGetValue(rootGo, out var entry))
+                return;
 
             entry.Bucket.Paused[entry.Index] = true;
         }

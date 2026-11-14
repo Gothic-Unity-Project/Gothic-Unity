@@ -8,8 +8,9 @@ Why it's built this way: Docs/adr/2026-11-02-vr-melee.md. The NPC side of fights
 
 | Class | Owns |
 |---|---|
-| `VRWeaponService` (VR) | the hero's weapons: two `VrWeaponAttackDomain` (swing velocity, attack window, combo), `VrFistDomain`, `VrStabFinishDomain`; folds them into the hero's weapon state (`UpdateHeroWeaponState`) |
-| `VrWeaponAttackDomain` | one held melee weapon: when a swing counts, the attack window, the swing sound, the hero's prehit (`HeroMeleeSwing`) |
+| `VRWeaponService` (VR) | the hero's weapons: two `VrWeaponAttackDomain` (swing, attack window, combo), `VrFistDomain`, `VrStabFinishDomain`; folds them into the hero's weapon state (`UpdateHeroWeaponState`) |
+| `VrWeaponAttackDomain` | one held melee weapon: the attack window, the combo, the swing sound, the hero's prehit (`HeroMeleeSwing`) |
+| `VrSwingSampler` | owned by `VrWeaponAttackDomain`: measures the held weapon in tracking space and decides when a swing counts; blade axis and hand velocity for the stab finish |
 | `VrFistDomain` | fists: an empty hand with grip + trigger held is a fist; punch speed, cooldown, the fist hit |
 | `VrStabFinishDomain` | a blade thrust into an unconscious NPC and kept there; raises the finish |
 | `VRHeroBlockService` (VR, player scope) | owns `VrHeroBlockDomain` and ticks it (`VRHeroBlock` adapter) |
@@ -26,7 +27,7 @@ fitting changes).
 
 ## Data flow of one hit
 
-1. The player swings. `VrWeaponAttackDomain` sees the velocity over the threshold and opens the attack window.
+1. The player swings. `VrSwingSampler` sees a swing (see below), `VrWeaponAttackDomain` opens the attack window.
 2. The weapon's trigger enters an NPC (`VRWeaponAttackAdapter`; a fist: `VRFistHitbox` -> `VrFistDomain`). In the
    attack window it raises `FightHit(attacker, target, position, weapon)`. The weapon is the held item's
    `ItemInstance`, null for a fist.
@@ -36,8 +37,39 @@ fitting changes).
 5. `VrHapticsService` hears the fact events (`FistSwung`, `FistPunchLanded`, `HeroBlockStarted`, `HeroBlockedHit`,
    `StabStuck`, `StabHeld`, `StabFinished`) and vibrates the hand.
 
+## When a swing counts
+
+A swing is measured in the rig's tracking space (`IVrRig.TrackingSpace`), from the tracked controllers - not from the
+physics weapon and not in world space. Walking, sprinting, gravity, ground snapping, turning and teleports move the
+tracking space itself, so they never count. (Before, the run speed alone passed the threshold: the character
+controller's velocity is only its last `Move()` of a frame.)
+
+`VrSwingSampler` samples every rendered frame (`VRUnityLifecycleEvents.Update` -> `VRWeaponService.Update`) into a
+fixed ring buffer; the attack window logic stays on `FixedUpdate` and reads the latest values. A swing needs, all at
+once:
+
+- hand (handle) speed and blade tip speed over their thresholds - hand speed from `IVrInput.GetControllerVelocity`
+  (the faster holding hand), the tip from the tracked hand pose plus the tip's offset in that hand,
+- both held for `MinTimeOver`,
+- the tip travelled `MinTipPath` within `PathWindow`.
+
+A thrust counts too: hand speed along the blade over `ThrustSpeed` and nearly all of the hand's speed
+(`Melee.StabThrustAlignment`); its path is the hand's. The tip (the far end of the weapon mesh along its longest axis,
+away from the hand) is fixed in the hand 0.15 s after the grab - the weapon flies into the hand first - and again when
+the first holding hand lets go of a two-handed hold. Until then no swing counts. Samples are dropped on grab, release
+and hand change. The combo (drop below and back over) runs on the tip speed.
+
+Defaults (prefab `VR - Player XRI`, `VRPlayerWeaponInteraction`, tunable in Marvin): 1H hand 1.2 / tip 3.0 m/s, 2H hand
+1.0 / tip 2.5 m/s, 0.06 s over, 0.35 m tip path in 0.2 s, thrust 2.5 m/s. Marvin changes apply on the next grab. The
+`[VrSwing]` editor log shows the values that started each attack. Fists keep their own rule (`VrFistDomain`,
+`Melee.FistPunchVelocity`).
+
+## Stab finish and blocks
+
 A stab finish: the blade enters an unconscious NPC, `VRWeaponService.TryStabFinish` hands it to
-`VrStabFinishDomain`. Kept in for 2 s it raises `FightFinishingMove`, the same event as an NPC's `AI_FinishingMove`.
+`VrStabFinishDomain`. It reads the held weapon's `VrSwingSampler` (`VRWeaponService.TryGetSwing`): a thrust
+(`IsThrust(Melee.StabThrustSpeed)`, slower than a thrust attack on purpose) sticks the blade, the sampler's blade axis
+tells pulling out from pushing in. Kept in for 2 s it raises `FightFinishingMove`, the same event as an NPC's `AI_FinishingMove`.
 
 A block: `VrHeroBlockDomain` sets the hero's block props every frame and calls `FightService.ReportBlockContact` for
 each NPC weapon touching the held one; an NPC's hit then asks `VRContextHeroBlockService` whether it is blocked.
@@ -46,7 +78,8 @@ each NPC weapon touching the held one; an NPC's hit then asks `VRContextHeroBloc
 
 | You want to ... | Go to |
 |---|---|
-| change when a swing counts | `VrWeaponAttackDomain` (thresholds: prefab fields, `WeaponPhysicsConfig`) |
+| change when a swing counts | `VrSwingSampler` (thresholds: `VRPlayerWeaponInteraction` prefab fields -> `WeaponPhysicsConfig` -> `VrSwingThresholds`) |
+| change the attack window or combo | `VrWeaponAttackDomain` |
 | change the fist rules | `VrFistDomain`, tunables in `VRConstants.Melee` |
 | change the stab finish | `VrStabFinishDomain`, `VRConstants.Melee`; Gothic.ini `stabFinish` switches it |
 | change what a block is | `VrHeroBlockDomain` (props, contacts), `VRContextHeroBlockService` (the rule) |

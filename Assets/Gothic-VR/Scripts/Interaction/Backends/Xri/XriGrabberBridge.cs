@@ -141,6 +141,22 @@ namespace Gothic.VR.Interaction.Backends.Xri
         }
 
         /// <summary>
+        /// The far ray's start and direction. XRI's Near-Far interactor hovers no far targets while it holds something
+        /// (NearFarInteractor.Process3dHit), so a held rune's hand aims with this ray instead of GetHovered.
+        /// </summary>
+        public Ray AimRay
+        {
+            get
+            {
+                var farCaster = Interactor.farInteractionCaster as CurveInteractionCaster;
+                var origin = farCaster != null && farCaster.castOrigin != null
+                    ? farCaster.castOrigin
+                    : Interactor.transform;
+                return new Ray(origin.position, origin.forward);
+            }
+        }
+
+        /// <summary>
         /// The first interactable the hand hovers (by its far ray or right at the hand).
         /// </summary>
         public VrInteractable GetHovered()

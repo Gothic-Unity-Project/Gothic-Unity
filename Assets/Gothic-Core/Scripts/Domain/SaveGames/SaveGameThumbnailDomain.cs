@@ -32,7 +32,11 @@ namespace Gothic.Core.Domain.SaveGames
                 screenshot = _contextScreenshotService.CaptureScreenshot();
 
                 // Alter dimensions of screenshots to align with Gothic thumbnail format.
-                rt = RenderTexture.GetTemporary(_pixelsPerAxis, _pixelsPerAxis);
+                // The screenshot holds gamma-encoded bytes. If its texture isn't flagged sRGB, an sRGB target
+                // (default in Linear color space) would encode them a second time and brighten the thumbnail.
+                var readWrite = screenshot.isDataSRGB ? RenderTextureReadWrite.sRGB : RenderTextureReadWrite.Linear;
+                rt = RenderTexture.GetTemporary(_pixelsPerAxis, _pixelsPerAxis, 0, RenderTextureFormat.ARGB32,
+                    readWrite);
                 rt.filterMode = FilterMode.Bilinear;
 
                 RenderTexture.active = rt;

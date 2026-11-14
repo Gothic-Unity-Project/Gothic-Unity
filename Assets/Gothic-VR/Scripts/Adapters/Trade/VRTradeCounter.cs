@@ -30,12 +30,13 @@ namespace Gothic.VR.Adapters.Trade
 {
     /// <summary>
     /// The trade counter between the hero and the trader. Left: what the hero gives
-    /// (sells), right: what he takes (buys), behind: the trader's goods (his backpack, without his currency and
-    /// equipped items). The middle shows the difference in currency, OK settles it (TradeService), X closes.
-    /// Offered items are reserved - TradeService gives them back on close.
+    /// (sells), right: what he takes (buys), behind the trader's side: the trader's goods (his backpack, without his
+    /// currency and equipped items). The middle shows the difference in currency, OK settles it (TradeService), X
+    /// closes. Offered items are reserved - TradeService gives them back on close.
     /// Each side is a view of its TradeOffer, like the backpack is a view of the inventory: an item laid into any slot
-    /// joins the offer (the same items stack into one), the slots are rebuilt from the offer. Three slots show the
-    /// offer, the arrows move it by one; the slot next to the middle is always empty, to lay items into.
+    /// joins the offer (the same items stack into one), the slots are rebuilt from the offer. Three rings per side:
+    /// the one next to the middle is always empty, to lay items into, the other two show the offer - the arrows move
+    /// it by one.
     /// Any VR backend (IVrSocket slots, VrInteractable items, IVrUiPointers for the buttons).
     /// </summary>
     public class VRTradeCounter : MonoBehaviour
@@ -58,8 +59,11 @@ namespace Gothic.VR.Adapters.Trade
         private const float _goodsTableWidth = 10f;
         private const float _goodsTableDepth = 8f;
         private const float _goodsTableThickness = 0.05f;
-        private const int _visibleSlotsPerSide = 3;
+        // Offer slots per side - plus the always empty one next to the middle.
+        private const int _visibleSlotsPerSide = 2;
         private const float _socketSpacing = 0.2f;
+        // From the middle to the first ring of a side - room for OK/X between the sides.
+        private const float _middleGap = 0.3f;
         private const float _socketScale = 1.6f;
         private const float _textFontSize = 17.4f;
         // TMP's default font shows nothing at runtime - the backpack's arrows use this one too.
@@ -228,22 +232,31 @@ namespace Gothic.VR.Adapters.Trade
             }
 
             // Middle out: the always empty slot, then the offer's slots - left to right on both sides.
-            CreateSocket(socketPrefab, Side.Give, -_socketSpacing);
-            CreateSocket(socketPrefab, Side.Take, _socketSpacing);
+            CreateSocket(socketPrefab, Side.Give, GetRingX(Side.Give, 0));
+            CreateSocket(socketPrefab, Side.Take, GetRingX(Side.Take, 0));
             for (var i = 0; i < _visibleSlotsPerSide; i++)
             {
                 _slots[Side.Give].Add(CreateSocket(socketPrefab, Side.Give,
-                    -_socketSpacing * (_visibleSlotsPerSide + 1 - i)));
-                _slots[Side.Take].Add(CreateSocket(socketPrefab, Side.Take, _socketSpacing * (i + 2)));
+                    GetRingX(Side.Give, _visibleSlotsPerSide - i)));
+                _slots[Side.Take].Add(CreateSocket(socketPrefab, Side.Take, GetRingX(Side.Take, i + 1)));
             }
         }
 
         /// <summary>
-        /// The x of the middle of a side's offer slots.
+        /// The x of a side's ring, counted from the middle (0 is the always empty one).
+        /// </summary>
+        private static float GetRingX(Side side, int ring)
+        {
+            var x = _middleGap + _socketSpacing * ring;
+            return side == Side.Give ? -x : x;
+        }
+
+        /// <summary>
+        /// The x of the middle of all rings of a side.
         /// </summary>
         private static float GetListCenterX(Side side)
         {
-            var x = _socketSpacing * (_visibleSlotsPerSide + 3) / 2f;
+            var x = _middleGap + _socketSpacing * _visibleSlotsPerSide / 2f;
             return side == Side.Give ? -x : x;
         }
 
@@ -266,8 +279,9 @@ namespace Gothic.VR.Adapters.Trade
 
         private void CreateGoods()
         {
-            var position = transform.TransformPoint(new Vector3(0f, 0.1f, 0.35f));
-            _goods = VRBackpack.SpawnCopy(position, Quaternion.LookRotation(-transform.forward),
+            // Behind and above the trader's rings, its slots turned to the hero.
+            var position = transform.TransformPoint(new Vector3(GetListCenterX(Side.Take), 0.25f, 0.3f));
+            _goods = VRBackpack.SpawnCopy(position, Quaternion.LookRotation(-transform.right),
                 $"TradeGoods_{_session.Trader.Instance.GetName(NpcNameSlot.Slot0)}", out _goodsRoot);
             if (_goods == null)
                 return;
@@ -332,8 +346,8 @@ namespace Gothic.VR.Adapters.Trade
             _takeText = CreateText("TakeValue", new Vector3(GetListCenterX(Side.Take), 0.14f, 0f));
             _scrollTexts[Side.Give] = CreateText("GiveScroll", new Vector3(GetListCenterX(Side.Give), -0.13f, 0f));
             _scrollTexts[Side.Take] = CreateText("TakeScroll", new Vector3(GetListCenterX(Side.Take), -0.13f, 0f));
-            CreateText("GivePool", new Vector3(-_socketSpacing, 0.14f, 0f)).text = "+";
-            CreateText("TakePool", new Vector3(_socketSpacing, 0.14f, 0f)).text = "+";
+            CreateText("GivePool", new Vector3(GetRingX(Side.Give, 0), 0.14f, 0f)).text = "+";
+            CreateText("TakePool", new Vector3(GetRingX(Side.Take, 0), 0.14f, 0f)).text = "+";
             _balanceText = CreateText("Balance", new Vector3(0f, 0.08f, 0f));
 
             // Whose side is whose: the hero's name over his offer, the trader's over the goods he gives.
@@ -372,21 +386,22 @@ namespace Gothic.VR.Adapters.Trade
             _canvas = canvasGo.AddComponent<Canvas>();
             _canvas.renderMode = RenderMode.WorldSpace;
             canvasGo.AddComponent<GraphicRaycaster>();
-            ((RectTransform)canvasGo.transform).sizeDelta =
-                new Vector2(_socketSpacing * 1000f * (_visibleSlotsPerSide + 3) * 2f, 80f);
+            // The canvas has 1000 px per meter; wide enough for the outer arrows.
+            var arrowHalfSpanPx = _socketSpacing * 1000f * (_visibleSlotsPerSide + 1) / 2f;
+            var outerArrowPx = GetListCenterX(Side.Take) * 1000f + arrowHalfSpanPx;
+            ((RectTransform)canvasGo.transform).sizeDelta = new Vector2(2f * (outerArrowPx + 50f), 80f);
 
             CreateButton(canvasGo.transform, "OK", new Vector2(-60f, 0f), new Color(0.2f, 0.5f, 0.2f, 0.9f), OnAccept);
             CreateButton(canvasGo.transform, "X", new Vector2(60f, 0f), new Color(0.5f, 0.2f, 0.2f, 0.9f), OnClose);
 
-            // Under each side's slots: move its offer by one (the canvas has 1000 px per meter).
+            // Left and right of each side's rings: move its offer by one.
             var arrowColor = new Color(0.25f, 0.25f, 0.25f, 0.9f);
             foreach (var side in new[] { Side.Give, Side.Take })
             {
                 var centerPx = GetListCenterX(side) * 1000f;
-                var halfPx = _socketSpacing * 1000f * _visibleSlotsPerSide / 2f;
-                CreateButton(canvasGo.transform, "<", new Vector2(centerPx - halfPx, 0f), arrowColor,
+                CreateButton(canvasGo.transform, "<", new Vector2(centerPx - arrowHalfSpanPx, 0f), arrowColor,
                     () => Scroll(side, -1), false);
-                CreateButton(canvasGo.transform, ">", new Vector2(centerPx + halfPx, 0f), arrowColor,
+                CreateButton(canvasGo.transform, ">", new Vector2(centerPx + arrowHalfSpanPx, 0f), arrowColor,
                     () => Scroll(side, 1), false);
             }
 

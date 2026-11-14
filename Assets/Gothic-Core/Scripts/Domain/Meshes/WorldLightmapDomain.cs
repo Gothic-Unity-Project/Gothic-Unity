@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using JetBrains.Annotations;
 using Unity.Mathematics;
@@ -147,20 +148,7 @@ namespace Gothic.Core.Domain.Meshes
                 return null;
             }
 
-            var raw = image.GetMipmapRaw(0);
-            var pixels = image.Width * image.Height;
-            if (raw == null || raw.Length < pixels * 2)
-                return null;
-            var rgba = new byte[pixels * 4];
-            for (var p = 0; p < pixels; p++)
-            {
-                var value = raw[p * 2] | (raw[p * 2 + 1] << 8);
-                rgba[p * 4] = (byte)(((value >> 11) & 0x1F) * 255 / 31);
-                rgba[p * 4 + 1] = (byte)(((value >> 5) & 0x3F) * 255 / 63);
-                rgba[p * 4 + 2] = (byte)((value & 0x1F) * 255 / 31);
-                rgba[p * 4 + 3] = 255;
-            }
-            return rgba;
+            return image.GetR5G6B5MipmapRgba(0);
         }
 
         /// <summary>

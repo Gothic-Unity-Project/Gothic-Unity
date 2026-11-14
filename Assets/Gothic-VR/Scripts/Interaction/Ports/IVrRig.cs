@@ -134,6 +134,12 @@ namespace Gothic.VR.Interaction.Ports
         VrInteractable GetDistanceHovered(VrHandSide side);
 
         /// <summary>
+        /// The hand's far ray (start and direction) - also while the hand holds something, when the distance grab
+        /// hovers nothing far away (spell targeting with the rune hand). false without that hand.
+        /// </summary>
+        bool TryGetAimRay(VrHandSide side, out Ray ray);
+
+        /// <summary>
         /// Pulls the item the hand's distance grab points at into the hand (telekinesis). false if there is none.
         /// </summary>
         bool TryDistanceGrabHovered(VrHandSide side);

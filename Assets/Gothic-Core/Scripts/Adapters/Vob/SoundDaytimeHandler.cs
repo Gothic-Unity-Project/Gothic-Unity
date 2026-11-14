@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using Gothic.Core.Logging;
-using Gothic.Core.Models.Container;
 using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
@@ -18,7 +17,7 @@ namespace Gothic.Core.Adapters.Vob
 
         [Inject] private readonly GameTimeService _gameTimeService;
         
-        private VobContainer _vobContainer;
+        private ISoundDaytime _vob;
 
         private DateTime _startSound1 = GameTimeService.MinTime;
         private DateTime _endSound1 = GameTimeService.MaxTime;
@@ -27,28 +26,40 @@ namespace Gothic.Core.Adapters.Vob
         private bool _isCoroutineRunning;
         private AudioSource _activeAudio;
 
-        private void Start()
+        /// <summary>
+        /// Set by VobInitializerDomain like SoundHandler.Init: a day/night sound can be a sub-VOB of another VOB (G1's
+        /// birds in OW_LOB_TREE_V3), whose loader GetComponentInParent(VobLoader) would deliver instead.
+        /// </summary>
+        public void Init(ISoundDaytime vob)
         {
-            _vobContainer = GetComponentInParent<VobLoader>().Container;
+            _vob = vob;
+            if (_vob == null)
+            {
+                Logger.LogError($"[SoundDaytime] {name} has no VOB data. It stays silent.", LogCat.Audio);
+                return;
+            }
 
-            // Set active sound initially
-            HourEventCallback(_gameTimeService.GetCurrentDateTime());
-
-            if (gameObject.activeSelf)
-                StartCoroutineInternal();
-            
-            var startTime = _vobContainer.VobAs<ISoundDaytime>().StartTime;
-            var endTime = _vobContainer.VobAs<ISoundDaytime>().EndTime;
+            var startTime = _vob.StartTime;
+            var endTime = _vob.EndTime;
             if (startTime != (int)startTime || endTime != (int)endTime)
             {
                 Logger.LogError(
                     $"Currently fractional times for DayTimeAudio aren't supported. Only full hours are handled. " +
-                    $"start={_startSound1} end={_endSound1}", LogCat.Audio);
+                    $"start={startTime} end={endTime}", LogCat.Audio);
                 return;
             }
 
             _startSound1 = new DateTime(1, 1, 1, (int)startTime, 0, 0);
             _endSound1 = new DateTime(1, 1, 1, (int)endTime, 0, 0);
+        }
+
+        private void Start()
+        {
+            // Set active sound initially
+            HourEventCallback(_gameTimeService.GetCurrentDateTime());
+
+            if (gameObject.activeSelf)
+                StartCoroutineInternal();
         }
 
         private void OnEnable()
@@ -72,7 +83,7 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public void OnClipLoaded()
         {
-            if (isActiveAndEnabled && _vobContainer != null)
+            if (isActiveAndEnabled && _vob != null)
                 StartCoroutineInternal();
         }
 
@@ -89,7 +100,7 @@ namespace Gothic.Core.Adapters.Vob
                 Logger.LogError($"Object {gameObject.name} has no audio source 1! Fix it!", LogCat.Audio);
             
             // Either it's not yet initialized (no clip) or it's no random loop
-            if (_audioSource1.clip == null || _vobContainer.VobAs<ISoundDaytime>().Mode != SoundMode.Random)
+            if (_vob == null || _audioSource1.clip == null || _vob.Mode != SoundMode.Random)
             {
                 return;
             }
@@ -153,8 +164,7 @@ namespace Gothic.Core.Adapters.Vob
         {
             while (true)
             {
-                var nextRandomPlayTime = _vobContainer.VobAs<ISoundDaytime>().RandomDelay
-                                         + Random.Range(0.0f, _vobContainer.VobAs<ISoundDaytime>().RandomDelayVar);
+                var nextRandomPlayTime = _vob.RandomDelay + Random.Range(0.0f, _vob.RandomDelayVar);
                 yield return new WaitForSeconds(nextRandomPlayTime);
 
                 _activeAudio.Play();

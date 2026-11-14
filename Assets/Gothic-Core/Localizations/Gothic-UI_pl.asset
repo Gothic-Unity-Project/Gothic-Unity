@@ -19,7 +19,7 @@ MonoBehaviour:
     m_Items: []
   m_TableData:
   - m_Id: 431630484627456
-    m_Localized: '-'
+    m_Localized: _
     m_Metadata:
       m_Items: []
   - m_Id: 431629377331200
@@ -31,7 +31,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 431632300761088
-    m_Localized: '-'
+    m_Localized: _
     m_Metadata:
       m_Items: []
   - m_Id: 431631675809792
@@ -39,7 +39,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 431632934100992
-    m_Localized: smooth|snap
+    m_Localized: "p\u0142ynny|skokowy"
     m_Metadata:
       m_Items: []
   - m_Id: 431627489894400
@@ -79,7 +79,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 431905500946432
-    m_Localized: Snap Rotacja
+    m_Localized: "Obr\xF3t skokowy"
     m_Metadata:
       m_Items: []
   - m_Id: 431906666962944
@@ -98,68 +98,12 @@ MonoBehaviour:
     m_Localized: Sloty Bohatera VR
     m_Metadata:
       m_Items: []
-  - m_Id: 791239070179328
-    m_Localized: Menu Select
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791238533308416
-    m_Localized: "Przyci\u0105gnij/Dialog"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234976538624
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791233751801856
-    m_Localized: Chodzenie
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236171915264
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791236801060864
-    m_Localized: Menu
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237371486208
-    m_Localized: Skok
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791237967077376
-    m_Localized: Kucnij
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791240353636352
-    m_Localized: Menu Select
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791239724490752
-    m_Localized: "Przyci\u0105gnij/Dialog"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791235605684224
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
-  - m_Id: 791234347393024
-    m_Localized: Rotacja/Teleport
-    m_Metadata:
-      m_Items: []
-  - m_Id: 410458179100672
-    m_Localized: _
-    m_Metadata:
-      m_Items: []
   - m_Id: 411567790612480
     m_Localized: _
     m_Metadata:
       m_Items: []
   - m_Id: 62335082496
     m_Localized: Ekwipunek
-    m_Metadata:
-      m_Items: []
-  - m_Id: 411327083700224
-    m_Localized: _
     m_Metadata:
       m_Items: []
   - m_Id: 411568419758080
@@ -360,6 +304,165 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 191288694365609985
     m_Localized: "z cia\u0142em|wygaszenie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193305458028961792
+    m_Localized: "We\u017A wszystko"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266604883968
+    m_Localized: "Szczeg\xF3\u0142y przedmiotu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244096
+    m_Localized: "Plecak w jednej r\u0119ce, przedmiot w drugiej pokazuje jego opis"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244097
+    m_Localized: Zasysanie plecaka
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244098
+    m_Localized: "Otwarty plecak wci\u0105ga pobliskie przedmioty"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244099
+    m_Localized: "\u0141up: we\u017A wszystko"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244100
+    m_Localized: "Plecak z \u0142upem pokazuje \"We\u017A wszystko\" pod stronami"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244101
+    m_Localized: Blokowanie
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244102
+    m_Localized: "Obie r\u0119ce na broni bia\u0142ej, obie spusty wci\u015Bni\u0119te:
+      parowanie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244103
+    m_Localized: Kroki
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244104
+    m_Localized: "Kroki brzmi\u0105 zale\u017Cnie od pod\u0142o\u017Ca"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244105
+    m_Localized: "Liczby obra\u017Ce\u0144"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244106
+    m_Localized: "-X HP / +X MANA nad g\u0142owami NPC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244107
+    m_Localized: "Rozmiar liczb obra\u017Ce\u0144"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244108
+    m_Localized: Rozmiar liczb -X HP / +X MANA
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244109
+    m_Localized: Liczby HP
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244110
+    m_Localized: HP/MAX na paskach zdrowia
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244111
+    m_Localized: Chodzenie w dialogach
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244112
+    m_Localized: "Poruszaj si\u0119 podczas rozmowy - odej\u015Bcie ko\u0144czy dialog"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244113
+    m_Localized: "Od\u015Bwie\u017Canie \u015Bwiat\u0142a"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244114
+    m_Localized: "Jak p\u0142ynnie \u015Bwiat\u0142o pochodni pod\u0105\u017Ca za
+      d\u0142oni\u0105"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244115
+    m_Localized: "Niskie|\u015Arednie|Wysokie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244116
+    m_Localized: "D\u0142onie bohatera"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244117
+    m_Localized: "Twoje d\u0142onie to pi\u0119\u015Bci bohatera"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244118
+    m_Localized: Dobijanie
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244119
+    m_Localized: "Wbij i przytrzymaj ostrze, by dobi\u0107 (wy\u0142.: ka\u017Cde
+      trafienie)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244120
+    m_Localized: Kusza
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244121
+    m_Localized: "Naci\u0105gnij ci\u0119ciw\u0119, by prze\u0142adowa\u0107 (wy\u0142.:
+      automatycznie)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244122
+    m_Localized: Zwoje jednorazowe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244123
+    m_Localized: "Rzucenie zu\u017Cywa zw\xF3j (Gothic)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244124
+    m_Localized: "Rzucane zakl\u0119cia"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244125
+    m_Localized: "Zamachnij si\u0119 i pu\u015B\u0107, by rzuci\u0107 zakl\u0119cie-pocisk"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244128
+    m_Localized: "Pier\u015Bcie\u0144 ulubionych"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244129
+    m_Localized: "Obie r\u0119ce w g\xF3r\u0119 + oba spusty: wyposa\u017Cone zakl\u0119cia
+      i bronie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266634244130
+    m_Localized: Sakiewka kieszonkowca
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438400
+    m_Localized: "G2: w skradaniu sakiewka do chwytu przy ka\u017Cdym, kogo mo\u017Cesz
+      okra\u015B\u0107"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438401
+    m_Localized: "Rozmiar pier\u015Bcienia ulubionych"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193331266638438402
+    m_Localized: "Jak daleko od ciebie jest pier\u015Bcie\u0144 ulubionych (prawy
+      dr\u0105\u017Cek, gdy jest otwarty)"
     m_Metadata:
       m_Items: []
   references:

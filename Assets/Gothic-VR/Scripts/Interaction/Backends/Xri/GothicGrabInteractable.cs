@@ -21,6 +21,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
     ///   socket restores the hierarchy before the hand's grab starts (HVR order: socket released, then grabbed).
     ///   Hands can't hover or take it while its socket's detection is off (backpack slots while the backpack is on
     ///   the shoulder, like HVR's ParentDisablesGrab).
+    /// - A right hand attach transform: XRI holds an item with one static attach pose for both hands, so a pose made
+    ///   for the left hand turned the item around in the right one (the backpack).
     ///
     /// Disabled in the prefab. XriInteractableBridge enables it on the XRI backend once the runtime colliders exist.
     /// </summary>
@@ -33,6 +35,11 @@ namespace Gothic.VR.Interaction.Backends.Xri
                  "takes items out of its slots).")]
         [SerializeField]
         private bool _isOneHandOnly;
+
+        [Tooltip("Attach pose for a right hand (the Attach Transform mirrored). Empty: the Attach Transform is used " +
+                 "for both hands.")]
+        [SerializeField]
+        private Transform _rightHandAttachTransform;
 
         private XriInteractableBridge _bridge;
         private VrInteractable _vrInteractable;
@@ -230,6 +237,20 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
             foreach (var transformer in GetComponents<XRGeneralGrabTransformer>())
                 RemoveMultipleGrabTransformer(transformer);
+        }
+
+        /// <summary>
+        /// _rightHandAttachTransform instead of the static Attach Transform for a right hand. XRI's own choices stay:
+        /// dynamic attach, the second hand's attach and the visual attach transform. Sockets have no handedness.
+        /// </summary>
+        public override Transform GetAttachTransform(IXRInteractor interactor)
+        {
+            var attach = base.GetAttachTransform(interactor);
+            if (_rightHandAttachTransform == null || attach != attachTransform || interactor == null ||
+                interactor.handedness != InteractorHandedness.Right)
+                return attach;
+
+            return _rightHandAttachTransform;
         }
 
         /// <summary>

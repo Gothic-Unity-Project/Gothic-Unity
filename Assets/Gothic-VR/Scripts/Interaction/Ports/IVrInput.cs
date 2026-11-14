@@ -40,6 +40,12 @@ namespace Gothic.VR.Interaction.Ports
         }
 
         /// <summary>
+        /// The layout last given to ApplyControlLayout - what the help panels label. Default: the default layout, for
+        /// backends without remapping.
+        /// </summary>
+        VrControlLayout ControlLayout => VrControlLayout.Default;
+
+        /// <summary>
         /// Analog grip value (0 = open, 1 = fully pressed). Drives the block hands' finger curl.
         /// Default: the grip button's state, for backends without an analog value.
         /// </summary>

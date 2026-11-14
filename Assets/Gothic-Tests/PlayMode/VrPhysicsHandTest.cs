@@ -394,6 +394,12 @@ namespace Gothic.Tests.PlayMode
                 return false;
             }
 
+            public bool TryGetAimRay(VrHandSide side, out Ray ray)
+            {
+                ray = default;
+                return false;
+            }
+
             public bool TryGrabIntoHand(VrHandSide side, VrInteractable interactable)
             {
                 return false;

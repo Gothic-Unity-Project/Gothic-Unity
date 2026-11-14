@@ -4,7 +4,8 @@
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Gothic.Core"
+        "Gothic.Core",
+        "Gothic.VR"
     ],
     "includePlatforms": [
         "Editor"
