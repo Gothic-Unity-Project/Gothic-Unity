@@ -572,8 +572,9 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 193347490894176276
     m_Localized: 'Charged spells grow only with both hands together. Projectile spells:
-      the empty hand holds its trigger, swing and let go to throw. Choose spells
-      in the favorites ring: both empty hands above your head, hold both triggers.'
+      the empty hand holds its trigger, swing and let go to throw. Hold the rune
+      hand''s trigger and point at an enemy to lock on. Choose spells in the favorites
+      ring: both empty hands above your head, hold both triggers.'
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176277

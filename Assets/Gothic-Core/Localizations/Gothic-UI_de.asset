@@ -560,9 +560,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 193347490894176276
     m_Localized: "Aufgeladene Zauber wachsen nur mit beiden H\xE4nden zusammen. Projektilzauber:
-      die leere Hand h\xE4lt ihren Trigger, ausholen und loslassen zum Werfen. Zauber
-      w\xE4hlst du im Favoriten-Ring: beide leeren H\xE4nde \xFCber den Kopf, beide
-      Trigger halten."
+      die leere Hand h\xE4lt ihren Trigger, ausholen und loslassen zum Werfen. H\xE4ltst
+      du den Trigger der Runenhand und zeigst auf einen Gegner, wird er anvisiert.
+      Zauber w\xE4hlst du im Favoriten-Ring: beide leeren H\xE4nde \xFCber den Kopf,
+      beide Trigger halten."
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176277

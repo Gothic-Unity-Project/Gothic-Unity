@@ -73,6 +73,9 @@ Lock-on (rune or scroll in a hand, not ring spells, not the simulator; decision 
    least `MinLockedSwingFactor`), and `Throw` homes on the target at `HomingDegreesPerSecond` instead of searching
    the homing cone.
 
+The search shows nothing, only the lock does (highlight, vibration) - a quiet feature. The help panel's Magic tab
+mentions it in one sentence (`vr.help.magic.text`).
+
 ## Where does my change go?
 
 | You want to ... | Go to |
