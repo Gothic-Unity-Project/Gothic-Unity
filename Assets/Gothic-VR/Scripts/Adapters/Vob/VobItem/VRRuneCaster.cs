@@ -273,10 +273,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            // Immersion option "twoHandSpellCharge": a charged spell grows only while both hands are together.
-            if (!IsChargeAllowed())
-                return;
-
             if (!IsManaTickDue())
                 return;
 
@@ -331,7 +327,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _isSendcastPending = false;
             _manaInvested = 0;
             _manaTickTimer = GetManaTickInterval();
-            _isChargeWaitLogged = false;
 
             _fx.SpawnInvestFx(true);
             TryBeginChainLightning();
@@ -394,41 +389,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return Keyboard.current[Key.R].wasReleasedThisFrame;
             return _vrInput.GetButton(CastHand, VrButton.Trigger).IsJustDeactivated;
         }
-
-        /// <summary>
-        /// Immersion option "twoHandSpellCharge": like a kamehameha - a charged spell (fireball, fire rain, wind
-        /// fist, ...) invests mana only while the other hand is next to the casting one; apart, the charge waits (a
-        /// pulse reminds). VR only - the simulator moves one hand at a time.
-        /// </summary>
-        private bool IsChargeAllowed()
-        {
-            if (!IsIniOn(VRConstants.IniNames.TwoHandSpellCharge, VRConstants.TwoHandSpellChargeDefaultValue) ||
-                _vrInput.IsSimulator ||
-                !SpellConst.ChargeEffectNames.Contains(GetSpellMfxName(_item.Spell) ?? string.Empty))
-                return true;
-
-            var left = _vrPlayerService.GetHandModelGo(VrHandSide.Left);
-            var right = _vrPlayerService.GetHandModelGo(VrHandSide.Right);
-            if (left == null || right == null ||
-                Vector3.Distance(left.transform.position, right.transform.position) <= _twoHandChargeDistance)
-            {
-                _isChargeWaitLogged = false;
-                return true;
-            }
-
-            if (!_isChargeWaitLogged)
-            {
-                _isChargeWaitLogged = true;
-                _hapticsService.Vibrate(_runeHandSide == VrHandSide.Left ? VrHandSide.Right : VrHandSide.Left,
-                    VrHapticPreset.Info);
-                Logger.Log("[VRRuneCaster] Charging waits - bring both hands together", LogCat.VR);
-            }
-            return false;
-        }
-
-        // Immersion option "twoHandSpellCharge": the hands' distance (m) that still counts as together.
-        private const float _twoHandChargeDistance = 0.3f;
-        private bool _isChargeWaitLogged;
 
         /// <summary>
         /// A rune flung away from the hands (teleport, physics) still

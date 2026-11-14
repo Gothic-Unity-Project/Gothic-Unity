@@ -27,14 +27,13 @@ Why it's built this way: Docs/adr/2026-11-03-vr-magic.md. Melee and ranged are i
 | `StatusBarAdapter` (Core adapter) | the hero's mana bar: shows on `HeroManaBarRequested`, follows `NpcAttributeChanged` |
 
 Constants: `DaedalusConst` (`SplSendCast`/`SplSendStop`/`SplNextLevel`, `ZsMagicFreeze`, `SpellFxInstanceNames`),
-`SpellConst` (AOE, summon, charge and spread spell names). Tunables: `VRConstants.Magic` (`MinSpellCastSeconds`,
+`SpellConst` (AOE, summon, throw and spread spell names). Tunables: `VRConstants.Magic` (`MinSpellCastSeconds`,
 `SpellThrowSpeedMultiplier`, `SpellThrowFullSwingSpeed`, plus the throw and
 homing values `MaxSwingFactor`, `HandVelocityWindow`, `MinHomingSwingFactor`, `MinThrowDirectionSpeed`,
 `DroppedSpellSpeed`, `HomingConeDegrees`, `HomingDegreesPerSecond`, `DefaultThrowRange`, and the lock-on values
 `MinLockedSwingFactor`, `LockSightCheckSeconds`, `LockLostSightSeconds`, `LockRangeHysteresis`,
 `LockFocusBrightness`, `LockNameFullSizeDistance`), the Immersion options "Single-use scrolls" (Gothic.ini
-`scrollsSingleUse`), "Thrown spells" (`throwableSpells`) and "Two-hand charge" (`twoHandSpellCharge`), names in
-`VRConstants.IniNames`.
+`scrollsSingleUse`) and "Thrown spells" (`throwableSpells`), names in `VRConstants.IniNames`.
 
 ## Data flow of one cast
 

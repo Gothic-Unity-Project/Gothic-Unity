@@ -44,8 +44,6 @@ namespace Gothic.VR
             public const string ScrollsSingleUse = "scrollsSingleUse";
             // 1 = projectile spells (firebolt, ...) are thrown with a swing (default), 0 = they are cast like other spells.
             public const string ThrowableSpells = "throwableSpells";
-            // 1 = a charged spell grows only while both hands are together (default), 0 = one hand is enough.
-            public const string TwoHandSpellCharge = "twoHandSpellCharge";
             // 1 = the favorites ring opens with the gesture (both hands up, both triggers), 0 = off.
             public const string FavoritesRing = "favoritesRing";
             // 1 = G2: sneaking, NPCs whose pickpocket dialog option would show carry a purse; grabbing it is that
@@ -122,8 +120,6 @@ namespace Gothic.VR
         public const int CrossbowReloadDefaultValue = 1;
 
         public const int ThrowableSpellsDefaultValue = 1;
-
-        public const int TwoHandSpellChargeDefaultValue = 1;
 
         public const int LedgeClimbModeDefaultValue = 0;
         public const int HeroFallModeDefaultValue = 0;

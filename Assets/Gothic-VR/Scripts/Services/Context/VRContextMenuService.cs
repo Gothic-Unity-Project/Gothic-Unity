@@ -161,10 +161,6 @@ namespace Gothic.VR.Services.Context
             rows.Add((CreateToggleLabel(gameMenu, "THROWABLE_SPELLS", "throwableSpells"),
                 CreateToggleChoice(gameMenu, "THROWABLE_SPELLS", VRConstants.IniNames.ThrowableSpells,
                     VRConstants.ThrowableSpellsDefaultValue)));
-            // Off = one hand is enough to charge a spell.
-            rows.Add((CreateToggleLabel(gameMenu, "TWO_HAND_SPELL_CHARGE", "twoHandSpellCharge"),
-                CreateToggleChoice(gameMenu, "TWO_HAND_SPELL_CHARGE", VRConstants.IniNames.TwoHandSpellCharge,
-                    VRConstants.TwoHandSpellChargeDefaultValue)));
             // Off = the favorites ring (both hands up, both triggers) doesn't open.
             rows.Add((CreateToggleLabel(gameMenu, "FAVORITES_RING", "favoritesRing"),
                 CreateToggleChoice(gameMenu, "FAVORITES_RING", VRConstants.IniNames.FavoritesRing,
