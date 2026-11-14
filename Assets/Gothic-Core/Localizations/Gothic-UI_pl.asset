@@ -438,15 +438,6 @@ MonoBehaviour:
     m_Localized: "Zamachnij si\u0119 i pu\u015B\u0107, by rzuci\u0107 zakl\u0119cie-pocisk"
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244126
-    m_Localized: "\u0141adowanie dwiema r\u0119kami"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 193331266634244127
-    m_Localized: "Na\u0142adowane zakl\u0119cia rosn\u0105 tylko przy obu d\u0142oniach
-      razem"
-    m_Metadata:
-      m_Items: []
   - m_Id: 193331266634244128
     m_Localized: "Pier\u015Bcie\u0144 ulubionych"
     m_Metadata:

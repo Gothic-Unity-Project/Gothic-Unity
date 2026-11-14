@@ -434,12 +434,12 @@ MonoBehaviour:
     m_Localized: Ausholen und loslassen, um Projektilzauber zu werfen
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244126
-    m_Localized: Zweihand-Aufladung
+  - m_Id: 193531983462522880
+    m_Localized: Herausnehmen / hineinlegen
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244127
-    m_Localized: "Aufgeladene Zauber wachsen nur mit beiden H\xE4nden zusammen"
+  - m_Id: 193531983449939968
+    m_Localized: Favoriten-Ring
     m_Metadata:
       m_Items: []
   - m_Id: 193331266634244128
@@ -559,11 +559,10 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176276
-    m_Localized: "Aufgeladene Zauber wachsen nur mit beiden H\xE4nden zusammen. Projektilzauber:
-      die leere Hand h\xE4lt ihren Trigger, ausholen und loslassen zum Werfen. H\xE4ltst
-      du den Trigger der Runenhand und zeigst auf einen Gegner, wird er anvisiert.
-      Zauber w\xE4hlst du im Favoriten-Ring: beide leeren H\xE4nde \xFCber den Kopf,
-      beide Trigger halten."
+    m_Localized: "Projektilzauber: die leere Hand h\xE4lt ihren Trigger, ausholen
+      und loslassen zum Werfen. H\xE4ltst du den Trigger der Runenhand und zeigst
+      auf einen Gegner, wird er anvisiert. Zauber w\xE4hlst du im Favoriten-Ring:
+      beide leeren H\xE4nde \xFCber den Kopf, beide Trigger halten."
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176277
@@ -582,6 +581,18 @@ MonoBehaviour:
     m_Localized: "Bogen: ein Pfeil aus dem Inventar wird selbst eingelegt. Je weiter
       du ziehst, desto st\xE4rker der Schuss. Armbrust: mit der freien Hand nachladen
       - Trigger vorne an die Sehne, nach hinten ziehen bis sie einrastet."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193531983462522881
+    m_Localized: 'Halten: drehen, Klick: entfernen'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193531983462522882
+    m_Localized: "Beide leeren H\xE4nde \xFCber den Kopf heben und kurz beide Trigger
+      halten: der Ring \xF6ffnet oder schlie\xDFt sich. Greifen nimmt einen Zauber
+      (bereit zum Wirken), eine Waffe oder einen Gegenstand in die Hand. L\xE4sst
+      du einen Gegenstand an einem Platz los, kommt er hinein. Abschalten unter Immersion:
+      \"Favoriten-Ring\"."
     m_Metadata:
       m_Items: []
   references:

@@ -148,14 +148,6 @@ MonoBehaviour:
     m_Localized: "Balancez et l\xE2chez pour lancer les sorts \xE0 projectile"
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244126
-    m_Localized: "Charge \xE0 deux mains"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 193331266634244127
-    m_Localized: "Les sorts charg\xE9s ne grandissent qu'avec les deux mains ensemble"
-    m_Metadata:
-      m_Items: []
   - m_Id: 193331266634244128
     m_Localized: Anneau de favoris
     m_Metadata:

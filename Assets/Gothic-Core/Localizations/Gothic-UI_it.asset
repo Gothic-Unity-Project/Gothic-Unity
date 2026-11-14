@@ -152,14 +152,6 @@ MonoBehaviour:
     m_Localized: Fai oscillare e lascia per lanciare gli incantesimi proiettile
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244126
-    m_Localized: Carica a due mani
-    m_Metadata:
-      m_Items: []
-  - m_Id: 193331266634244127
-    m_Localized: Gli incantesimi caricati crescono solo con entrambe le mani unite
-    m_Metadata:
-      m_Items: []
   - m_Id: 193331266634244128
     m_Localized: Anello dei preferiti
     m_Metadata:

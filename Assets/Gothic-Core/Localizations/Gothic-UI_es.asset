@@ -148,14 +148,6 @@ MonoBehaviour:
     m_Localized: Balancea y suelta para lanzar hechizos de proyectil
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244126
-    m_Localized: Carga a dos manos
-    m_Metadata:
-      m_Items: []
-  - m_Id: 193331266634244127
-    m_Localized: Los hechizos cargados solo crecen con ambas manos juntas
-    m_Metadata:
-      m_Items: []
   - m_Id: 193331266634244128
     m_Localized: Anillo de favoritos
     m_Metadata:

@@ -149,14 +149,6 @@ MonoBehaviour:
     m_Localized: "\u0160vihni a pus\u0165 pro hozen\xED st\u0159eleck\xFDch kouzel"
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244126
-    m_Localized: "Nab\xEDjen\xED ob\u011Bma rukama"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 193331266634244127
-    m_Localized: "Nabit\xE1 kouzla rostou jen s ob\u011Bma rukama pohromad\u011B"
-    m_Metadata:
-      m_Items: []
   - m_Id: 193331266634244128
     m_Localized: "Kruh obl\xEDben\xFDch"
     m_Metadata:

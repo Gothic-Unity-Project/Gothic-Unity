@@ -423,14 +423,6 @@ MonoBehaviour:
     m_Key: menuitem.throwableSpells.description
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244126
-    m_Key: menuitem.twoHandSpellCharge.label
-    m_Metadata:
-      m_Items: []
-  - m_Id: 193331266634244127
-    m_Key: menuitem.twoHandSpellCharge.description
-    m_Metadata:
-      m_Items: []
   - m_Id: 193331266634244128
     m_Key: menuitem.favoritesRing.label
     m_Metadata:
@@ -557,6 +549,22 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 193347490894176280
     m_Key: vr.help.ranged.text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193531983449939968
+    m_Key: vr.help.ring.tab
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193531983462522880
+    m_Key: vr.help.ring.grip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193531983462522881
+    m_Key: vr.help.ring.trigger
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193531983462522882
+    m_Key: vr.help.ring.text
     m_Metadata:
       m_Items: []
   m_Metadata:

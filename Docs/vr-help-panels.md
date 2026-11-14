@@ -41,5 +41,6 @@ Changing a button while the panels are open shows on the next open.
 1. Add keys `vr.help.<topic>.tab`, `.text` and, if needed, `.trigger`, `.grip` (EN + DE) to `Gothic-UI`.
 2. In `Tutorials.prefab` under `Help`: duplicate a `Tabs/Tab <topic>` button and a `Pages/Page <topic>`, point
    their `LocalizeStringEvent`s and the page's `ControllerHelpPage` texts at the new keys.
-3. Append the button to `VRHelpTabs._tabs` and the page to `_pages` (same order). With more than 4 tabs, move the
-   buttons closer (they are 1.1 units apart).
+3. Append the button to `VRHelpTabs._tabs` and the page to `_pages` (same order). The buttons are 1.1 units apart
+   from y 3.0 down (5 tabs: swim, trade, magic, ranged, ring end at y -1.4); the headline starts at y -4.4, so up to 7
+   tabs fit before they need to move closer.

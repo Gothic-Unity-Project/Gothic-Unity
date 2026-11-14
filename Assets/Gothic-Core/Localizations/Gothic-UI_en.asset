@@ -449,12 +449,12 @@ MonoBehaviour:
     m_Localized: Swing and let go to throw projectile spells
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244126
-    m_Localized: Two-hand charge
+  - m_Id: 193531983462522880
+    m_Localized: Take out / put in
     m_Metadata:
       m_Items: []
-  - m_Id: 193331266634244127
-    m_Localized: Charged spells grow only with both hands together
+  - m_Id: 193531983449939968
+    m_Localized: Favorites ring
     m_Metadata:
       m_Items: []
   - m_Id: 193331266634244128
@@ -571,10 +571,10 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176276
-    m_Localized: 'Charged spells grow only with both hands together. Projectile spells:
-      the empty hand holds its trigger, swing and let go to throw. Hold the rune
-      hand''s trigger and point at an enemy to lock on. Choose spells in the favorites
-      ring: both empty hands above your head, hold both triggers.'
+    m_Localized: 'Projectile spells: the empty hand holds its trigger, swing and
+      let go to throw. Hold the rune hand''s trigger and point at an enemy to lock
+      on. Choose spells in the favorites ring: both empty hands above your head,
+      hold both triggers.'
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176277
@@ -593,6 +593,17 @@ MonoBehaviour:
     m_Localized: 'Bow: an arrow from your inventory is nocked by itself. The further
       you pull, the stronger the shot. Crossbow: reload with the free hand - trigger
       on the string at the front, pull it back until it locks.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193531983462522881
+    m_Localized: 'Hold: turn, click: remove'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 193531983462522882
+    m_Localized: 'Raise both empty hands above your head and hold both triggers for
+      a moment: the ring opens or closes. Grip takes a spell (ready to cast), a weapon
+      or an item into your hand. Let go of an item at a slot to put it in. Switch
+      it off in Immersion: "Favorites ring".'
     m_Metadata:
       m_Items: []
   references:
