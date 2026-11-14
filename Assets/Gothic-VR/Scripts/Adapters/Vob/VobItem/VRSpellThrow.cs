@@ -201,7 +201,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var homingTarget = lockedTarget?.Go != null
                 ? lockedTarget
                 : _isHoming ? FindHomingTarget(hero, origin, direction, range) : null;
-            var projectile = projectileGo.AddComponent<Projectile>();
+            // Injected like ProjectileFactory's: Projectile asks NpcService for the hero (GetHeroTarget) every frame.
+            var projectile = projectileGo.AddComponent<Projectile>().Inject();
             projectile.Owner = hero;
             projectile.Velocity = direction * Mathf.Max(speed, VRConstants.Magic.DroppedSpellSpeed);
             projectile.UseGravity = _gravityScale > 0f;
