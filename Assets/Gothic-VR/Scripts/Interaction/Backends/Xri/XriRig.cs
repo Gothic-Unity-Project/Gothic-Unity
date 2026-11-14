@@ -911,6 +911,13 @@ namespace Gothic.VR.Interaction.Backends.Xri
             return grabber != null ? grabber.GetHovered() : null;
         }
 
+        public bool TryGetAimRay(VrHandSide side, out Ray ray)
+        {
+            var grabber = side == VrHandSide.Left ? _leftGrabber : _rightGrabber;
+            ray = grabber != null ? grabber.AimRay : default;
+            return grabber != null;
+        }
+
         public bool TryDistanceGrabHovered(VrHandSide side)
         {
             var grabber = side == VrHandSide.Left ? _leftGrabber : _rightGrabber;

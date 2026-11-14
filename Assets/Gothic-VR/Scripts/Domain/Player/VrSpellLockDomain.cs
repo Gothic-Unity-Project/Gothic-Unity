@@ -31,7 +31,7 @@ namespace Gothic.VR.Domain.Player
 
         private float _range;
         private VrHandSide _runeHandSide;
-        // The rune hand's distance grab reaches the spell's range while the trigger looks for a target.
+        // The rune hand aims up to the spell's range (VRPlayerService.GetSpellTarget) while the trigger searches.
         private bool _isSearching;
         // The lock broke by itself: the trigger has to be let go before it locks again.
         private bool _isWaitingForRelease;

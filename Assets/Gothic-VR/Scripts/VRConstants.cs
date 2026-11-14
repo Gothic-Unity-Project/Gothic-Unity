@@ -292,6 +292,13 @@ namespace Gothic.VR
             // Lock-on: farther than this (m) the locked NPC's name grows with the distance, so it reads as large as
             // at this distance - the hover name is sized for a hand's reach, the lock reaches DefaultThrowRange.
             public const float LockNameFullSizeDistance = 4f;
+
+            // Spell targeting (VRPlayerService.GetSpellTarget): radius (m) of the sphere cast along the rune hand's aim
+            // ray - an NPC a bit beside the ray is still found at range. Self-tuned.
+            public const float SpellTargetCastRadius = 0.3f;
+
+            // Spell targeting: the sight ray to the found NPC ends this far (m) in front of its surface.
+            public const float SpellTargetSurfaceTolerance = 0.05f;
         }
 
         /// <summary>

@@ -18,7 +18,7 @@ Why it's built this way: Docs/adr/2026-11-03-vr-magic.md. Melee and ranged are i
 | `VRTelekinesisSpell` (worker of the caster) | Telekinesis: trigger 1 extends the distance grab, trigger 2 pulls (no Daedalus, no mana) |
 | `VRChainLightning` (VR adapter) | G1's chain lightning while invested |
 | `VRSpellTransformService` (VR) / `VRSpellTransformPuppet` (VR adapter) | transformation scrolls: the monster puppet, camera and guild swap, transforming back |
-| `VRPlayerService` (VR) | spell targeting with the rune hand's distance grab (`GetSpellTarget`), the lock-on's state (`SpellLockTarget`, the only owner of the throw's target; `IsSpellLockActive` blocks dialogs like targeting), telekinesis range |
+| `VRPlayerService` (VR) | spell targeting with the rune hand's aim ray (`GetSpellTarget`: an own sphere cast on `IVrRig.TryGetAimRay` - XRI hovers no far targets with a hand that holds something), the lock-on's state (`SpellLockTarget`, the only owner of the throw's target; `IsSpellLockActive` blocks dialogs like targeting), telekinesis range |
 | `VRFocus` (VR adapter) | an NPC's highlight and name while hovered or locked (on `HeroSpellTargetLocked` if it is `SpellLockTarget`, until that changes: brighter, name readable at range) |
 | `VRWeaponService` (VR) | a readied rune is `WeaponState.Mage` for the NPCs (`SetRuneReadied`) |
 | `VmCacheService` (Core) | spell data, `spellFXInstanceNames` (`TryGetSpellMfxName`), VISUALFX keys, damage per level |
@@ -56,8 +56,8 @@ raises `SpellHit`/`SpellSpreadHit` like a cast.
 Lock-on (rune or scroll in a hand, not ring spells, not the simulator; decision record
 `Docs/adr/2026-11-13-vr-magic-lock-on.md`):
 
-1. The rune hand holds its trigger: `VrSpellLockDomain` extends that hand's distance grab to `VRSpellThrow.Range` and
-   locks the first standing NPC it points at (`IsDown()` = dead or knocked out, a frozen NPC stays a target). The far
+1. The rune hand holds its trigger: `VrSpellLockDomain` aims that hand's ray up to `VRSpellThrow.Range`
+   (`GetSpellTarget`, not the distance grab's hover) and locks the first standing NPC it points at (`IsDown()` = dead or knocked out, a frozen NPC stays a target). The far
    reach is dropped again; `VRFocus` keeps the highlight and name until the lock ends, wherever the hands point:
    brighter than a hover (`LockFocusBrightness`), the name growing beyond `LockNameFullSizeDistance` so it reads at
    the spell's range. `PlayerService.FocusNpc` is the target (hovering other NPCs doesn't take it meanwhile),
