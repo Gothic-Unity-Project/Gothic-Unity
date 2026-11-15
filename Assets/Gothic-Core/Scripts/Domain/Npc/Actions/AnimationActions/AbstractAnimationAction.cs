@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Creator;
@@ -17,7 +15,6 @@ using Gothic.Core.Manager;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
-using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 {
@@ -66,34 +63,6 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             // By default, every Daedalus animation starts without using physics. But they can always overwrite it (e.g.) for walking.
             PhysicsService.DisablePhysicsForNpc(PrefabProps);
-        }
-
-        protected virtual void InsertItem(string slot1, string slot2)
-        {
-            if (slot2.Any())
-            {
-                throw new Exception("Slot 2 is set but not yet handled by InsertItem as AnimationEvent.");
-            }
-
-            var slotGo = NpcGo.FindChildRecursively(slot1);
-
-            VobService.CreateItemMesh(Props.CurrentItem, slotGo);
-
-            Props.UsedItemSlot = slot1;
-        }
-
-        private void RemoveItem()
-        {
-            // Some animations need to force remove items, some not.
-            if (Props.UsedItemSlot == "")
-            {
-                return;
-            }
-
-            var slotGo = NpcGo.FindChildRecursively(Props.UsedItemSlot);
-            var item = slotGo!.transform.GetChild(0);
-
-            Object.Destroy(item.gameObject);
         }
 
         /// <summary>

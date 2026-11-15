@@ -20,9 +20,9 @@ namespace Gothic.VR.Adapters.Player
     /// (HeroRecovered) fades out and back at the normal height. Put to sleep (HeroFellAsleep) the same way, without
     /// veil and heartbeat, up again on HeroWokeUp.
     /// The view is only lowered, never turned: tilting the world makes players sick.
-    /// When the hero dies (HeroDied), he falls the same way and the view closes to black from the edges (the move
-    /// vignette, VrMoveVignette); VRPlayer opens the menu. Veil and black hide while the menu is open, so it can be
-    /// read and pointed at.
+    /// When the hero dies (HeroDied), he falls the same way and the veil turns a darker grey and stays - the world
+    /// stays faintly visible; VRPlayer opens the menu. The veil hides while the menu is open, so it can be read and
+    /// pointed at.
     /// Sits on the camera next to ScreenFade.
     /// </summary>
     public class VrKnockoutView : MonoBehaviour
@@ -35,8 +35,9 @@ namespace Gothic.VR.Adapters.Player
         private static readonly Color _veilColor = new(0.3f, 0.3f, 0.3f);
         private const float _veilStartAlpha = 0.85f;
         private const float _veilEndAlpha = 0.15f;
-        // Seconds the view takes to close to black from the edges after the hero's death.
-        private const float _deathCloseSeconds = 3f;
+        // Color and opacity of the veil once the hero is dead, and the seconds it takes to get there.
+        private static readonly Color _deathVeilColor = new(0.12f, 0.12f, 0.12f, 0.92f);
+        private const float _deathDarkenSeconds = 3f;
         // Camera height in m above the floor while lying - only without the VR hero body.
         private const float _lyingEyeHeight = 0.3f;
         // Speed of the fades to black and back, in alpha per second.
@@ -54,7 +55,7 @@ namespace Gothic.VR.Adapters.Player
         // A rig whose screen fade doesn't work never turns black: the knockout goes on without it.
         private const float _maxFadeSeconds = 2f;
 
-        // Opening the menu stutters for a few frames (building it, its on-top materials) - veil and black stay over it.
+        // Opening the menu stutters for a few frames (building it, its on-top materials) - the veil stays over it.
         private const int _menuShowFrames = 3;
         private const float _menuShowSeconds = 0.1f;
 
@@ -62,7 +63,6 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly VRPlayerService _vrPlayerService;
 
         private IVrRig _rig;
-        private VrMoveVignette _vignette;
         private Material _materialInstance;
         private MeshRenderer _renderer;
         // The knockout, the sleep or the death, whichever runs.
@@ -74,8 +74,6 @@ namespace Gothic.VR.Adapters.Player
         private bool _isMenuOpen;
         private Color _currentVeil;
         private Coroutine _menuShow;
-        // 0..1 closed to black since the hero's death.
-        private float _deathClosure;
 
         private void Awake()
         {
@@ -87,8 +85,6 @@ namespace Gothic.VR.Adapters.Player
             _rig = GetComponentInParent<IVrRig>(true);
             if (_rig == null)
                 Logger.LogWarning($"[VrKnockoutView] No IVrRig above {name} - knockouts aren't shown.", LogCat.VR);
-
-            _vignette = GetComponent<VrMoveVignette>();
 
             GlobalEventDispatcher.HeroKnockedOut.AddListener(OnHeroKnockedOut);
             GlobalEventDispatcher.HeroRecovered.AddListener(OnHeroRecovered);
@@ -179,7 +175,6 @@ namespace Gothic.VR.Adapters.Player
             _menuShow = null;
             _isMenuOpen = true;
             ApplyVeil();
-            ApplyDeathClosure();
         }
 
         private void OnMenuClosed()
@@ -192,7 +187,6 @@ namespace Gothic.VR.Adapters.Player
 
             _isMenuOpen = false;
             ApplyVeil();
-            ApplyDeathClosure();
         }
 
         /// <summary>
@@ -201,7 +195,7 @@ namespace Gothic.VR.Adapters.Player
         /// </summary>
         private void OnLoadGameStart()
         {
-            SetDeathClosure(0f);
+            SetVeil(0f);
             if (_knockout == null)
                 return;
 
@@ -209,7 +203,6 @@ namespace Gothic.VR.Adapters.Player
             _knockout = null;
             _isLying = false;
             _rig.SetEyeHeightOverride(null);
-            SetVeil(0f);
             _rig.Fade(0f, float.MaxValue);
         }
 
@@ -272,39 +265,22 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Dead: down to the ground (unless already lying from a knockout), the knockout's grey veil goes and the view
-        /// closes to black from the edges. It stays black until a game is loaded.
+        /// Dead: down to the ground (unless already lying from a knockout) and the veil darkens to a dark grey -
+        /// from the knockout's veil if there is one, so it doesn't jump. It stays until a game is loaded; the world
+        /// stays faintly visible.
         /// </summary>
         private IEnumerator Die()
         {
-            SetVeil(0f);
             if (!_isLying)
-                yield return LieDown(0f);
+                yield return LieDown(_currentVeil.a);
 
-            for (var time = 0f; time < _deathCloseSeconds; time += Time.unscaledDeltaTime)
+            var startVeil = _currentVeil;
+            for (var time = 0f; time < _deathDarkenSeconds; time += Time.unscaledDeltaTime)
             {
-                SetDeathClosure(time / _deathCloseSeconds);
+                SetVeil(Color.Lerp(startVeil, _deathVeilColor, time / _deathDarkenSeconds));
                 yield return null;
             }
-            SetDeathClosure(1f);
-        }
-
-        private void SetDeathClosure(float closure)
-        {
-            _deathClosure = closure;
-            ApplyDeathClosure();
-        }
-
-        /// <summary>
-        /// The move vignette closes; a camera without one gets a black veil instead.
-        /// </summary>
-        private void ApplyDeathClosure()
-        {
-            var closure = _isMenuOpen ? 0f : _deathClosure;
-            if (_vignette != null)
-                _vignette.SetClosureOverride(closure > 0f ? closure : null);
-            else if (_deathClosure > 0f)
-                SetVeil(new Color(0f, 0f, 0f, _deathClosure));
+            SetVeil(_deathVeilColor);
         }
 
         /// <summary>

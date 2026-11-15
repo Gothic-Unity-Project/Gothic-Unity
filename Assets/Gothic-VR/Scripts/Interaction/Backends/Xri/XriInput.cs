@@ -60,6 +60,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         public InputActionAsset Actions { get; }
 
+        public VrControlLayout ControlLayout { get; private set; } = VrControlLayout.Default;
+
         public bool IsSimulator => _isSimulatorActive && _simulator != null && _simulator.isActiveAndEnabled;
 
         public bool UsesBothGripsSimulatorKey => false;
@@ -109,6 +111,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         public void ApplyControlLayout(VrControlLayout layout)
         {
+            ControlLayout = layout;
             if (Actions == null)
                 return;
 

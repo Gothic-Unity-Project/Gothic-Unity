@@ -12,6 +12,11 @@ namespace Gothic.VR
     {
         [Inject] private readonly VRWeaponService _vrWeaponService;
 
+        private void Update()
+        {
+            _vrWeaponService.Update();
+        }
+
         private void FixedUpdate()
         {
             _vrWeaponService.FixedUpdate();

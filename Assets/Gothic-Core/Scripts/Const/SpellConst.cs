@@ -39,16 +39,6 @@ namespace Gothic.Core.Const
         };
 
         /// <summary>
-        /// Spells charged in levels (Spell_ProcessMana returns SPL_NEXTLEVEL)
-        /// - G1's fireball/fire storm/thunderball/wind fist/storm fist/fire rain, G2's charged ones.
-        /// </summary>
-        public static readonly HashSet<string> ChargeEffectNames = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "Fireball", "Firestorm", "Thunderball", "WindFist", "Stormfist", "Firerain",
-            "ChargeFireball", "ChargeZap", "Pyrokinesis", "Waterfist"
-        };
-
-        /// <summary>
         /// Fallback AOE radius (cm) for spells whose targetCollectRange isn't exposed as a standalone
         /// SPL_RANGE_* const (Icewave/Firerain/Massdeath hardcode 1000 directly on their C_Spell_Proto
         /// instance in vanilla Gothic) — used only when no SPL_RANGE_<NAME> symbol is found at runtime.

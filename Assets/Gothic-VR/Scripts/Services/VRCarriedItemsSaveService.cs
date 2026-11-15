@@ -6,6 +6,7 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Vobs;
 using Gothic.Core.Services.World;
 using Gothic.VR.Adapters.Vob;
@@ -39,6 +40,7 @@ namespace Gothic.VR.Services
 
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly VobMeshCullingService _vobMeshCullingService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly UnityMonoService _unityMonoService;
 
@@ -224,7 +226,13 @@ namespace Gothic.VR.Services
             vobContainer.Go.GetComponentInChildren<Rigidbody>().isKinematic = false;
             _silentPlacements.Add(interactable);
             if (_holsters[holsterIndex].TryPlace(interactable, true))
+            {
+                // Created outside the world list (no culling entry), but a hand takes it out like any world item:
+                // its grab tracks the culling entry (VRVobItem). Paused like an item a hand put into the holster.
+                _vobMeshCullingService.AddCullingEntry(vobContainer);
+                _vobMeshCullingService.StartTrackVobPositionUpdates(vobContainer.Go);
                 return;
+            }
 
             // The item stays inside the inventory, i.e. it's inside the backpack instead.
             Logger.LogWarning($"[SaveGame] {itemName} couldn't be put into holster {holsterIndex}. It's inside the " +

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core;
 using Gothic.Core.Const;
@@ -30,14 +29,7 @@ namespace Gothic.VR.Domain.Player
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly IVrSfxPlayer _vrSfxPlayer;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
-
-        private CharacterController _characterController => _vrPlayerService.VRContextInteractionService.Rig.CharacterController;
-        private Vector3 PlayerVelocity => _characterController != null ? _characterController.velocity : Vector3.zero;
-        private float PlayerSpeed => PlayerVelocity.magnitude;
-
-        // The rig's yaw at the last velocity sample (GetRigTurnVelocity), -1 = none yet.
-        private float _lastRigYaw;
-        private float _lastRigSampleTime = -1f;
+        [Inject] private readonly IVrInput _vrInput;
 
         private const int _twoHandedFlags = (int)VmGothicEnums.ItemFlags.Item2HdAxe | (int)VmGothicEnums.ItemFlags.Item2HdSwd;
 
@@ -46,6 +38,11 @@ namespace Gothic.VR.Domain.Player
         private float _soundPlayTime;
 
         public VobContainer WeaponVobContainer { get; private set; }
+
+        /// <summary>
+        /// The held weapon's movement (hand and tip speeds, blade axis). Read by the stab finish.
+        /// </summary>
+        public VrSwingSampler Swing => _swing;
         private Rigidbody _weaponRigidbody;
 
         private bool _handlesLeftHand;
@@ -63,17 +60,9 @@ namespace Gothic.VR.Domain.Player
             }
         }
 
+        // The swing, measured in the rig's tracking space. Its tip speed drives the combo (drop and return).
+        private readonly VrSwingSampler _swing = new();
         private float _attackVelocityThreshold;
-        private float _velocityDropPercentage;
-
-        // Velocity sampling properties
-        private float _velocityCheckDuration;
-        private int _velocitySampleCount;
-        private readonly Queue<float> _velocityHistory = new();
-        private float _velocityCheckTimer;
-
-        // Current state properties
-        private float _currentWeaponVelocity => GetAverageVelocity();
 
         // Internal tracking variables
         private bool _hasDroppedBelowThreshold;
@@ -103,11 +92,7 @@ namespace Gothic.VR.Domain.Player
             {
                 // A mod's Humans.mds can lack the attack animation or its events. Default timings are used then,
                 // so the handler is always fully set up (a null state machine made swinging do nothing).
-                _attackVelocityThreshold = weaponConfig.WeaponVelocityThreshold;
-                _velocityDropPercentage = weaponConfig.WeaponVelocityDropPercentage;
-
                 WeaponVobContainer = vobContainer;
-                ClearVelocityHistory();
                 var attackAnimation = GetAttackAnimation();
                 var windowTimes = _fallbackWindowTimes;
 
@@ -133,10 +118,10 @@ namespace Gothic.VR.Domain.Player
 
                 _weaponRigidbody = vobContainer.Go.GetComponentInChildren<Rigidbody>();
 
-                _velocityCheckDuration = weaponConfig.VelocityCheckDuration;
-                _velocitySampleCount = weaponConfig.VelocitySampleCount;
-
-                _velocityDropThreshold = _attackVelocityThreshold * (1f - _velocityDropPercentage);
+                var thresholds = GetSwingThresholds(weaponConfig);
+                _attackVelocityThreshold = thresholds.TipSpeed;
+                _velocityDropThreshold = _attackVelocityThreshold * (1f - weaponConfig.WeaponVelocityDropPercentage);
+                StartSwingSampling(handSide, thresholds);
 
                 _stateMachine = new AttackWindowStateMachine(playerNpcContainer, windowTimes.attackWindowTime,
                     windowTimes.comboWindowStart, windowTimes.comboWindowTime);
@@ -147,9 +132,37 @@ namespace Gothic.VR.Domain.Player
             else if (handSide == VrHandSide.Right)
                 _handlesRightHand = true;
 
+            _swing.SetHolding(_handlesLeftHand, _handlesRightHand);
             AlterWeaponWeights(weaponConfig);
 
             return true;
+        }
+
+        private VrSwingThresholds GetSwingThresholds(WeaponPhysicsConfig weaponConfig)
+        {
+            var is2HD = Is2HD();
+            return new VrSwingThresholds
+            {
+                HandleSpeed = is2HD ? weaponConfig.HandleSpeed2H : weaponConfig.HandleSpeed1H,
+                TipSpeed = is2HD ? weaponConfig.TipSpeed2H : weaponConfig.TipSpeed1H,
+                ThrustSpeed = weaponConfig.ThrustSpeed,
+                MinTimeOver = weaponConfig.MinTimeOver,
+                MinTipPath = weaponConfig.MinTipPath,
+                PathWindow = weaponConfig.PathWindow
+            };
+        }
+
+        private void StartSwingSampling(VrHandSide handSide, VrSwingThresholds thresholds)
+        {
+            var rig = _vrPlayerService.Rig;
+            if (rig == null || _weaponRigidbody == null)
+            {
+                Logger.LogWarning("[VrSwing] No VR rig or weapon body - this weapon can't swing.", LogCat.VR);
+                _swing.Stop();
+                return;
+            }
+
+            _swing.Start(rig, _vrInput, _weaponRigidbody.transform, handSide, thresholds);
         }
 
         private bool CanHandle(VobContainer newWeapon)
@@ -185,6 +198,8 @@ namespace Gothic.VR.Domain.Player
             else if (handSide == VrHandSide.Right)
                 _handlesRightHand = false;
 
+            _swing.SetHolding(_handlesLeftHand, _handlesRightHand);
+
             // Alter weight now, before we potentially unset VobContainer and Rigidbody.
             AlterWeaponWeights(weaponConfig);
 
@@ -216,18 +231,8 @@ namespace Gothic.VR.Domain.Player
             _handlesLeftHand = false;
             _handlesRightHand = false;
             _stateMachine = null;
-            ClearVelocityHistory();
-        }
-
-        /// <summary>
-        /// Samples of an earlier hold (a throw, the weapon flying into the hand on a grab) started the next swing at
-        /// once.
-        /// </summary>
-        private void ClearVelocityHistory()
-        {
-            _lastRigSampleTime = -1f;
-            _velocityHistory.Clear();
-            _velocityCheckTimer = 0f;
+            // Samples of an earlier hold (a throw, the weapon flying into the hand) started the next swing at once.
+            _swing.Stop();
         }
 
         /// <summary>
@@ -342,93 +347,50 @@ namespace Gothic.VR.Domain.Player
             _soundPlayTime = soundAttack.Frame / attackAnim.Fps;
         }
 
+        /// <summary>
+        /// Every rendered frame: the tracked controllers move per frame, not per physics step.
+        /// </summary>
+        public void SampleSwing()
+        {
+            if (_weaponRigidbody == null)
+                return;
+
+            _swing.Sample();
+        }
+
+        /// <summary>
+        /// Every physics step: the attack window logic, on the latest swing values.
+        /// </summary>
         public void FixedUpdate()
         {
             if (_weaponRigidbody == null)
                 return;
 
-            UpdateVelocityHistory();
             UpdateVrAttackLogic();
         }
 
         public void AddLeftHand()
         {
             _handlesLeftHand = true;
+            _swing.SetHolding(_handlesLeftHand, _handlesRightHand);
         }
 
         public void AddRightHand()
         {
             _handlesRightHand = true;
+            _swing.SetHolding(_handlesLeftHand, _handlesRightHand);
         }
 
         public void RemoveLeftHand()
         {
             _handlesLeftHand = false;
+            _swing.SetHolding(_handlesLeftHand, _handlesRightHand);
         }
 
         public void RemoveRightHand()
         {
             _handlesRightHand = false;
-        }
-
-        /// <summary>
-        /// Logic goes like this:
-        /// To ignore some Controller tracking issues for a frame, we need to have a few samples of velocity before calculating the average.
-        /// We also don't use every frame (a tracking issue could last for x-frames) but instead only a sample at each x-milliseconds.
-        /// </summary>
-        private void UpdateVelocityHistory()
-        {
-            _velocityCheckTimer += Time.fixedDeltaTime;
-
-            if (_velocityCheckTimer < _velocityCheckDuration / _velocitySampleCount)
-                return;
-
-            // The weapon's speed relative to the player, so moving and turning don't count as a swing:
-            // - the player's velocity is subtracted as a vector (subtracting the speeds was wrong for any run that
-            //   isn't in the swing's direction);
-            // - a turn of the rig (smooth or snap turn) carries a held weapon around the player - that part
-            //   (yaw rate x lever arm) is subtracted too.
-            var currentVelocity = (_weaponRigidbody.linearVelocity - PlayerVelocity - GetRigTurnVelocity()).magnitude;
-            _velocityHistory.Enqueue(currentVelocity);
-
-            // Keep only the required number of samples
-            if (_velocityHistory.Count > _velocitySampleCount)
-                _velocityHistory.Dequeue();
-
-            _velocityCheckTimer = 0f;
-        }
-
-        /// <summary>
-        /// The velocity a held weapon gets only from the rig turning around its up axis since the last sample.
-        /// </summary>
-        private Vector3 GetRigTurnVelocity()
-        {
-            if (_characterController == null)
-                return Vector3.zero;
-
-            var rig = _characterController.transform;
-            var yaw = rig.eulerAngles.y;
-            var now = Time.fixedTime;
-            var elapsed = now - _lastRigSampleTime;
-            var hasLastSample = _lastRigSampleTime >= 0f && elapsed > 0f;
-            var deltaYaw = hasLastSample ? Mathf.DeltaAngle(_lastRigYaw, yaw) : 0f;
-            _lastRigYaw = yaw;
-            _lastRigSampleTime = now;
-            if (!hasLastSample || Mathf.Approximately(deltaYaw, 0f))
-                return Vector3.zero;
-
-            var angularVelocity = Vector3.up * (deltaYaw * Mathf.Deg2Rad / elapsed);
-            var leverArm = _weaponRigidbody.position - rig.position;
-            return Vector3.Cross(angularVelocity, leverArm);
-        }
-
-        private float GetAverageVelocity()
-        {
-            if (_velocityHistory.Count == 0)
-                return 0f;
-
-            var sum = _velocityHistory.Sum();
-            return sum / _velocityHistory.Count;
+            _swing.SetHolding(_handlesLeftHand, _handlesRightHand);
         }
 
         /// <summary>
@@ -486,8 +448,8 @@ namespace Gothic.VR.Domain.Player
             if (GetOwner()?.Props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
                 return;
 
-            // A full set of samples: right after a grab one fast sample was the whole "average".
-            if (_velocityHistory.Count >= _velocitySampleCount && _currentWeaponVelocity >= _attackVelocityThreshold)
+            // Hand and tip fast enough for long enough, and the tip went far enough (or a thrust along the blade).
+            if (_swing.IsSwinging())
                 StartAttack();
         }
 
@@ -496,15 +458,9 @@ namespace Gothic.VR.Domain.Player
             _hasDroppedBelowThreshold = false;
             _hasReturnedToThreshold = false;
 
-            // Which speeds made this a swing - a trembling hand played the swing sound and effect (to be tuned from
-            // it). Built inside the call: LogEditor is stripped in release, its arguments then cost nothing.
-            Logger.LogEditor($"[VrSwing] Attack: avg {_currentWeaponVelocity:0.00} m/s " +
-                             $">= {_attackVelocityThreshold:0.00} " +
-                             $"(samples " +
-                             $"{string.Join(", ", _velocityHistory.Select(v => v.ToString("0.00")))}; " +
-                             $"weapon body " +
-                             $"{_weaponRigidbody.linearVelocity.magnitude:0.00}, " +
-                             $"player {PlayerSpeed:0.00})", LogCat.VR);
+            // Which values made this a swing (to tune the thresholds from). Built inside the call: LogEditor is
+            // stripped in release, its arguments then cost nothing.
+            Logger.LogEditor($"[VrSwing] Attack: {_swing.Describe()}", LogCat.VR);
 
             // If no sound is set, ignore playing it and mark it as "played".
             _soundPlayed = _swingSwordSound == null;
@@ -519,10 +475,10 @@ namespace Gothic.VR.Domain.Player
         private bool CheckIfComboWindowFailed()
         {
             // Track velocity drops and returns
-            if (_currentWeaponVelocity < _velocityDropThreshold && !_hasDroppedBelowThreshold)
+            if (_swing.TipSpeed < _velocityDropThreshold && !_hasDroppedBelowThreshold)
                 _hasDroppedBelowThreshold = true;
 
-            if (_hasDroppedBelowThreshold && _currentWeaponVelocity >= _attackVelocityThreshold && !_hasReturnedToThreshold)
+            if (_hasDroppedBelowThreshold && _swing.TipSpeed >= _attackVelocityThreshold && !_hasReturnedToThreshold)
             {
                 _hasReturnedToThreshold = true;
                 // Combo failed - velocity dropped and returned during attack window
@@ -539,10 +495,10 @@ namespace Gothic.VR.Domain.Player
 
             // Check #1 - When we enter the ComboWindow or we're inside already, we need to have the sword at least dropping below threshold once.
             // Basically fighter changes velocity direction to do a left-right swing.
-            if (!_hasDroppedBelowThreshold && _currentWeaponVelocity < _velocityDropThreshold)
+            if (!_hasDroppedBelowThreshold && _swing.TipSpeed < _velocityDropThreshold)
                 _hasDroppedBelowThreshold = true;
 
-            if (_hasDroppedBelowThreshold && _currentWeaponVelocity >= _attackVelocityThreshold)
+            if (_hasDroppedBelowThreshold && _swing.TipSpeed >= _attackVelocityThreshold)
                 _hasReturnedToThreshold = true;
 
             // It means e.g., we changed directions and got up to speed within combo window time. Now let's start the combo immediately.
@@ -575,16 +531,6 @@ namespace Gothic.VR.Domain.Player
         public float GetRemainingStateTime()
         {
             return _stateMachine?.ElapsedTime ?? 0f;
-        }
-
-        public float GetVelocityThreshold()
-        {
-            return _attackVelocityThreshold;
-        }
-
-        public float GetVelocityDropThreshold()
-        {
-            return _velocityDropThreshold;
         }
 
         public void AdvanceStateAfterAttack()

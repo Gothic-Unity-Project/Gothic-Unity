@@ -55,6 +55,10 @@ namespace Gothic.VR.Services
             GlobalEventDispatcher.StabHeld.AddListener(OnStabHeld);
             GlobalEventDispatcher.StabFinished.AddListener(OnStabFinished);
 
+            // Magic lock-on
+            GlobalEventDispatcher.HeroSpellTargetLocked.AddListener(OnHeroSpellTargetLocked);
+            GlobalEventDispatcher.HeroSpellTargetLockLost.AddListener(OnHeroSpellTargetLockLost);
+
             // Lock picking
             GlobalEventDispatcher.LockPickComboWrong.AddListener(OnLockPickComboWrong);
             GlobalEventDispatcher.LockPickComboBroken.AddListener(OnLockPickComboBroken);
@@ -87,6 +91,9 @@ namespace Gothic.VR.Services
             GlobalEventDispatcher.StabStuck.RemoveListener(OnStabStuck);
             GlobalEventDispatcher.StabHeld.RemoveListener(OnStabHeld);
             GlobalEventDispatcher.StabFinished.RemoveListener(OnStabFinished);
+
+            GlobalEventDispatcher.HeroSpellTargetLocked.RemoveListener(OnHeroSpellTargetLocked);
+            GlobalEventDispatcher.HeroSpellTargetLockLost.RemoveListener(OnHeroSpellTargetLockLost);
 
             GlobalEventDispatcher.LockPickComboWrong.RemoveListener(OnLockPickComboWrong);
             GlobalEventDispatcher.LockPickComboBroken.RemoveListener(OnLockPickComboBroken);
@@ -129,6 +136,10 @@ namespace Gothic.VR.Services
         private void OnStabHeld(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.Info);
 
         private void OnStabFinished(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.Success);
+
+        private void OnHeroSpellTargetLocked(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.Info);
+
+        private void OnHeroSpellTargetLockLost(int handSide) => Vibrate((VrHandSide)handSide, VrHapticPreset.Warning);
 
         private void OnLockPickComboWrong(VobContainer lockPick, VobContainer target, int handSide) =>
             Vibrate((VrHandSide)handSide, VrHapticPreset.Warning);

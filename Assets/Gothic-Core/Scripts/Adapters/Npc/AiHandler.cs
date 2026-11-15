@@ -477,7 +477,10 @@ namespace Gothic.Core.Adapters.Npc
         public void StartNextRoutine()
         {
             Properties.StateTime = 0.0f;
-            Properties.ItemAnimationState = -1;
+
+            // Like the engine's clearState, a state change puts the used item away. Before, only the item state was
+            // reset and the next AI_UseItemToState put a second mesh into the hand.
+            _npcService.RemoveUsedItemFromHand(NpcData);
 
             // We have set some "next" state. Use it instead of going back to daily routine first.
             if (Vob.NextStateValid)
@@ -808,7 +811,7 @@ namespace Gothic.Core.Adapters.Npc
 
 
             // CurrentItem handling
-            Properties.ItemAnimationState = -1;
+            _npcService.RemoveUsedItemFromHand(NpcData);
             if (Properties.CurrentItem != -1)
             {
                 // If NPC had an item in its hands, we need to remove the mesh.

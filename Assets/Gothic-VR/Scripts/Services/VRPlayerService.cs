@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Gothic.Core.Adapters.Vob;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Player;
@@ -14,6 +15,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Npc;
+using Gothic.VR.Domain.Player;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -36,6 +38,7 @@ namespace Gothic.VR.Services
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly NpcService _npcService;
 
         // Gothic.ini heroFallMode, read on first use and again when the menu changes it.
         private VrHeroFallMode? _heroFallMode;
@@ -140,27 +143,65 @@ namespace Gothic.VR.Services
             return hand != null ? hand.gameObject : null;
         }
 
-        // True during any active spell (telekinesis or combat targeting) - blocks NPC dialog.
-        public bool IsSpellActive => IsTelekinesisActive || IsSpellTargetingActive;
+        // True during any active spell (telekinesis, combat targeting or a locked target) - blocks NPC dialog.
+        public bool IsSpellActive => IsTelekinesisActive || IsSpellTargetingActive || IsSpellLockActive;
         public bool IsSpellTargetingActive { get; private set; }
+
+        /// <summary>
+        /// A thrown spell's target is locked - the far reach is off again, but dialogs stay blocked.
+        /// </summary>
+        public bool IsSpellLockActive => SpellLockTarget != null;
+
+        /// <summary>
+        /// The NPC a thrown spell is locked on (VrSpellLockDomain), null if none - the one place holding the lock:
+        /// VRRuneCaster's throw target, VRFocus' highlight.
+        /// </summary>
+        public NpcContainer SpellLockTarget => _spellLock?.Target;
+
+        // Created on the first throwable rune held (its services live in the VR scene scope).
+        private VrSpellLockDomain _spellLock;
+
+        /// <summary>
+        /// Every frame while a throwable rune is held and the other hand is free to throw: the rune hand's trigger
+        /// locks the NPC it points at, keeps it while held and breaks it (down, out of range or sight).
+        /// range: how far the spell flies (VRSpellThrow.Range). true the frame the target got locked.
+        /// </summary>
+        public bool TickSpellLock(VrHandSide runeHandSide, float range)
+        {
+            _spellLock ??= new VrSpellLockDomain().Inject();
+            return _spellLock.Tick(runeHandSide, range);
+        }
+
+        /// <summary>
+        /// Unlocks quietly (no free throwing hand). A lock lost by itself still waits for the trigger's release.
+        /// </summary>
+        public void ClearSpellLock() => _spellLock?.Clear();
+
+        /// <summary>
+        /// The rune is gone: unlocks quietly, the next rune starts fresh.
+        /// </summary>
+        public void EndSpellLock() => _spellLock?.End();
 
         // Telekinesis state - lives here so it survives VRRuneCaster destruction when one hand releases.
         public bool IsTelekinesisActive { get; private set; }
         public event Action TelekinesisDeactivated;
 
-        // Spell targeting state (combat spells - extends the rune hand's distance grab only).
+        // Spell targeting state (combat spells and the lock-on) - the rune hand and how far it aims.
         private VrHandSide _spellTargetingSide;
+        private float _spellTargetingRange = VRConstants.DistanceGrabMaxDistance;
+        private readonly RaycastHit[] _spellTargetHits = new RaycastHit[16];
         private static readonly VrHandSide[] _hands = { VrHandSide.Left, VrHandSide.Right };
 
         /// <summary>
-        /// Combat spells aim with the rune hand's distance grab (IVrRig.GetDistanceHovered), extended to the spell's
-        /// range.
+        /// Spells aim with the rune hand's aim ray up to the spell's range (GetSpellTarget). The hand's distance grab
+        /// is extended as well, so a free hand (ring spells) still highlights what it points at (VRFocus).
         /// </summary>
         public void ActivateSpellTargeting(VrHandSide runeHandSide, float range)
         {
             if (IsSpellTargetingActive || Rig == null)
                 return;
             _spellTargetingSide = runeHandSide;
+            _spellTargetingRange = range;
             Rig.SetDistanceGrabRange(runeHandSide, range);
             Logger.Log($"[SpellTarget] {runeHandSide} hand distance grab extended to {range} m", LogCat.VR);
             IsSpellTargetingActive = true;
@@ -177,13 +218,49 @@ namespace Gothic.VR.Services
         }
 
         /// <summary>
-        /// The NPC the hand's distance grab points at (spell targeting), null if none.
+        /// The NPC the hand points at (spell targeting), null if none: the closest NPC body along a sphere cast on the
+        /// hand's aim ray, within the targeting range, with nothing of the world in between. Not the distance grab's
+        /// hover - XRI hovers no far targets with a hand that holds something (the rune).
         /// </summary>
         public NpcContainer GetSpellTarget(VrHandSide side)
         {
-            var hovered = Rig?.GetDistanceHovered(side);
-            var npcLoader = hovered != null ? hovered.GetComponentInParent<NpcLoader>() : null;
-            return npcLoader != null && npcLoader.Npc != null ? npcLoader.Npc.GetUserData() : null;
+            if (Rig == null || !Rig.TryGetAimRay(side, out var aim))
+                return null;
+
+            var range = IsSpellTargetingActive ? _spellTargetingRange : VRConstants.DistanceGrabMaxDistance;
+            var count = Physics.SphereCastNonAlloc(aim, VRConstants.Magic.SpellTargetCastRadius, _spellTargetHits,
+                range, 1 << Constants.VobNpcOrMonsterLayer, QueryTriggerInteraction.Ignore);
+
+            var hero = _npcService.GetHeroContainer();
+            NpcContainer target = null;
+            var targetHit = default(RaycastHit);
+            for (var i = 0; i < count; i++)
+            {
+                var hit = _spellTargetHits[i];
+                // Bodies the cast starts in report distance 0 without a point - nothing to aim at right at the hand.
+                if (hit.distance <= 0f || (target != null && hit.distance >= targetHit.distance))
+                    continue;
+
+                var npcLoader = hit.collider.GetComponentInParent<NpcLoader>();
+                var npc = npcLoader != null && npcLoader.Npc != null ? npcLoader.Npc.GetUserData() : null;
+                if (npc == null || npc == hero)
+                    continue;
+
+                target = npc;
+                targetHit = hit;
+            }
+
+            if (target == null)
+                return null;
+
+            // The world blocks - a thin ray to the hit point, as the wide sphere would graze the ground.
+            var toHit = targetHit.point - aim.origin;
+            var distance = toHit.magnitude - VRConstants.Magic.SpellTargetSurfaceTolerance;
+            if (distance > 0f && Physics.Raycast(aim.origin, toHit.normalized, distance, 1 << Constants.DefaultLayer,
+                    QueryTriggerInteraction.Ignore))
+                return null;
+
+            return target;
         }
 
         /// <summary>

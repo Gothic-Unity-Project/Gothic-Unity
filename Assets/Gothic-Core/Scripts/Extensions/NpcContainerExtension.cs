@@ -3,6 +3,7 @@ using Gothic.Core.Const;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services;
+using UnityEngine;
 
 namespace Gothic.Core.Extensions
 {
@@ -35,6 +36,18 @@ namespace Gothic.Core.Extensions
         {
             return npc?.Props != null && (npc.Props.IsDead || npc.IsKnockedOut());
         }
+
+        /// <summary>
+        /// Where spells and homing aim at an NPC: its upper body above the root (the root is at the feet). One value
+        /// for homing projectiles, VR spell throws and the VR lock-on's sight check.
+        /// </summary>
+        public static Vector3 GetAimPoint(this NpcContainer npc)
+        {
+            return npc.Go.transform.position + Vector3.up * _aimHeight;
+        }
+
+        // Height (m) of the aim point above the NPC's root.
+        private const float _aimHeight = 0.4f;
 
         public static bool IsMagicFrozen(this NpcContainer npc)
         {

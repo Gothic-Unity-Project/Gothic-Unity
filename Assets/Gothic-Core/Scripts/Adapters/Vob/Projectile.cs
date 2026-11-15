@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Gothic.Core.Adapters.Npc;
 using Gothic.Core.Const;
+using Gothic.Core.Extensions;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Npc;
@@ -56,7 +57,6 @@ namespace Gothic.Core.Adapters.Vob
         Action<Vector3, Vector3> IProjectile.OnWorldHit { get => OnWorldHit; set => OnWorldHit = value; }
         Action IProjectile.OnExpired { get => OnExpired; set => OnExpired = value; }
 
-        private const float _homingTargetHeight = 0.4f;
         private static readonly RaycastHit[] _hits = new RaycastHit[16];
 
         private static readonly (IDamageable damageable, float distance)[] _triggerHits =
@@ -181,7 +181,7 @@ namespace Gothic.Core.Adapters.Vob
             if (HomingTarget?.Go == null)
                 return;
 
-            var targetPos = HomingTarget.Go.transform.position + Vector3.up * _homingTargetHeight;
+            var targetPos = HomingTarget.GetAimPoint();
             if (HomingDegreesPerSecond <= 0f)
                 return;
 

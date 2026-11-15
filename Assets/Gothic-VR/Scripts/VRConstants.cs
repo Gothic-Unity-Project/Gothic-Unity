@@ -44,8 +44,6 @@ namespace Gothic.VR
             public const string ScrollsSingleUse = "scrollsSingleUse";
             // 1 = projectile spells (firebolt, ...) are thrown with a swing (default), 0 = they are cast like other spells.
             public const string ThrowableSpells = "throwableSpells";
-            // 1 = a charged spell grows only while both hands are together (default), 0 = one hand is enough.
-            public const string TwoHandSpellCharge = "twoHandSpellCharge";
             // 1 = the favorites ring opens with the gesture (both hands up, both triggers), 0 = off.
             public const string FavoritesRing = "favoritesRing";
             // 1 = G2: sneaking, NPCs whose pickpocket dialog option would show carry a purse; grabbing it is that
@@ -58,7 +56,7 @@ namespace Gothic.VR
             public const string ItemDetailsPopup = "itemDetailsPopup";
             // 1 = the held backpack's opening pulls nearby world items and stores them (VRBackpackVacuum).
             public const string BackpackVacuum = "backpackVacuum";
-            // 1 = loot backpacks of dead NPCs and lidless containers show a green "X" that takes all (VRBackpack).
+            // 1 = loot backpacks of dead NPCs and lidless containers show a "Take all" button (VRBackpack).
             public const string LootTakeAll = "lootTakeAll";
 
             // 0 = off, 1 = light, 2 = strong: the edges of the view darken while the stick moves or turns the player.
@@ -123,8 +121,6 @@ namespace Gothic.VR
 
         public const int ThrowableSpellsDefaultValue = 1;
 
-        public const int TwoHandSpellChargeDefaultValue = 1;
-
         public const int LedgeClimbModeDefaultValue = 0;
         public const int HeroFallModeDefaultValue = 0;
         public const int LedgeHintsDefaultValue = 1;
@@ -176,8 +172,8 @@ namespace Gothic.VR
         /// </summary>
         public static class Melee
         {
-            // Fist punch: hand speed (m/s) needed to hit. Same rule as the weapon prefab's _weaponVelocityThreshold
-            // (2); the prefab field is serialized and not wired to this constant - keep both in step.
+            // Fist punch: hand speed (m/s, IVrInput controller velocity in tracking space) needed to hit. Weapon
+            // swings have their own thresholds (VRPlayerWeaponInteraction prefab fields, VrSwingSampler).
             public const float FistPunchVelocity = 2f;
 
             // Seconds before the same fist can hit again.
@@ -270,6 +266,35 @@ namespace Gothic.VR
             // Throw range (m) at least; the spell's own emTrjTargetRange (e.g. Fireball: 20) is raised to it.
             // Self-tuned for VR: the hand throws at long distances, vanilla ranges ended too early.
             public const float DefaultThrowRange = 30f;
+
+            // Lock-on (VrSpellLockDomain): swing factor a locked throw has at least, so a gentle release still arrives.
+            // Self-tuned for VR: 0.6 of the full-swing speed reaches 30 m before the lock's target walks far.
+            public const float MinLockedSwingFactor = 0.6f;
+
+            // Lock-on: seconds between two sight checks to the locked target (one ray each).
+            public const float LockSightCheckSeconds = 0.2f;
+
+            // Lock-on: seconds the target may be out of sight before the lock breaks (a tree passing in between
+            // doesn't break it).
+            public const float LockLostSightSeconds = 1f;
+
+            // Lock-on: the lock breaks beyond the throw range times this, so it doesn't flicker at the edge.
+            public const float LockRangeHysteresis = 1.1f;
+
+            // Lock-on: the locked NPC's focus brightness (VRFocus) - brighter than a hovered NPC
+            // (ShaderPropertyFocusBrightnessNpcValue), so it stands out at range and among hovered NPCs. Self-tuned.
+            public const float LockFocusBrightness = 4f;
+
+            // Lock-on: farther than this (m) the locked NPC's name grows with the distance, so it reads as large as
+            // at this distance - the hover name is sized for a hand's reach, the lock reaches DefaultThrowRange.
+            public const float LockNameFullSizeDistance = 4f;
+
+            // Spell targeting (VRPlayerService.GetSpellTarget): radius (m) of the sphere cast along the rune hand's aim
+            // ray - an NPC a bit beside the ray is still found at range. Self-tuned.
+            public const float SpellTargetCastRadius = 0.3f;
+
+            // Spell targeting: the sight ray to the found NPC ends this far (m) in front of its surface.
+            public const float SpellTargetSurfaceTolerance = 0.05f;
         }
 
         /// <summary>
@@ -295,6 +320,16 @@ namespace Gothic.VR
         /// The VR favorites ring (VRFavoritesRing, its slot views and spells, VrFavoritesGestureDomain): sizes in
         /// meters, times in seconds. Self-tuned for VR.
         /// </summary>
+        public static class DocReader
+        {
+            // World size of the open pages' longer side (m).
+            public const float PagesSize = 0.6f;
+            // How far the reading hand reaches into the pages from their lower outer corner (m).
+            public const float CornerInset = 0.06f;
+            // Distance of the pages behind the reading hand, seen from the eyes (m).
+            public const float BehindHand = 0.03f;
+        }
+
         public static class FavoritesRing
         {
             // Meters the hands must be above the eyes for the gesture.

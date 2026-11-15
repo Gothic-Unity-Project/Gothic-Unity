@@ -61,6 +61,19 @@ namespace Gothic.Core.Const
         public const string BMmReactToOthersDamage = "B_MM_REACTTOOTHERSDAMAGE";
         public const string GCanNotCast = "G_CanNotCast";
         public const string GCanNotUse = "G_CanNotUse";
+        public const string PlayerPlunderIsEmpty = "player_plunder_is_empty";
+
+        // "12 Items received!" message of B_GiveInvItems (PrintItemsTaken): text, Y position and display time.
+        // G1 name first, G2 name second.
+        public const string StrMessageItemTakenG1 = "_STR_MESSAGE_ITEM_TAKEN";
+        public const string StrMessageItemTakenG2 = "PRINT_ItemErhalten";
+        public const string StrMessageItemsTakenG1 = "_STR_MESSAGE_ITEMS_TAKEN";
+        public const string StrMessageItemsTakenG2 = "PRINT_ItemsErhalten";
+        public const string YPosMessageTakenG1 = "_YPOS_MESSAGE_TAKEN";
+        public const string YPosMessageTakenG2 = "YPOS_ItemTaken";
+        public const string TimeMessageTakenG1 = "_TIME_MESSAGE_TAKEN";
+        // Font of the on-screen message.
+        public const string FontMessage = "FONT_OLD_10_WHITE.TGA";
 
         // Vanilla G1/G2 END entries of a dialog: nr = 999, description = DIALOG_ENDE.
         public const int DialogExitInfoNr = 999;

@@ -91,6 +91,15 @@ namespace Gothic.VR.Services
             }
         }
 
+        /// <summary>
+        /// Every rendered frame: the held weapons' swings are sampled from the tracked controllers.
+        /// </summary>
+        public void Update()
+        {
+            _firstAttackDomain.SampleSwing();
+            _secondAttackDomain.SampleSwing();
+        }
+
         public void FixedUpdate()
         {
             _firstAttackDomain.FixedUpdate();
@@ -144,10 +153,29 @@ namespace Gothic.VR.Services
             if (attacker?.PrefabProps == null || !attacker.PrefabProps.IsHero())
                 return;
 
-            var playerVelocity = _vrPlayerService.Rig?.CharacterController?.velocity ?? Vector3.zero;
+            if (!TryGetSwing(weapon, out var swing))
+                return;
+
             // Created on first use, like the scene's other VR domains (its services live in the VR scene scope).
             _stabFinish ??= new VrStabFinishDomain().Inject();
-            _stabFinish.TryStab(attacker, target, interactable, playerVelocity);
+            _stabFinish.TryStab(attacker, target, interactable, swing);
+        }
+
+        /// <summary>
+        /// The swing sampler of a wielded weapon (hand speed and blade axis in tracking space). false if no attack
+        /// domain handles it.
+        /// </summary>
+        public bool TryGetSwing(VobContainer weapon, out VrSwingSampler sampler)
+        {
+            sampler = null;
+            if (weapon == null)
+                return false;
+
+            if (weapon == _firstAttackDomain.WeaponVobContainer)
+                sampler = _firstAttackDomain.Swing;
+            else if (weapon == _secondAttackDomain.WeaponVobContainer)
+                sampler = _secondAttackDomain.Swing;
+            return sampler != null && sampler.IsActive;
         }
 
         public void OnGrabbed(VrHandSide handSide, VobContainer vobContainer, WeaponPhysicsConfig weaponConfig)

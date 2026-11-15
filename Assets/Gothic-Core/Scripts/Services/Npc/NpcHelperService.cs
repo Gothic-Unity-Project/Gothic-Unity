@@ -567,6 +567,15 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
+        /// Nothing solid between from and to - Gothic's sight rule (see IsSightBlocked): leaves, bushes and grates let
+        /// sight through, the colliders under selfRoot and otherRoot don't count. No allocations.
+        /// </summary>
+        public bool HasFreeSight(Vector3 from, Vector3 to, Transform selfRoot, Transform otherRoot)
+        {
+            return !IsSightBlocked(from, to, selfRoot, otherRoot);
+        }
+
+        /// <summary>
         /// Something solid is between the eyes and the target. Like the engine's sight rays (ZenGin
         /// zTRACERAY_POLY_IGNORE_TRANSP), alpha tested polygons - leaves, bushes, grates - let sight through. The two
         /// NPCs' own bodies don't count.

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Models.Marvin;
+using Gothic.VR.Domain.Player;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Models.Vob;
@@ -27,14 +28,26 @@ namespace Gothic.VR.Adapters.Player
         [SerializeField] private float _angularDamping1HAnyHand2HTwoHanded = 0f;
         
         
-        // if something in hand. Activate VRWeaponFighting
-        [Header("Weapon Velocity Settings")]
-        [SerializeField] private float _weaponVelocityThreshold = 2.0f;
-        [SerializeField] private float _weaponVelocityDropPercentage = 0.1f; // 10% drop
-        
-        [Header("Weapon Attack Velocity Settings")]
-        [SerializeField] private float _velocityCheckDuration = 0.5f;
-        [SerializeField] private int _velocitySampleCount = 5;
+        // Swing detection, measured in the rig's tracking space (VrSwingSampler). Changes apply on the next grab.
+        [Header("Swing detection")]
+        [Tooltip("One-handed weapon: hand (handle) speed in m/s a swing needs.")]
+        [SerializeField] private float _handleSpeed1H = 1.2f;
+        [Tooltip("One-handed weapon: blade tip speed in m/s a swing needs.")]
+        [SerializeField] private float _tipSpeed1H = 3.0f;
+        [Tooltip("Two-handed weapon: hand (handle) speed in m/s a swing needs.")]
+        [SerializeField] private float _handleSpeed2H = 1.0f;
+        [Tooltip("Two-handed weapon: blade tip speed in m/s a swing needs.")]
+        [SerializeField] private float _tipSpeed2H = 2.5f;
+        [Tooltip("Hand speed in m/s along the blade that counts as a thrust attack.")]
+        [SerializeField] private float _thrustSpeed = 2.5f;
+        [Tooltip("Seconds hand and tip have to stay over their speeds (max 0.2).")]
+        [SerializeField] private float _minTimeOver = 0.06f;
+        [Tooltip("Meters the tip (thrust: the hand) has to travel within the path window.")]
+        [SerializeField] private float _minTipPath = 0.35f;
+        [Tooltip("Seconds the tip path is measured over (max 0.4).")]
+        [SerializeField] private float _pathWindow = 0.2f;
+        [Tooltip("Share of the tip speed a combo has to drop below before speeding up again (0.1 = 10 %).")]
+        [SerializeField] private float _weaponVelocityDropPercentage = 0.1f;
 
         private IVrRig _rig;
 
@@ -119,10 +132,15 @@ namespace Gothic.VR.Adapters.Player
                 LinearDamping1HAnyHand2HTwoHanded = _linearDamping1HAnyHand2HTwoHanded,
                 AngularDamping2HOneHanded = _angularDamping2HOneHanded,
                 AngularDamping1HAnyHand2HTwoHanded = _angularDamping1HAnyHand2HTwoHanded,
-                WeaponVelocityThreshold = _weaponVelocityThreshold,
-                WeaponVelocityDropPercentage = _weaponVelocityDropPercentage,
-                VelocityCheckDuration = _velocityCheckDuration,
-                VelocitySampleCount = _velocitySampleCount
+                HandleSpeed1H = _handleSpeed1H,
+                TipSpeed1H = _tipSpeed1H,
+                HandleSpeed2H = _handleSpeed2H,
+                TipSpeed2H = _tipSpeed2H,
+                ThrustSpeed = _thrustSpeed,
+                MinTimeOver = _minTimeOver,
+                MinTipPath = _minTipPath,
+                PathWindow = _pathWindow,
+                WeaponVelocityDropPercentage = _weaponVelocityDropPercentage
             };
         }
 
@@ -190,29 +208,52 @@ namespace Gothic.VR.Adapters.Player
                     value => _angularDamping1HAnyHand2HTwoHanded = value,
                     0f, 25f),
                 
-                new MarvinPropertyHeader("Weapon Attack - Velocity"),
+                new MarvinPropertyHeader("Weapon Attack - Swing (applies on next grab)"),
                 new MarvinProperty<float>(
-                    "Threshold",
-                    () => _weaponVelocityThreshold,
-                    value => _weaponVelocityThreshold = value,
+                    "Handle speed 1H (m/s)",
+                    () => _handleSpeed1H,
+                    value => _handleSpeed1H = value,
+                    0f, 5f),
+                new MarvinProperty<float>(
+                    "Tip speed 1H (m/s)",
+                    () => _tipSpeed1H,
+                    value => _tipSpeed1H = value,
                     0f, 10f),
                 new MarvinProperty<float>(
-                    "Drop Percentage",
+                    "Handle speed 2H (m/s)",
+                    () => _handleSpeed2H,
+                    value => _handleSpeed2H = value,
+                    0f, 5f),
+                new MarvinProperty<float>(
+                    "Tip speed 2H (m/s)",
+                    () => _tipSpeed2H,
+                    value => _tipSpeed2H = value,
+                    0f, 10f),
+                new MarvinProperty<float>(
+                    "Thrust speed (m/s)",
+                    () => _thrustSpeed,
+                    value => _thrustSpeed = value,
+                    0f, 10f),
+                new MarvinProperty<float>(
+                    "Min time over (s)",
+                    () => _minTimeOver,
+                    value => _minTimeOver = value,
+                    0f, VrSwingSampler.MaxTimeOver),
+                new MarvinProperty<float>(
+                    "Min tip path (m)",
+                    () => _minTipPath,
+                    value => _minTipPath = value,
+                    0f, 1.5f),
+                new MarvinProperty<float>(
+                    "Path window (s)",
+                    () => _pathWindow,
+                    value => _pathWindow = value,
+                    0.05f, VrSwingSampler.MaxPathWindow),
+                new MarvinProperty<float>(
+                    "Combo drop percentage",
                     () => _weaponVelocityDropPercentage,
                     value => _weaponVelocityDropPercentage = value,
-                    0.05f, 0.5f),
-
-                new MarvinPropertyHeader("Weapon Attack - Velocity Check Settings"),
-                new MarvinProperty<float>(
-                    "Duration",
-                    () => _velocityCheckDuration,
-                    value => _velocityCheckDuration = value,
-                    0.1f, 1f),
-                new MarvinProperty<int>(
-                    "Sample Count",
-                    () => _velocitySampleCount,
-                    value => _velocitySampleCount = value,
-                    1, 20)
+                    0.05f, 0.5f)
             };
         }
     }

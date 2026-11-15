@@ -39,8 +39,8 @@ namespace Gothic.VR.Adapters.Vob
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly ItemUseService _itemUseService;
 
-        // A sealed letter (MAPSEALED) is used up when it's read - but only when the reading ends (one hand lets go),
-        // not while it's still in front of the player.
+        // A sealed letter (MAPSEALED) is used up when it's read - but only when the reading ends (trigger again or no
+        // hand holds it any more), not while it's still in front of the player.
         private bool _isConsumedOnDocClose;
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly FightService _fightService;
@@ -158,10 +158,12 @@ namespace Gothic.VR.Adapters.Vob
             // A torch is lit / put out with the trigger of the hand holding it.
             TryPrepareTorch();
 
+            // A book/map/letter is opened / closed with the trigger of the hand holding it.
+            TryPrepareDocumentReader();
+
             // Both hands on a usable item (armor, potion, pouch...): VRItemUser waits for the trigger.
             if (_vrPlayerService.IsDualGrabbed)
             {
-                TryShowDocument();
                 TryCastSpell();
                 TryPrepareItemUse();
             }
@@ -204,24 +206,13 @@ namespace Gothic.VR.Adapters.Vob
             if (!_vrPlayerService.IsHeldInHand(_interactable))
                 SetRangedWeaponHeld(false);
 
+            // An open document closes when no hand holds the item any more (also on its way into a socket - the hand
+            // lets go first). A read sealed letter is used up then.
+            if (!_vrPlayerService.IsHeldInHand(_interactable) && CloseDocument())
+                return;
+
             if (_vrPlayerService.IsDualGrabbed)
                 return;
-
-            // The document viewer closes when the item is no longer dual-grabbed.
-            if (TryGetComponent<VobItem.VRDocViewer>(out var viewer))
-                Destroy(viewer);
-            foreach (Transform child in transform)
-            {
-                if (child.name == VRDocViewer.CanvasName)
-                    Destroy(child.gameObject);
-            }
-
-            if (_isConsumedOnDocClose)
-            {
-                _isConsumedOnDocClose = false;
-                ConsumeDocument();
-                return;
-            }
 
             if (TryGetComponent<VobItem.VRItemUser>(out var itemUser))
                 Destroy(itemUser);
@@ -239,19 +230,37 @@ namespace Gothic.VR.Adapters.Vob
             }
         }
 
-        private void TryShowDocument()
+        /// <summary>
+        /// Documents (ITEM_KAT_DOCS with a use function) are read with the trigger of the hand holding them
+        /// (VRDocReader). Added once, stays on the item.
+        /// </summary>
+        private void TryPrepareDocumentReader()
         {
-            var item = GetComponentInParent<VobLoader>()?.Container.PropsAs<VobItemProperties2>()?.Instance;
+            if (GetComponent<VobItem.VRDocReader>() != null)
+                return;
+
+            if (GetReadableDocument() != null)
+                gameObject.AddComponent<VobItem.VRDocReader>();
+        }
+
+        private ZenKit.Daedalus.ItemInstance GetReadableDocument()
+        {
+            var item = GetComponentInParent<VobLoader>()?.Container?.PropsAs<VobItemProperties2>()?.Instance;
+            if (item == null || (VmGothicEnums.ItemFlags)item.MainFlag != VmGothicEnums.ItemFlags.ItemKatDocs)
+                return null;
+
+            return item.GetOnState(0) == 0 ? null : item;
+        }
+
+        /// <summary>
+        /// Runs the document's use function - its Doc_Show builds the pages on this item (VRDocViewer). Returns false
+        /// if nothing was shown.
+        /// </summary>
+        public bool ShowDocument()
+        {
+            var item = GetReadableDocument();
             if (item == null)
-                return;
-
-            var mainFlag = (VmGothicEnums.ItemFlags)item.MainFlag;
-            if (mainFlag != VmGothicEnums.ItemFlags.ItemKatDocs)
-                return;
-
-            var onStateIndex = item.GetOnState(0);
-            if (onStateIndex == 0)
-                return;
+                return false;
 
             // Ensure VRDocViewer is present on this GO before Daedalus fires Doc_Show.
             if (GetComponent<Adapters.Vob.VobItem.VRDocViewer>() == null)
@@ -259,11 +268,37 @@ namespace Gothic.VR.Adapters.Vob
 
             var hero = _gameStateService.GothicVm.GlobalHero as ZenKit.Daedalus.NpcInstance;
             if (!_docService.ShowItemDocument(hero, item, gameObject))
-                return;
+                return false;
 
             // G1 Usefireletter: CreateInvItem(ItWr_Fire_Letter_02) - the sealed one is used up by the engine.
             if (_itemUseService.IsConsumedOnUse(item))
                 _isConsumedOnDocClose = true;
+            return true;
+        }
+
+        /// <summary>
+        /// Closes the shown pages. A read sealed letter is used up now - returns true then (the item may be gone).
+        /// </summary>
+        public bool CloseDocument()
+        {
+            if (TryGetComponent<VobItem.VRDocViewer>(out var viewer))
+                Destroy(viewer);
+            foreach (Transform child in transform)
+            {
+                if (child.name != VRDocViewer.CanvasName)
+                    continue;
+
+                // Destroy is deferred to the end of the frame - inactive, nothing finds the pages again before then.
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
+            }
+
+            if (!_isConsumedOnDocClose)
+                return false;
+
+            _isConsumedOnDocClose = false;
+            ConsumeDocument();
+            return true;
         }
 
         /// <summary>

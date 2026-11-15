@@ -71,6 +71,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         // Workers (created in Start): effects/sounds, throwing (throwable spells only), telekinesis (that spell only).
         private VRSpellFx _fx;
         private VRSpellThrow _throw;
+        // The throw's lock-on (VRPlayerService.TickSpellLock): throwable spells in a hand, not ring/simulator.
+        private bool _hasLock;
         private VRTelekinesisSpell _telekinesis;
         private bool _isCasting;
 
@@ -152,6 +154,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 : null;
             if (throwCastKey != null)
                 _throw = new VRSpellThrow(throwCastKey, mfxName, _item.Spell, _fx).Inject();
+            // The rune hand's trigger locks the target - ring spells have no rune hand, the simulator aims by looking.
+            if (_throw != null && !RingHand.HasValue && !_vrInput.IsSimulator)
+                _hasLock = true;
             if (string.Equals(mfxName, VRTelekinesisSpell.SpellName, StringComparison.OrdinalIgnoreCase))
                 _telekinesis = new VRTelekinesisSpell(_fx).Inject();
 
@@ -184,6 +189,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (_item != null)
                 _vrWeaponService.SetRuneReadied(false);
 
+            if (_hasLock)
+                _vrPlayerService.EndSpellLock();
             _isTargeting = false;
             _vrPlayerService.DeactivateSpellTargeting();
             _isCasting = false;
@@ -266,10 +273,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            // Immersion option "twoHandSpellCharge": a charged spell grows only while both hands are together.
-            if (!IsChargeAllowed())
-                return;
-
             if (!IsManaTickDue())
                 return;
 
@@ -324,7 +327,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _isSendcastPending = false;
             _manaInvested = 0;
             _manaTickTimer = GetManaTickInterval();
-            _isChargeWaitLogged = false;
 
             _fx.SpawnInvestFx(true);
             TryBeginChainLightning();
@@ -387,41 +389,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return Keyboard.current[Key.R].wasReleasedThisFrame;
             return _vrInput.GetButton(CastHand, VrButton.Trigger).IsJustDeactivated;
         }
-
-        /// <summary>
-        /// Immersion option "twoHandSpellCharge": like a kamehameha - a charged spell (fireball, fire rain, wind
-        /// fist, ...) invests mana only while the other hand is next to the casting one; apart, the charge waits (a
-        /// pulse reminds). VR only - the simulator moves one hand at a time.
-        /// </summary>
-        private bool IsChargeAllowed()
-        {
-            if (!IsIniOn(VRConstants.IniNames.TwoHandSpellCharge, VRConstants.TwoHandSpellChargeDefaultValue) ||
-                _vrInput.IsSimulator ||
-                !SpellConst.ChargeEffectNames.Contains(GetSpellMfxName(_item.Spell) ?? string.Empty))
-                return true;
-
-            var left = _vrPlayerService.GetHandModelGo(VrHandSide.Left);
-            var right = _vrPlayerService.GetHandModelGo(VrHandSide.Right);
-            if (left == null || right == null ||
-                Vector3.Distance(left.transform.position, right.transform.position) <= _twoHandChargeDistance)
-            {
-                _isChargeWaitLogged = false;
-                return true;
-            }
-
-            if (!_isChargeWaitLogged)
-            {
-                _isChargeWaitLogged = true;
-                _hapticsService.Vibrate(_runeHandSide == VrHandSide.Left ? VrHandSide.Right : VrHandSide.Left,
-                    VrHapticPreset.Info);
-                Logger.Log("[VRRuneCaster] Charging waits - bring both hands together", LogCat.VR);
-            }
-            return false;
-        }
-
-        // Immersion option "twoHandSpellCharge": the hands' distance (m) that still counts as together.
-        private const float _twoHandChargeDistance = 0.3f;
-        private bool _isChargeWaitLogged;
 
         /// <summary>
         /// A rune flung away from the hands (teleport, physics) still
@@ -807,6 +774,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         {
             if (!TryGetThrowHand(out var handSide))
             {
+                if (_hasLock)
+                    _vrPlayerService.ClearSpellLock();
                 if (_isCasting)
                     CancelThrow("no free throwing hand");
                 else
@@ -815,6 +784,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             }
 
             _throw.TrackHand(handSide);
+
+            // The lock-on owns the target: Daedalus' other while charging (Spell_ProcessMana) and the throw's target.
+            if (_hasLock)
+            {
+                var runeHandSide = handSide == VrHandSide.Left ? VrHandSide.Right : VrHandSide.Left;
+                if (_vrPlayerService.TickSpellLock(runeHandSide, _throw.Range))
+                    _fx.PlayOneShot("TMAG_INIT");
+                _spellTarget = _vrPlayerService.SpellLockTarget;
+            }
 
             var isWasd = _vrInput.IsSimulator;
             var button = isWasd ? default : _vrInput.GetButton(handSide, VrButton.Trigger);
@@ -909,7 +887,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _isThrowCharged = false;
             _manaInvested = 0;
             _investLevel = 0;
-            _spellTarget = null;
+            _spellTarget = _hasLock ? _vrPlayerService.SpellLockTarget : null;
             _manaTickTimer = GetManaTickInterval(); // first mana right away
 
             // Spamming the trigger: whatever the last charge left in the hand goes first - effects stacked up.
@@ -986,7 +964,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
 
-            var direction = _throw.Aim(handGo, isWasd);
+            var lockedTarget = _hasLock ? _vrPlayerService.SpellLockTarget : null;
+            var direction = _throw.Aim(handGo, isWasd, lockedTarget);
 
             _fx.StopInvestSound();
             _fx.PlayCastSound();
@@ -994,7 +973,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var origin = handGo.transform.position + direction * 0.15f;
             // Per level like the engine (castLevel + 1): per mana tick a held fireball did thousands.
             var level = Mathf.Clamp(_investLevel + 1, 1, VRSpellFx.MaxInvestLevel);
-            _throw.Throw(origin, direction, level, _investLevel, GetSpellDamage(_item.Spell) * level);
+            _throw.Throw(origin, direction, level, _investLevel, GetSpellDamage(_item.Spell) * level, lockedTarget);
             InvokeSpellCast();
             // A thrown scroll is used up like a cast one - Firebolt/Fireball scrolls were thrown forever.
             TryUseUpScroll();

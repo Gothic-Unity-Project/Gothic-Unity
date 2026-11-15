@@ -34,6 +34,31 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public NpcInstance ItemFunctionOwner => _equipDomain.ItemFunctionOwner;
 
+        /// <summary>
+        /// The hero tried to plunder a body with nothing to take: vanilla (OpenGothic GameScript::printNothingToGet)
+        /// calls the script's player_plunder_is_empty (G2 prints "nothing to get"); G1 has none and only plays an
+        /// animation, which we skip.
+        /// </summary>
+        public void PrintNothingToGet()
+        {
+            var vm = _gameStateService.GothicVm;
+            var function = vm.GetSymbolByName(DaedalusConst.PlayerPlunderIsEmpty);
+            var hero = vm.GetHeroContainer();
+            if (function == null || hero == null)
+                return;
+
+            var oldSelf = vm.GlobalSelf;
+            vm.GlobalSelf = hero.Instance;
+            try
+            {
+                vm.Call(function.Index);
+            }
+            finally
+            {
+                vm.GlobalSelf = oldSelf;
+            }
+        }
+
 
         public void ExtEquipItem(NpcInstance npc, int itemId)
         {

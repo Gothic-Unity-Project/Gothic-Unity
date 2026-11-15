@@ -11,8 +11,7 @@ namespace Gothic.VR.Adapters.Player
     /// <summary>
     /// Comfort vignette: the edges of the view darken while the player's body is moved without walking - smooth
     /// movement, smooth turning, climbing. Head movement, teleports and snap turns don't count. The Gothic.ini option
-    /// moveVignette picks the strength (0 = off). The hero's death closes it to black (SetClosureOverride), whatever
-    /// the option says.
+    /// moveVignette picks the strength (0 = off).
     /// Sits on the camera like ScreenFade and draws a disc (child in the prefab) in front of the eyes with an on-top
     /// material.
     /// </summary>
@@ -61,7 +60,6 @@ namespace Gothic.VR.Adapters.Player
         private Vector3 _lastRootPosition;
         private float _lastRootYaw;
         private bool _hasLastRoot;
-        private float? _closureOverride;
 
         private void Awake()
         {
@@ -107,27 +105,8 @@ namespace Gothic.VR.Adapters.Player
             return true;
         }
 
-        /// <summary>
-        /// 0..1 closes the view from the edges, 1 = black (the hero's death, VrKnockoutView), regardless of movement
-        /// and the option. null gives the vignette back to the movement.
-        /// </summary>
-        public void SetClosureOverride(float? closure)
-        {
-            _closureOverride = closure;
-            _hasLastRoot = false;
-        }
-
         private void LateUpdate()
         {
-            if (_renderer != null && _closureOverride.HasValue)
-            {
-                var closure = Mathf.Clamp01(_closureOverride.Value);
-                _renderer.enabled = closure > 0.01f;
-                // Down to the feather's width below 0: the middle closes as well.
-                _materialInstance.SetFloat(_apertureId, Mathf.Lerp(1f, -_featherAngle / _coverAngle, closure));
-                return;
-            }
-
             if (_renderer == null || _rig == null || (!_isSettingRead && !TryReadSetting()))
                 return;
 

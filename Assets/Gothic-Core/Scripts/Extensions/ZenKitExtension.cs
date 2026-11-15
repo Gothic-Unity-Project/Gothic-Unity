@@ -76,6 +76,37 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
+        /// RGBA bytes of one mip level of an R5G6B5 texture. Uses ZenKit's RGBA data if it has it (a cached texture
+        /// may only carry raw data) and decodes the raw data otherwise. Null if the level's data is too short.
+        /// </summary>
+        [CanBeNull]
+        public static byte[] GetR5G6B5MipmapRgba(this ITexture zkTexture, int level)
+        {
+            var pixels = zkTexture.GetWidth(level) * zkTexture.GetHeight(level);
+            var rgbaMips = zkTexture.IsCached() ? zkTexture.AllMipmapsRgba : null;
+            var rgbaData = zkTexture.IsCached()
+                ? rgbaMips != null && rgbaMips.Count > level ? rgbaMips[level] : null
+                : zkTexture.GetMipmapRgba(level);
+            if (rgbaData != null && rgbaData.Length == pixels * 4)
+                return rgbaData;
+
+            var raw = zkTexture.GetMipmapRaw(level);
+            if (raw == null || raw.Length < pixels * 2)
+                return null;
+
+            var rgba = new byte[pixels * 4];
+            for (var p = 0; p < pixels; p++)
+            {
+                var value = raw[p * 2] | (raw[p * 2 + 1] << 8);
+                rgba[p * 4] = (byte)(((value >> 11) & 0x1F) * 255 / 31);
+                rgba[p * 4 + 1] = (byte)(((value >> 5) & 0x3F) * 255 / 63);
+                rgba[p * 4 + 2] = (byte)((value & 0x1F) * 255 / 31);
+                rgba[p * 4 + 3] = 255;
+            }
+            return rgba;
+        }
+
+        /// <summary>
         /// An oCMobContainer without a lid to swing open: its visual isn't an .MDS (G1's orc mummies,
         /// CHESTBIG_ORCMUMMY.ASC). It's used like other mobs and looted like a body.
         /// </summary>

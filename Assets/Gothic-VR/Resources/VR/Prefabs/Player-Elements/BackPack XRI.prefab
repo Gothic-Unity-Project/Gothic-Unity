@@ -212,6 +212,37 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!1 &2789336413270849983
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1320683191325799321}
+  m_Layer: 0
+  m_Name: Xri Attach Right
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1320683191325799321
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2789336413270849983}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: -0.00077, y: -0.00008, z: 0.0026}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5594178864967151085}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3034623789462469926
 GameObject:
   m_ObjectHideFlags: 0
@@ -790,8 +821,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 20, y: 12}
-  m_SizeDelta: {x: 10, y: 10}
+  m_AnchoredPosition: {x: 0, y: -12}
+  m_SizeDelta: {x: 30, y: 10}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2505906489425372736
 CanvasRenderer:
@@ -1150,7 +1181,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 10, y: 10}
+  m_SizeDelta: {x: 30, y: 10}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5234652655564651715
 CanvasRenderer:
@@ -1180,17 +1211,17 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: X
+  m_text: Take all
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: ed34b05229166f3469c21b7208879736, type: 2}
+  m_sharedMaterial: {fileID: 5152873236376385906, guid: ed34b05229166f3469c21b7208879736, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
     rgba: 4291286240
-  m_fontColor: {r: 0.2, g: 0.85, b: 0.25, a: 1}
+  m_fontColor: {r: 0.878, g: 0.831, b: 0.78, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1207,8 +1238,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 12
-  m_fontSizeBase: 12
+  m_fontSize: 6
+  m_fontSizeBase: 6
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -2525,6 +2556,9 @@ PrefabInstance:
       addedObject: {fileID: 8508804596616669162}
     - targetCorrespondingSourceObject: {fileID: 8560556203703700366, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 1320683191325799321}
+    - targetCorrespondingSourceObject: {fileID: 8560556203703700366, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 2271751350983319797}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: -2445633797789926738, guid: 6cb8512e2712dc24ab93173e96e1a2bf, type: 3}
@@ -2802,6 +2836,7 @@ MonoBehaviour:
   m_MaxAngularVelocityDelta: 20
   _heldInterpolation: 1
   _isOneHandOnly: 1
+  _rightHandAttachTransform: {fileID: 1320683191325799321}
 --- !u!114 &6185002808432276180
 MonoBehaviour:
   m_ObjectHideFlags: 0

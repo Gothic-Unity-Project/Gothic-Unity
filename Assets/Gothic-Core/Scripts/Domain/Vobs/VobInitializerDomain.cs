@@ -793,6 +793,7 @@ namespace Gothic.Core.Domain.Vobs
         {
             var go = GetPrefab(vob, parent);
             go.name = $"{vob.SoundName}-{vob.SoundNameDaytime}";
+            go.GetComponent<SoundDaytimeHandler>().Init(vob);
 
             var sources = go.GetComponents<AudioSource>();
 
