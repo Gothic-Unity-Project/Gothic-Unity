@@ -4,6 +4,8 @@
 - Built from the five reports in this folder: `fix-clusters.md`, `architecture-core-vobs.md`,
   `architecture-core-npc.md`, `architecture-vr-adapters.md` and `performance-quest2.md`, plus GitHub issue #521.
 - Performance for Quest 2 is part of the same list. Those items carry `perf` in the Source column.
+- `settings-inspection.md` holds the render, OpenXR and quality settings as read from the Editor on 2026-11-16
+  (source `settings`).
 
 ## How this list is ordered
 
@@ -25,10 +27,11 @@ Most critical and least complex first. Work top to bottom.
 | # | Change | Where | Why | Effort | Source |
 |---|---|---|---|---|---|
 | 1 | Take a performance baseline on a real Quest 2 | the 8 scenes and target values of the measurement plan in `performance-quest2.md` | Without it no performance item below can be confirmed, and some may turn out smaller than they read | S | perf §6 |
-| 2 | Check the settings the review could not inspect | SRP Batcher switch, depth and opaque texture, depth priming and post-processing on the renderer, OpenXR settings (render mode, foveation, late latching), culling distances in `Production.asset`, whether the `Light` on `zCVobLight.prefab` is enabled | Each decides whether a finding below is real (items 4, 5, 25, 71) | S | perf §5, §8 |
+| 2 | **Done 2026-11-16**: settings the review could not inspect, see `settings-inspection.md` | URP assets, renderer, OpenXR for Android, VR camera, `Production.asset`, `zCVobLight.prefab` | Result: no hidden full-screen passes (depth/opaque texture, depth priming, post-processing all off); items 4, 5 and 5a confirmed | S | settings |
 | 3 | Stop animating and skinning NPCs that are not visible | `AbstractMeshBuilder.cs:311` (`updateWhenOffscreen = true`), `AnimationSystem.cs:338` (`AlwaysAnimate`) | Every NPC within 50 m animates and skins every frame, visible or not; NPC culling is by distance only. Confirm with an A/B toggle in the Old Camp | S | perf P01 |
-| 4 | Foveated rendering, eye texture scale and refresh rate for Quest | no code sets them; `Packages/manifest.json` has plain OpenXR without a Meta package | Full-resolution rendering in the periphery on a fill-rate-limited GPU. **Verify first** with item 2. Confirm with GPU frame time in OVR Metrics Tool | S | perf P03 |
-| 5 | Make `Lit/World` SRP Batcher compatible; share materials instead of `new Material` per renderer | `Lit-World.shader:34` (`_FocusBrightness` outside `UnityPerMaterial`) | Very likely one draw call setup per renderer on the render thread. **Verify first** in the shader Inspector or Frame Debugger | S | perf P02 |
+| 4 | Enable foveated rendering for Quest and set a level in code; A/B MSAA 2x and render scale | OpenXR settings for Android: Foveated Rendering feature is disabled, API is `Legacy`; no code sets a level | **Confirmed by the settings.** Full-resolution rendering in the periphery on a fill-rate-limited GPU. Confirm the gain with GPU frame time in OVR Metrics Tool | S | perf P03, settings |
+| 5 | Make `Lit/World` SRP Batcher compatible; share materials instead of `new Material` per renderer | `Lit-World.shader:34` (`_FocusBrightness` outside the `UnityPerMaterial` block at lines 71-78) | **Confirmed by the shader source**: the SRP Batcher is on, but this shader can't use it, so each renderer gets its own draw call setup. Check the other custom shaders too | S | perf P02, settings |
+| 5a | Disable the Unity `Light` component on light VOBs (keep it as data only) | `zCVobLight.prefab` (enabled real-time point light), `StationaryLight.cs` | **Confirmed by the settings**: the world shaders do their own lighting and never read URP's lights, so every light VOB costs light culling for almost nothing. **Verify first** what `Lit-Misc` (the one shader that reads them) is used for | S | perf P17, settings |
 | 6 | EditMode test that builds the Reflex container and resolves every registered service | `Assets/Gothic-Tests/EditMode/`, `ReflexProjectInstaller`, `ReflexVRSceneInstaller` | Three "the game / VR scene starts again" fixes were service cycles that only fail at game start | S | fix §9 |
 | 7 | EditMode test that compares `DeveloperConfig` fields with the values serialized in `Production.asset` | `Assets/Gothic-Tests/EditMode/`, `DeveloperConfig.cs` | 10 asset-only repair commits; NPC archers shipped melee-only because a flag was off in the asset | S | fix §8 |
 | 8 | Fixed timestep matched to the display; lower the maximum allowed timestep | `ProjectSettings/TimeManager.asset` (0.02 s and 0.333 s) | 50 Hz physics against a 72 Hz display gives uneven hand physics; up to 16 physics steps run after one hitch | S | perf P08 |
@@ -118,7 +121,7 @@ These don't fix wrong behaviour, but each is cheap and makes the larger items sm
 | 68 | `NpcProperties` to `Models/`; adapter ports; state machine out of `AiHandler` | `Adapters/Properties/NpcProperties.cs`, `AiHandler.cs` | L | npc 2 |
 | 69 | Split `AnimationSystem` (track player, event domain, root motion). Makes #23 easier to test | `Adapters/Animations/AnimationSystem.cs` | L (3 PRs) | vob §6 |
 | 70 | Puppet animation domain (also removes its per-frame allocations); seams in `VRFavoritesRing` and `VrPhysicsHand` | VR adapters | M each | vr 16, 19 |
-| 71 | Foliage, water and PFX overdraw; real-time `Light` per light VOB. Not judged in depth, **verify first** with item 2 and an overdraw view | shaders, `zCVobLight.prefab` | unknown | perf P16, P17 |
+| 71 | Foliage, water and PFX overdraw. Not judged in depth, **verify first** with an overdraw view | shaders | unknown | perf P16 |
 
 ## Issue #521: remove `IVrBackend`
 
@@ -171,8 +174,10 @@ Notes for the narrow scope:
 
 ## Not covered by this plan
 
-- Measured performance data. The performance review was a code and settings review; the OpenXR settings, the SRP
-  Batcher switch and the renderer asset could not be inspected (item 2).
+- Measured performance data. The performance review and the settings inspection (`settings-inspection.md`) read
+  code and project files; nothing was profiled.
+- The Pico build's OpenXR features: all PICO features are disabled in the settings asset, and whether the Pico
+  build switches them on was not inspected.
 - Areas the reports counted but did not analyse: VR hands and rig (33 fixes), favorites ring, spells, audio,
   animation, caches and textures.
 - `DialogService`, most `Domain/Npc` class bodies, prefab, scene and asset diffs.
