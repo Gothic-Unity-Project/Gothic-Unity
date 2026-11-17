@@ -336,7 +336,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             foreach (var slot in VrSocketSlot.Instances)
             {
                 IVrSocket socket = slot;
-                if (socket.IsOccupied || socket.IsShoulder || !slot.HasActiveBackend || !slot.Accepts(stackGrabbable))
+                if (socket.IsOccupied || socket.IsShoulder || !slot.HasBackend || !slot.Accepts(stackGrabbable))
                     continue;
                 var distance = Vector3.Distance(socket.Transform.position, stackGrabbable.transform.position);
                 if (distance > nearestDistance)

@@ -8,7 +8,7 @@ namespace Gothic.VR.Interaction.Ports
 {
     /// <summary>
     /// The VR player body: tracked head/controllers, character controller, locomotion and screen fade.
-    /// Implemented by the active VR backend, which lives on the player prefab root.
+    /// Implemented by XriRig, which lives on the player prefab root.
     /// </summary>
     public interface IVrRig
     {

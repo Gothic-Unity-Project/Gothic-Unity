@@ -63,7 +63,7 @@ namespace Gothic.VR.Services
             _contextInteractionService.GetImpl<VRContextInteractionService>();
 
         /// <summary>
-        /// The player body of the active VR backend. null before the VR player is set up.
+        /// The player body (rig). null before the VR player is set up.
         /// </summary>
         public IVrRig Rig => VRContextInteractionService?.Rig;
 

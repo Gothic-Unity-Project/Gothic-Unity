@@ -1,7 +1,6 @@
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Ports;
-using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
@@ -18,15 +17,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// - XRI must not move the grabbable child: socket snapping and the socket's scale mode are off, and
     ///   GothicGrabInteractable doesn't process (move) itself while only a socket selects it.
     ///
-    /// Disabled in the prefab. Enables itself on the XRI backend only, so that no XRInteractionManager is searched
-    /// or created on other backends.
+    /// Disabled in the prefab, enabled in Awake once the socket is set up.
     /// </summary>
     public class XriSocketBridge : XRSocketInteractor, IVrSocketBackend
     {
         [Tooltip("Seconds after a hand released an item, in which the slot still takes it.")]
         [SerializeField] private float _handReleaseWindow = 0.5f;
-
-        [Inject] private readonly IVrBackend _vrBackend;
 
         private VrSocketSlot _slot;
 
@@ -36,8 +32,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
         public bool IsLineGrabbable => _slot != null && _slot.IsLineGrabbable;
         private XRGrabInteractable _pending;
         private bool _isDetectionEnabled = true;
-
-        public bool IsActive => _vrBackend is XriBackend;
 
         /// <summary>
         /// Off: nothing is detected, and hands can't take the held interactable out (see SetDetectionEnabled).
@@ -63,8 +57,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
             keepSelectedTargetValid = true;
             startingSelectedInteractable = null;
 
-            if (IsActive)
-                enabled = true;
+            enabled = true;
         }
 
         private void Update()

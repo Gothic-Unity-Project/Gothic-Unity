@@ -4,7 +4,6 @@ using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
-using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
@@ -19,9 +18,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// and its VrInteractable. Forwards XRI's hover/select events synchronously to the VrInteractable and executes
     /// its commands on the interactable.
     ///
-    /// Prefabs carry the components of both backends. The XRI interactable is disabled in the prefab and only this
-    /// bridge enables it, if XRI is the active backend. Otherwise, it stays disabled and never looks for (or
-    /// creates) an XRInteractionManager.
+    /// The XRI interactable is disabled in the prefab and enabled by this bridge in Start, once the colliders of the
+    /// Gothic mesh exist.
     /// </summary>
     public class XriInteractableBridge : MonoBehaviour, IVrInteractableBackend
     {
@@ -29,8 +27,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
                  "E.g. the backpack's grab volume, which HVR used, as its hull alone is hard to grab.")]
         [SerializeField]
         private Collider[] _grabTriggers;
-
-        [Inject] private readonly IVrBackend _vrBackend;
 
         private readonly Dictionary<IXRInteractor, VrGrabArgs> _selectArgs = new();
         private readonly HashSet<IXRInteractor> _handHovers = new();
@@ -46,7 +42,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool _isGrabEnabled = true;
         private bool _isStarted;
 
-        public bool IsActive => _vrBackend is XriBackend;
         public bool IsHeld => _xrInteractable != null && _xrInteractable.isSelected;
 
         /// <summary>
@@ -114,18 +109,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private void Awake()
         {
-            TrySubscribe();
-        }
-
-        /// <summary>
-        /// Awake for scene objects. Prefabs spawned at runtime and injected afterwards (Instantiate + Inject: the trade
-        /// goods and loot backpacks) have no backend in Awake yet - they subscribe in Start (it couldn't be grabbed).
-        /// </summary>
-        private void TrySubscribe()
-        {
-            if (_isSubscribed || !IsActive)
-                return;
-
             _interactable = GetComponent<VrInteractable>();
             _xrInteractable = GetComponent<XRBaseInteractable>();
             if (_interactable == null || _xrInteractable == null)
@@ -144,7 +127,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private void Start()
         {
-            TrySubscribe();
             if (!_isSubscribed)
                 return;
 

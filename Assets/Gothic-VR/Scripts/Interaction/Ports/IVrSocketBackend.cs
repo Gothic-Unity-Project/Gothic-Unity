@@ -12,11 +12,6 @@ namespace Gothic.VR.Interaction.Ports
     public interface IVrSocketBackend
     {
         /// <summary>
-        /// Whether this bridge belongs to the active VR backend.
-        /// </summary>
-        bool IsActive { get; }
-
-        /// <summary>
         /// Selects the interactable in the backend, ignoring the filters. The slot has already attached it and
         /// raised its events. May finish later (e.g. while the interactable isn't registered at the backend yet).
         /// </summary>

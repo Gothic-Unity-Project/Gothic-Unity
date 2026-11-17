@@ -11,21 +11,18 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Interaction.Components
 {
     /// <summary>
-    /// Gets the player off a ladder at its top. Climbing itself is done by the backend (XRI: ClimbInteractable and
+    /// Gets the player off a ladder at its top. Climbing itself is done by XRI (ClimbInteractable and
     /// ClimbProvider), which lets the player hang at the top edge without ever reaching the floor.
     ///
     /// While a hand holds the ladder and the head rose above its top edge, the rig is put onto the floor in front of
     /// the ladder (the way the player looks). The spot needs a floor near the top edge and room for the player's
     /// CharacterController, otherwise the player stays on the ladder. Both hands let go of the ladder meanwhile.
-    ///
-    /// HVR has no such mantle (the player lets go and walks off by thumbstick), so this is inactive there.
     /// </summary>
     [RequireComponent(typeof(VrInteractable))]
     public class VrLadderExit : MonoBehaviour
     {
         private const int MaxOverlaps = 16;
 
-        [Inject] private readonly IVrBackend _vrBackend;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
 
         [Tooltip("The head needs to be this far (m) above the ladder's top edge to step off.")]
@@ -47,16 +44,8 @@ namespace Gothic.VR.Interaction.Components
         private float _nextTryTime;
         private bool _isFailureLogged;
 
-        private bool IsActive => _vrBackend != null;
-
         private void Awake()
         {
-            if (!IsActive)
-            {
-                enabled = false;
-                return;
-            }
-
             _interactable = GetComponent<VrInteractable>();
             _interactable.Grabbed += OnGrabbed;
             _interactable.Released += OnReleased;

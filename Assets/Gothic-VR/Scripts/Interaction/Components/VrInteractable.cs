@@ -97,20 +97,9 @@ namespace Gothic.VR.Interaction.Components
             get
             {
                 if (_backend == null)
-                    _backend = FindActiveBackend();
+                    _backend = GetComponent<IVrInteractableBackend>();
                 return _backend;
             }
-        }
-
-        private IVrInteractableBackend FindActiveBackend()
-        {
-            foreach (var backend in GetComponents<IVrInteractableBackend>())
-            {
-                if (backend.IsActive)
-                    return backend;
-            }
-
-            return null;
         }
 
         /// <summary>

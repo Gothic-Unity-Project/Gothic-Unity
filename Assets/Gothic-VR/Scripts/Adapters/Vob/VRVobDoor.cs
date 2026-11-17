@@ -25,7 +25,7 @@ namespace Gothic.VR.Adapters.Vob
         {
             var vobDoor = GetComponentInParent<VobLoader>().Container.VobAs<IDoor>();
             PrepareSounds(vobDoor);
-            VRMobHinge.Follow(VrHinges.FindActive(this),
+            VRMobHinge.Follow(VrHinges.Find(this),
                 GetComponentInParent<VobLoader>().Container);
         }
         
@@ -66,7 +66,7 @@ namespace Gothic.VR.Adapters.Vob
                 _doorClosedClips.Add(mdsName.ToLower(), _audioService.GetRandomSoundClip(closeSoundEffect));
             }
 
-            var hinge = VrHinges.FindActive(this);
+            var hinge = VrHinges.Find(this);
             hinge?.SetSounds(_doorOpenedClips[mdsName.ToLower()], _doorClosedClips[mdsName.ToLower()]);
         }
     }

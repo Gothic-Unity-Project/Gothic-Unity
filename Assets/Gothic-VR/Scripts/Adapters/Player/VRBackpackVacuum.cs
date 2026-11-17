@@ -73,7 +73,7 @@ namespace Gothic.VR.Adapters.Player
             _backpack = GetComponent<VrInteractable>();
             _putIntoSocket = GetComponentsInChildren<MonoBehaviour>(true)
                 .OfType<IVrSocket>()
-                .FirstOrDefault(i => _putIntoSlotNames.Contains(((MonoBehaviour)i).name) && IsActiveSocket(i));
+                .FirstOrDefault(i => _putIntoSlotNames.Contains(((MonoBehaviour)i).name));
             _itemLayerMask = 1 << Constants.VobItemLayer;
 
             if (_backpack == null || _putIntoSocket == null)
@@ -105,14 +105,6 @@ namespace Gothic.VR.Adapters.Player
             if (gothicIni != null)
                 _isOptionOn = gothicIni.GetInt(VRConstants.IniNames.BackpackVacuum,
                     VRConstants.BackpackVacuumDefaultValue) == 1;
-        }
-
-        /// <summary>
-        /// Prefabs carry the sockets of all backends - only the active backend's bridge holds anything.
-        /// </summary>
-        private static bool IsActiveSocket(IVrSocket socket)
-        {
-            return socket is not IVrSocketBackend backend || backend.IsActive;
         }
 
         private void OnDisable()

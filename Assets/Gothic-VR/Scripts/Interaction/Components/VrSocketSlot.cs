@@ -28,7 +28,7 @@ namespace Gothic.VR.Interaction.Components
     ///   (BeforeGrabbed/Grabbed = placed, Released = removed).
     ///
     /// A backend part (IVrSocketBackend, e.g. XriSocketBridge) on the same GameObject detects items released into
-    /// the slot and holds them in the backend's terms. Without an active backend part, the slot still works for
+    /// the slot and holds them in the backend's terms. Without a backend part, the slot still works for
     /// programmatic TryPlace/ForceRelease (nothing is detected).
     /// </summary>
     public class VrSocketSlot : MonoBehaviour, IVrSocket
@@ -128,9 +128,9 @@ namespace Gothic.VR.Interaction.Components
         public Transform AttachPoint => _attachPoint != null ? _attachPoint : transform;
 
         /// <summary>
-        /// True if a backend part of the active VR backend sits next to this slot (it detects items).
+        /// True if a backend part (XriSocketBridge) sits next to this slot (it detects items).
         /// </summary>
-        public bool HasActiveBackend => Backend != null;
+        public bool HasBackend => Backend != null;
 
         /// <summary>
         /// The hand's line can pull the item out of this slot (see the serialized field). Shoulder slots never.
@@ -161,7 +161,7 @@ namespace Gothic.VR.Interaction.Components
             {
                 if (!_isBackendResolved)
                 {
-                    _backend = FindActiveBackend();
+                    _backend = GetComponent<IVrSocketBackend>();
                     _isBackendResolved = true;
                 }
 
@@ -455,17 +455,6 @@ namespace Gothic.VR.Interaction.Components
                 return;
 
             HoverExited?.Invoke(interactable);
-        }
-
-        private IVrSocketBackend FindActiveBackend()
-        {
-            foreach (var backend in GetComponents<IVrSocketBackend>())
-            {
-                if (backend.IsActive)
-                    return backend;
-            }
-
-            return null;
         }
 
         /// <summary>
