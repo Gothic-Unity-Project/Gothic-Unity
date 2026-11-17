@@ -42,6 +42,7 @@ namespace Gothic.VR.Adapters.Trade
     public class VRTradeCounter : MonoBehaviour
     {
         [Inject] private readonly TradeService _tradeService;
+        [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
@@ -161,7 +162,8 @@ namespace Gothic.VR.Adapters.Trade
         }
 
         /// <summary>
-        /// The trader can't trade any more - everything goes back.
+        /// The trader can't trade any more - everything goes back. He can't go on talking either: the dialog ends
+        /// with the trade instead of waiting for choices a dead or knocked out trader never brings back.
         /// </summary>
         private void Update()
         {
@@ -175,7 +177,7 @@ namespace Gothic.VR.Adapters.Trade
             if (isOut)
             {
                 Logger.Log("[Trade] The trader can't trade any more - closed", LogCat.VR);
-                _tradeService.End();
+                _dialogService.StopDialog(trader);
                 return;
             }
 

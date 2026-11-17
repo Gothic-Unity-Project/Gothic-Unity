@@ -11,8 +11,9 @@ In the original game the trade screen holds the dialog: the choices are neither 
 
 ## Decisions
 
-1. **While the counter is open, the dialog shows no choices.** They come back when the trade ends: closed with X, sealed with OK, or the trader can't trade any more. Not chosen: keeping the choices and moving the box out of reach, or ignoring them while a hand is over the counter. Both keep accidental picks possible and need tuning in the headset.
+1. **While the counter is open, the dialog shows no choices.** They come back when the trade ends: closed with X or sealed with OK. Not chosen: keeping the choices and moving the box out of reach, or ignoring them while a hand is over the counter. Both keep accidental picks possible and need tuning in the headset.
 2. **Ending the dialog still ends the trade.** Walking away, or anything else that ends the dialog, closes the counter and gives the offers back, as before. The choices don't come back then.
+3. **A trader who can't trade any more ends the conversation too.** Knocked out, dead or with a drawn weapon he closes the counter, the offers go back and the dialog is over. Not chosen: bringing the choices back, because a trader who is down never does and the hero would stay held.
 
 ## Consequences
 

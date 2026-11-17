@@ -25,7 +25,8 @@ namespace Gothic.Core.Services.Player
     /// currency.
     /// The VR trade counter lays items into the offers (Current): they are reserved (out of their owner's inventory) and
     /// only change hands on TryCommit(); the difference is paid in currency. Ending the trade gives the offers back. The
-    /// dialog goes on meanwhile (its choices come back at once, like talking to a cashier) and its end ends the trade.
+    /// trade holds the dialog like Gothic's trade screen (its choices come back when the trade ends), and the dialog's
+    /// end ends the trade.
     /// </summary>
     public class TradeService
     {
@@ -129,28 +130,36 @@ namespace Gothic.Core.Services.Player
             var trader = Trader;
             try
             {
-                ReturnOffers();
+                try
+                {
+                    ReturnOffers();
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError($"[Trade] The offers couldn't go back: {e}", LogCat.Dialog);
+                }
+                Trader = null;
+                Current = null;
+                Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} ended", LogCat.Dialog);
+                try
+                {
+                    _contextTradeService.HideTrade();
+                    GlobalEventDispatcher.TradeEnded.Invoke(trader);
+                }
+                catch (Exception e)
+                {
+                    // StopDialog ends the trade first - a throwing counter or listener mustn't keep the dialog and
+                    // the player locked.
+                    Logger.LogError($"[Trade] Closing the counter or a listener of the trade's end failed: {e}",
+                        LogCat.Dialog);
+                }
             }
-            catch (Exception e)
+            finally
             {
-                Logger.LogError($"[Trade] The offers couldn't go back: {e}", LogCat.Dialog);
+                // Whatever went wrong above: a dialog without choices and without a counter has no way out.
+                if (isResumingDialog)
+                    ResumeDialog(trader);
             }
-            Trader = null;
-            Current = null;
-            Logger.Log($"[Trade] Trading with {trader.Instance.GetName(NpcNameSlot.Slot0)} ended", LogCat.Dialog);
-            _contextTradeService.HideTrade();
-            try
-            {
-                GlobalEventDispatcher.TradeEnded.Invoke(trader);
-            }
-            catch (Exception e)
-            {
-                // StopDialog ends the trade first - a throwing listener mustn't keep the dialog and the player locked.
-                Logger.LogError($"[Trade] A listener of the trade's end failed: {e}", LogCat.Dialog);
-            }
-
-            if (isResumingDialog)
-                ResumeDialog(trader);
         }
 
         /// <summary>
