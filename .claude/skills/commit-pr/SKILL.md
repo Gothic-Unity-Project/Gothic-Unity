@@ -35,9 +35,10 @@ The texts sent to GitHub go into the same folder: `pr-body.md` and `<sha>-commen
 
 ## Pull request
 
-Git flow (`CONTRIBUTING.md` > Branching): branch from `develop` and target `develop`. Exceptions: `fix/*` for a
-release start from and target its `release/*` branch; `release/*` and `hotfix/*` target `main` and are merged back
-into `develop`. Description sections (same as `.github/PULL_REQUEST_TEMPLATE/pull_request_template.md`):
+Git flow: `feature/*` start from `develop` and target `develop`; `fix/*` for a release start from and target its
+`release/x.y.z`; `release/*` and `hotfix/*` start from and target `main`/`develop` as in `CONTRIBUTING.md` >
+Branching (also for merge-back rules). Description sections (same as
+`.github/PULL_REQUEST_TEMPLATE/pull_request_template.md`):
 - **What** - player-visible change + main technical points
 - **Why** - bug / issue link
 - **How to test manually** - concrete in-game steps for G1 and/or G2 (where to go, who to talk to, what you should
@@ -64,7 +65,7 @@ new comment.
 
 A PR that decides something (new feature, setting, trade-off, a rule different from the original game) adds a
 decision record `Docs/adr/<date>-<topic>.md` in plain words (rules and template in `Docs/adr/README.md`). Records
-already merged into `develop` are never edited - a changed decision is a new record with `- Replaces: [...]`.
+already merged are never edited - a changed decision is a new record with `- Replaces: [...]`.
 
 Add the `pipeline-test-build` label when the PR needs a CI build (Windows64 / Quest / Pico).
 
@@ -94,7 +95,9 @@ Rules:
 ## Sending it to GitHub
 
 Opening or updating a PR is the request to push the branch. Write `pr-body.md` and `<sha>-comment.md` first, then:
-- `gh auth status` succeeds: `gh pr create --base develop --body-file pr-body.md` (new PR; base per "Pull request" above) or
+- `gh auth status` succeeds: `gh pr create --base <base> --body-file pr-body.md` (new PR; `<base>` per
+  "Pull request" above:
+  `develop`, `release/x.y.z` or `main`) or
   `gh pr edit --body-file pr-body.md` (existing), then `gh pr comment --body-file <sha>-comment.md`.
 - No `gh`: print both file paths and tell the author to paste them into GitHub ("Compare & pull request" after the
   push, or edit the description and add a comment).

@@ -2,8 +2,9 @@
 name: architecture-reviewer
 description: Reviews the structure of Gothic-Unity against Docs/architecture.md - layer placement, dependency
     direction, bounded contexts, extension points (G1/G2/mods/VR/Flat), coupling via GlobalEventDispatcher/DI,
-    public API growth, token-cheap code and per-frame cost on Quest 2. Read-only. Modes - a branch/range (default origin/develop...HEAD) before a
-    PR, "--wip" for uncommitted work, a plan/design text before implementing, or a folder/class to plan a split.
+    public API growth, token-cheap code and per-frame cost on Quest 2. Read-only. Modes - a branch/range
+    (default origin/develop...HEAD when none is given) before a PR, "--wip" for uncommitted work, a plan/design
+    text before implementing, or a folder/class to plan a split.
     Not for bugs or style - that's gothic-reviewer.
 tools: Read, Grep, Glob, Bash
 model: opus
@@ -39,7 +40,7 @@ The layer ranks are in `CLAUDE.md` (Domain and Services share a rank and may use
 
 | Input | When | What you do |
 |---|---|---|
-| range (default `origin/develop...HEAD`, local `develop` is often behind) | before a PR | steps 1-3 |
+| range (given by caller; default `origin/develop...HEAD`, local `develop` is often behind) | before a PR | steps 1-3 |
 | `--wip` | before committing | steps 1-3 on the working tree; add untracked files from `git status --short` yourself |
 | plan / design text | before implementing | skip step 1; for each planned type say where it lives, what it depends on, what it raises/listens to, and what it costs per frame for how many instances; check it against the "where does my code go" table |
 | folder or class | planning a split or a refactor | skip step 1; read the files, output an ordered step plan of PR-sized refactorings instead of findings |
@@ -50,8 +51,9 @@ Ignore unrelated local changes (`.asset`, `ProjectSettings/*`, scenes the change
 
 ## 1. Collect facts (cheap, deterministic)
 
-Run `bash .claude/scripts/architecture-facts.sh <range>` (`origin/develop...HEAD` by default) or `--wip`. It lists changed files by module/layer, new
-files, files over 500 lines, upward/lateral usings, DI registrations, GlobalEventDispatcher changes, new public
+Run `bash .claude/scripts/architecture-facts.sh <range>` (`origin/develop...HEAD` only as the default when no range
+is given) or `--wip`. It lists changed files by module/layer, new files, files over 500 lines, upward/lateral usings,
+DI registrations, GlobalEventDispatcher changes, new public
 types/members, config/asmdef changes and additions to the architecture baseline.
 
 ## 2. Read only what the facts point to
@@ -108,7 +110,7 @@ baselined violation). A rule of the doc or CLAUDE.md that itself causes friction
   finding per file, not one per literal.
 - A new non-trivial context without `Docs/<context>.md`; missing "why" on a Gothic/ZenKit quirk.
 - A change that decides something (feature, setting, trade-off) without a decision record in `Docs/adr/`.
-- A decision record that is already in develop edited (merged records are never changed), or code that goes against
+- A decision record that is already merged edited (merged records are never changed), or code that goes against
   an accepted record without a new record that `Replaces:` it (`Docs/adr/README.md`).
 - Many new public members that could be private/internal; new public Core types used by one module only.
 

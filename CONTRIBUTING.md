@@ -56,31 +56,31 @@ gitGraph
     commit id: "v0.2.0" tag: "v0.2.0"
     branch develop order: 2
     commit id: "features accumulate"
-    branch feature/vr-grab order: 1
+    branch "feature/vr-grab" order: 1
     commit id: "vr-grab"
     commit id: "PR + playtest"
     checkout develop
-    merge feature/vr-grab
-    branch release/0.3.0 order: 3
+    merge "feature/vr-grab"
+    branch "release/0.3.0" order: 3
     commit id: "feature freeze"
     checkout develop
     commit id: "next features"
-    checkout release/0.3.0
-    branch fix/quest2-crash order: 4
+    checkout "release/0.3.0"
+    branch "fix/quest2-crash" order: 4
     commit id: "quest2-crash"
-    checkout release/0.3.0
-    merge fix/quest2-crash id: "RC build + review"
+    checkout "release/0.3.0"
+    merge "fix/quest2-crash" id: "RC build + review"
     checkout main
-    merge release/0.3.0 tag: "v0.3.0"
+    merge "release/0.3.0" tag: "v0.3.0"
     checkout develop
-    merge release/0.3.0 id: "release fixes"
+    merge "release/0.3.0" id: "release fixes"
     checkout main
-    branch hotfix/0.3.1 order: 5
+    branch "hotfix/0.3.1" order: 5
     commit id: "save-crash"
     checkout main
-    merge hotfix/0.3.1 tag: "v0.3.1"
+    merge "hotfix/0.3.1" tag: "v0.3.1"
     checkout develop
-    merge hotfix/0.3.1 id: "hotfix"
+    merge "hotfix/0.3.1" id: "hotfix"
 ```
 
 - **`feature/*`** branches start from `develop` and go back into `develop` via PR (with playtest).

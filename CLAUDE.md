@@ -172,11 +172,14 @@ UI: Default `TMP_Text` font size is **12** to preserve layout integrity for Goth
 
 ## Workflow Notes
 
-- We use git flow (`CONTRIBUTING.md` > Branching): branch from `develop` and open PRs against it (`fix/*` for a
-  release go into its `release/*` branch, `hotfix/*` start from `main`). `main` only holds released versions.
+- We use git flow (`CONTRIBUTING.md` > Branching): `feature/*` start from `develop` and open PRs against it;
+  `fix/*` for a release start from and target its `release/x.y.z`; `release/*` and `hotfix/*` target `main`.
+  Merge-back rules and tags: `CONTRIBUTING.md` > Branching.
   Submit PRs with detailed descriptions of what changed and how to test manually.
 - Before coding a feature, design it with the `design` skill (plan, ADR draft, `architecture-reviewer` on the plan).
-- A PR that decides something gets a short decision record in `Docs/adr/<date>-<topic>.md` (plain words, template in `Docs/adr/README.md`). No status line: a record on a branch is proposed, a record merged into `develop` is accepted and is never edited again. A changed decision gets a new record with `- Replaces: [...]`.
+- A PR that decides something gets a short decision record in `Docs/adr/<date>-<topic>.md` (plain words, template
+  in `Docs/adr/README.md`). No status line: a record on a branch is proposed, once merged it is accepted
+  (`Docs/adr/README.md`) and never edited again. A changed decision gets a new record with `- Replaces: [...]`.
 - Staging, commit style and PR template: see the `commit-pr` skill.
 - The project tracks issues and feature status on [GitHub Projects](https://github.com/Gothic-Unity-Project/Gothic-Unity/projects?query=is%3Aopen).
 - Team coordination happens on Discord; align with in-progress work before starting large features.

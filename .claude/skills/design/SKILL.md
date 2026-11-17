@@ -44,7 +44,8 @@ Then the steps in build order, and what is left out on purpose. Every step fits 
 Read `Docs/adr/README.md` first and follow it: "When" decides if a record is needed, "How" and "Template" decide
 its form. Existing records in `Docs/adr/` show the tone.
 
-- File `Docs/adr/<date>-<topic>.md`, no status line (on the branch it's proposed, merged into develop accepted).
+- File `Docs/adr/<date>-<topic>.md`, no status line (on the branch it's proposed, once merged accepted:
+  `Docs/adr/README.md`).
 - Search `Docs/adr/` for records on the same topic first. A merged record is never edited: if the plan changes one
   of its decisions, the new record says `- Replaces: [...]` (or `decisions n-m of [...]`), and that change is one of
   the human's decisions in step 2. Not replaced = in force.

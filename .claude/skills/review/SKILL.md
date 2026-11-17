@@ -22,8 +22,9 @@ Committing doesn't make a review outdated, changing code does.
 
 ## Steps
 
-1. Run the `architecture-reviewer` and `gothic-reviewer` agents in parallel on `origin/develop...HEAD`, plus `--wip`
-   when there are uncommitted changes.
+1. Run the `architecture-reviewer` and `gothic-reviewer` agents in parallel on `origin/<PR base>...HEAD`, plus
+   `--wip` when there are uncommitted changes. PR base: `develop`, `release/x.y.z` for `fix/*`, `main` for
+   `release/*` and `hotfix/*` (`commit-pr` > Pull request). Pass the range to the agents explicitly.
 2. Save each report **unedited** (the agents are read-only, you write the files). Never shorten or drop findings.
 3. Compare with the previous review in the folder, by file and problem, not line number: resolved, new, still open.
 4. Show the human the verdicts, the counts and the comparison. Show the findings as **one numbered table**
