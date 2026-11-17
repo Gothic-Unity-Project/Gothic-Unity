@@ -54,12 +54,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private const float _rayHitTolerance = 0.05f;
 
         /// <summary>
-        /// false: only a hand right at it grabs it (IVrInteractableBackend.IsDistanceGrabbable).
+        /// false: only a hand right at it grabs it (XriInteractableBridge.IsDistanceGrabbable).
         /// </summary>
         public bool IsDistanceGrabbable { get; set; } = true;
 
         /// <summary>
-        /// See the serialized field (also set at runtime, IVrInteractableBackend.IsOneHandOnly).
+        /// See the serialized field (also set at runtime, XriInteractableBridge.IsOneHandOnly).
         /// </summary>
         public bool IsOneHandOnly
         {

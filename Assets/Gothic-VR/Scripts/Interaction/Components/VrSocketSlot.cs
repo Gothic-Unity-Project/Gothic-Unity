@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Vm;
+using Gothic.VR.Interaction.Backends.Xri;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Reflex.Attributes;
@@ -27,9 +28,9 @@ namespace Gothic.VR.Interaction.Components
     /// - Sounds (the interactable's socket sounds or the slot's fallbacks) and the IVrSocket events
     ///   (BeforeGrabbed/Grabbed = placed, Released = removed).
     ///
-    /// A backend part (IVrSocketBackend, e.g. XriSocketBridge) on the same GameObject detects items released into
-    /// the slot and holds them in the backend's terms. Without a backend part, the slot still works for
-    /// programmatic TryPlace/ForceRelease (nothing is detected).
+    /// The XriSocketBridge on the same GameObject detects items released into the slot and holds them in XRI's
+    /// terms. It reports to the slot via OnBackend*(). Without the bridge, the slot still works for programmatic
+    /// TryPlace/ForceRelease (nothing is detected).
     /// </summary>
     public class VrSocketSlot : MonoBehaviour, IVrSocket
     {
@@ -101,7 +102,7 @@ namespace Gothic.VR.Interaction.Components
 
         private readonly List<VrInteractable> _hovered = new();
 
-        private IVrSocketBackend _backend;
+        private XriSocketBridge _backend;
         private bool _isBackendResolved;
         private bool _isSilent;
 
@@ -155,13 +156,13 @@ namespace Gothic.VR.Interaction.Components
             set => _removedSoundFallback = value;
         }
 
-        private IVrSocketBackend Backend
+        private XriSocketBridge Backend
         {
             get
             {
                 if (!_isBackendResolved)
                 {
-                    _backend = GetComponent<IVrSocketBackend>();
+                    _backend = GetComponent<XriSocketBridge>();
                     _isBackendResolved = true;
                 }
 

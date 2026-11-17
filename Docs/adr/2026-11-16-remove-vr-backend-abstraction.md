@@ -13,7 +13,11 @@ While HurricaneVR and the XR Interaction Toolkit lived side by side, the VR code
 
 1. **The XR Interaction Toolkit is wired in directly.** There is no exchangeable backend object any more, and no "is this the active backend" checks on grabbables, sockets, hinges and chests. The player is the one with a rig. Not chosen: keeping the switch for a possible future backend. If one is ever needed, it is easier to add it back with a real second implementation than to keep an untested one.
 2. **Our own VR interfaces stay.** Game code still talks to our own input, rig, haptics, grab and socket interfaces, never to the toolkit's types. That boundary keeps game code readable and testable, and the audit found it clean. Not chosen: letting game code use the toolkit directly, which would spread toolkit details through every VR feature.
-3. **Toolkit classes keep the "Xri" prefix.** It is the abbreviation the toolkit's own documentation uses, and renaming would touch every prefab-facing class for no change in behaviour. Not chosen: "Xrit".
+3. **No interfaces between our grab/socket components and their toolkit bridges.** `VrInteractable` and
+   `VrSocketSlot` use `XriInteractableBridge` and `XriSocketBridge` directly. Those interfaces only existed so that one
+   prefab could carry a bridge per backend; game code never saw them, it uses `VrInteractable` and `IVrSocket`. Not
+   chosen: keeping one-implementation interfaces inside the interaction layer.
+4. **Toolkit classes keep the "Xri" prefix.** It is the abbreviation the toolkit's own documentation uses, and renaming would touch every prefab-facing class for no change in behaviour. Not chosen: "Xrit".
 
 ## Consequences
 

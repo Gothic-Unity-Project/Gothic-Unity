@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Gothic.VR.Interaction.Backends.Xri;
 using Gothic.VR.Interaction.Models;
-using Gothic.VR.Interaction.Ports;
 using UnityEngine;
 
 namespace Gothic.VR.Interaction.Components
@@ -9,7 +9,7 @@ namespace Gothic.VR.Interaction.Components
     /// <summary>
     /// Game-facing side of everything the player can grab or hover (items, mobs, NPCs, doors, backpack).
     /// Adapters subscribe to its C# events instead of the VR backend's events.
-    /// A backend bridge (IVrInteractableBackend) on the same GameObject raises the events and does the work.
+    /// The XriInteractableBridge on the same GameObject raises the events and does the work.
     ///
     /// Events are raised synchronously in the backend's order: HoverEntered, BeforeGrabbed, Grabbed, HoverExited,
     /// Released. BeforeGrabbed is only raised for grabbers with a bridge (player hands and sockets).
@@ -22,7 +22,7 @@ namespace Gothic.VR.Interaction.Components
         public event Action<VrGrabArgs> Grabbed;
         public event Action<VrGrabArgs> Released;
 
-        private IVrInteractableBackend _backend;
+        private XriInteractableBridge _backend;
 
         /// <summary>
         /// Held by any grabber (hand, distance grabber, socket).
@@ -31,7 +31,7 @@ namespace Gothic.VR.Interaction.Components
 
         /// <summary>
         /// A grab only "uses" the object (talk, use a mob) and doesn't hold it.
-        /// See IVrInteractableBackend.IsSelectOnly.
+        /// See XriInteractableBridge.IsSelectOnly.
         /// </summary>
         public bool IsSelectOnly => Backend != null && Backend.IsSelectOnly;
 
@@ -54,7 +54,7 @@ namespace Gothic.VR.Interaction.Components
         public Func<Vector3, bool> CanSecondHandGrabAt { get; set; }
 
         /// <summary>
-        /// See IVrInteractableBackend.IsGrabEnabled.
+        /// See XriInteractableBridge.IsGrabEnabled.
         /// </summary>
         public bool IsGrabEnabled
         {
@@ -67,7 +67,7 @@ namespace Gothic.VR.Interaction.Components
         }
 
         /// <summary>
-        /// See IVrInteractableBackend.IsOneHandOnly.
+        /// See XriInteractableBridge.IsOneHandOnly.
         /// </summary>
         public bool IsOneHandOnly
         {
@@ -80,7 +80,7 @@ namespace Gothic.VR.Interaction.Components
         }
 
         /// <summary>
-        /// See IVrInteractableBackend.IsDistanceGrabbable.
+        /// See XriInteractableBridge.IsDistanceGrabbable.
         /// </summary>
         public bool IsDistanceGrabbable
         {
@@ -92,12 +92,12 @@ namespace Gothic.VR.Interaction.Components
             }
         }
 
-        private IVrInteractableBackend Backend
+        private XriInteractableBridge Backend
         {
             get
             {
                 if (_backend == null)
-                    _backend = GetComponent<IVrInteractableBackend>();
+                    _backend = GetComponent<XriInteractableBridge>();
                 return _backend;
             }
         }

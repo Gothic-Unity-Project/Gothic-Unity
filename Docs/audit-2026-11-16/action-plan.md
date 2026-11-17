@@ -92,7 +92,7 @@ These don't fix wrong behaviour, but each is cheap and makes the larger items sm
 
 | # | Done | Change | Where | Effort | Source |
 |---|---|---|---|---|---|
-| 47 | ✅ | **Done 2026-11-16** (narrow scope, `Xri` prefix kept; ADR `2026-11-16-remove-vr-backend-abstraction.md`): remove `IVrBackend` (issue #521), see the section below | 6 files in `Gothic-VR/Scripts` | S | #521 |
+| 47 | ✅ | **Done 2026-11-16** (narrow scope, `Xri` prefix kept; ADR `2026-11-16-remove-vr-backend-abstraction.md`): remove `IVrBackend` (issue #521), see the section below. Also removed the one-implementation bridge interfaces `IVrInteractableBackend` and `IVrSocketBackend` | 6 files in `Gothic-VR/Scripts` | S | #521 |
 | 48 |  | Delete dead code: `GetSoundClip`, `ObjectRoutines`, unused injections, make `CreateVobNpc` private. `DestroyVob` stays until #46 is decided | `VobService.cs:51`, `VobInitializerDomain.cs:847`, `NpcAiService.cs:36-38`, `NpcHelperService.cs:35` | S | vob H3.4, npc 12 |
 | 49 |  | Remove the cheap architecture baseline lines 28, 29, 31, 50, 51, 52, 56 | `ArchitectureBaseline.txt` and the files it names | S | vob §4, npc §4 |
 | 50 |  | Shared Core helpers: `GetItemSymbolName()`, `WeaponStateExtension`, one hero check, one `IsInCurrentDialog`, `IsSeat()`, a Daedalus constant helper | 11 + 20 + 40 + 3 call sites, replaced as files get touched | S to create | vob M2, npc 8 |
