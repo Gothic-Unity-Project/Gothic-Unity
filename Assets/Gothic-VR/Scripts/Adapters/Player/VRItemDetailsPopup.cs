@@ -4,7 +4,6 @@ using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
-using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Components;
@@ -38,6 +37,8 @@ namespace Gothic.VR.Adapters.Player
         // Max distance between the free hand and an item inside the backpack (or on the counter) to show its popup.
         private const float _hoverDistance = 0.12f;
         private const float _updateInterval = 0.1f;
+        // VR-only prefab ("Resources/VR/Prefabs/UI"): background and auto-sized text.
+        private const string _popupPrefabPath = "Prefabs/UI/ItemDetailsPopup";
 
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
@@ -307,7 +308,7 @@ namespace Gothic.VR.Adapters.Player
         /// <summary>
         /// Built for the first item to show, from the prefab cache instead of a serialized reference: the trade
         /// counter adds this component in code (no prefab to hold a reference), and the backpack's Start runs before
-        /// the cache is ready. A prefab that can't be loaded is one error instead of one per tick.
+        /// the cache is ready. A missing prefab is logged once instead of every tick.
         /// </summary>
         private bool TryBuildCanvas()
         {
@@ -315,11 +316,10 @@ namespace Gothic.VR.Adapters.Player
                 return true;
             if (_isCanvasMissing)
                 return false;
-            // Stays set if the load throws or the prefab has no text.
             _isCanvasMissing = true;
 
             // Not parented to the backpack: it follows the item in world space and must not inherit the backpack's scale.
-            var canvasGo = _resourceCacheService.TryGetPrefabObject(PrefabType.UiItemDetailsPopup, "_ItemDetailsPopup");
+            var canvasGo = _resourceCacheService.TryGetPrefabObject(_popupPrefabPath, "_ItemDetailsPopup");
             _text = canvasGo != null ? canvasGo.GetComponentInChildren<TMP_Text>(true) : null;
             if (_text == null)
             {

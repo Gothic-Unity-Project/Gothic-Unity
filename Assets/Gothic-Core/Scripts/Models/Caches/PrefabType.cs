@@ -14,7 +14,6 @@ namespace Gothic.Core.Models.Caches
         UiThumbnail,
         UiVirtualKeyboard,
         UiHitNumber,
-        UiItemDetailsPopup,
         HitNumber,
 
         UiDebugText,
