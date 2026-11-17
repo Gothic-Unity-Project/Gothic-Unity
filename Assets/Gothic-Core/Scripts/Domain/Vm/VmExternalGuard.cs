@@ -21,6 +21,8 @@ namespace Gothic.Core.Domain.Vm
     {
         private readonly DaedalusVm _vm;
         private readonly Func<Encoding> _encoding;
+        private readonly bool _hasNativeHandle;
+        private readonly UIntPtr _nativeHandle;
         private readonly HashSet<string> _failedExternals = new();
 
         /// <param name="encoding">The installation's code page (GameStateService.Encoding). Read on every use: the
@@ -29,6 +31,7 @@ namespace Gothic.Core.Domain.Vm
         {
             _vm = vm;
             _encoding = encoding;
+            _hasNativeHandle = vm.TryGetNativeHandle(out _nativeHandle);
         }
 
         public DaedalusSymbol GetSymbolByName(string name)
@@ -114,7 +117,7 @@ namespace Gothic.Core.Domain.Vm
         public void RegisterStringExternal(string name, Func<string, string, string> cb)
         {
             EnsureDeclared(name);
-            if (!ZenKitVmExtension.HasNativeStrings)
+            if (!_hasNativeHandle)
             {
                 Logger.LogWarning($"External >{name}<: ZenKit's VM handle isn't reachable - registered the ZenKit " +
                                   "way, its non-ASCII characters are scrambled on Quest and Pico.", LogCat.ZenKit);
@@ -132,8 +135,8 @@ namespace Gothic.Core.Domain.Vm
                     try
                     {
                         // Parameters come off the stack last first.
-                        var p1 = _vm.PopNativeString(codePage);
-                        var p0 = _vm.PopNativeString(codePage);
+                        var p1 = ZenKitVmExtension.PopNativeString(_nativeHandle, codePage);
+                        var p0 = ZenKitVmExtension.PopNativeString(_nativeHandle, codePage);
                         result = cb(p0, p1);
                     }
                     catch (Exception e)
@@ -142,7 +145,7 @@ namespace Gothic.Core.Domain.Vm
                     }
 
                     // Always pushed: the scripts expect a return value on the stack.
-                    _vm.PushNativeString(result, codePage);
+                    ZenKitVmExtension.PushNativeString(_nativeHandle, result, codePage);
                 }
                 catch (Exception e)
                 {

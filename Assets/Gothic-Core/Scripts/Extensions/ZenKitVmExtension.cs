@@ -24,10 +24,19 @@ namespace Gothic.Core.Extensions
         private static extern void ZkDaedalusVm_pushString(UIntPtr vm, byte[] value);
 
         /// <summary>
-        /// Whether strings can be exchanged with the VM as raw bytes (PopNativeString / PushNativeString).
-        /// False if a ZenKit version renamed its internal handle - callers then use ZenKit's own string calls.
+        /// The VM's native pointer for PushNativeString / PopNativeString. It stays the same for the VM's life, so
+        /// callers read it once. False if a ZenKit version renamed its internal handle - callers then use ZenKit's
+        /// own string calls.
         /// </summary>
-        public static bool HasNativeStrings => _nativeHandle != null;
+        public static bool TryGetNativeHandle(this DaedalusVm vm, out UIntPtr handle)
+        {
+            handle = UIntPtr.Zero;
+            if (_nativeHandle?.GetValue(vm) is not UIntPtr pointer || pointer == UIntPtr.Zero)
+                return false;
+
+            handle = pointer;
+            return true;
+        }
 
         /// <summary>
         /// ZenKit pitfall: it hands C# strings to its native library through a custom marshaller (the code page of
@@ -38,18 +47,20 @@ namespace Gothic.Core.Extensions
         /// FIXME - Remove once ZenKitCS hands its strings to the native library without a custom marshaller
         /// (not reported upstream yet).
         /// </summary>
-        public static void PushNativeString(this DaedalusVm vm, string value, Encoding encoding)
+        /// <param name="vm">From TryGetNativeHandle.</param>
+        public static void PushNativeString(UIntPtr vm, string value, Encoding encoding)
         {
-            ZkDaedalusVm_pushString((UIntPtr)_nativeHandle.GetValue(vm), ToNativeString(value, encoding));
+            ZkDaedalusVm_pushString(vm, ToNativeString(value, encoding));
         }
 
         /// <summary>
         /// Counterpart of PushNativeString for externals registered without ZenKit's typed parameters: takes the
         /// top string off the VM stack. Parameters come off last first.
         /// </summary>
-        public static string PopNativeString(this DaedalusVm vm, Encoding encoding)
+        /// <param name="vm">From TryGetNativeHandle.</param>
+        public static string PopNativeString(UIntPtr vm, Encoding encoding)
         {
-            var pointer = ZkDaedalusVm_popString((UIntPtr)_nativeHandle.GetValue(vm));
+            var pointer = ZkDaedalusVm_popString(vm);
             if (pointer == IntPtr.Zero)
                 return string.Empty;
 
