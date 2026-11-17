@@ -3,8 +3,6 @@ using System.Linq;
 using Gothic.Core.Logging;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
-using Gothic.VR.Interaction.Ports;
-using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
@@ -19,18 +17,15 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// and its VrInteractable. Forwards XRI's hover/select events synchronously to the VrInteractable and executes
     /// its commands on the interactable.
     ///
-    /// Prefabs carry the components of both backends. The XRI interactable is disabled in the prefab and only this
-    /// bridge enables it, if XRI is the active backend. Otherwise, it stays disabled and never looks for (or
-    /// creates) an XRInteractionManager.
+    /// The XRI interactable is disabled in the prefab and enabled by this bridge in Start, once the colliders of the
+    /// Gothic mesh exist.
     /// </summary>
-    public class XriInteractableBridge : MonoBehaviour, IVrInteractableBackend
+    public class XriInteractableBridge : MonoBehaviour
     {
         [Tooltip("Trigger colliders that count for hovering and grabbing by hand anyway (XRI ignores triggers). " +
                  "E.g. the backpack's grab volume, which HVR used, as its hull alone is hard to grab.")]
         [SerializeField]
         private Collider[] _grabTriggers;
-
-        [Inject] private readonly IVrBackend _vrBackend;
 
         private readonly Dictionary<IXRInteractor, VrGrabArgs> _selectArgs = new();
         private readonly HashSet<IXRInteractor> _handHovers = new();
@@ -46,11 +41,12 @@ namespace Gothic.VR.Interaction.Backends.Xri
         private bool _isGrabEnabled = true;
         private bool _isStarted;
 
-        public bool IsActive => _vrBackend is XriBackend;
         public bool IsHeld => _xrInteractable != null && _xrInteractable.isSelected;
 
         /// <summary>
-        /// Mobs and NPCs carry an XRSimpleInteractable (select = use/talk), items a GothicGrabInteractable.
+        /// True if a grab only "uses" the object (talk to an NPC, use a mob): nothing moves, nothing follows the hand
+        /// and no BeforeGrabbed is raised. Mobs and NPCs carry an XRSimpleInteractable (select = use/talk), items a
+        /// GothicGrabInteractable.
         /// </summary>
         public bool IsSelectOnly => _xrInteractable != null && _xrInteractable is not XRGrabInteractable;
 
@@ -79,6 +75,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
             : System.Array.Empty<Collider>();
 
         /// <summary>
+        /// false: no hand or socket can hover or grab it (e.g. a spell's invisible rune riding on the hand).
         /// The XR interactable is enabled in Start (runtime colliders), only if grabbing is enabled by then.
         /// </summary>
         public bool IsGrabEnabled
@@ -92,6 +89,10 @@ namespace Gothic.VR.Interaction.Backends.Xri
             }
         }
 
+        /// <summary>
+        /// true: while one hand holds it, the other hand can't grab it (a throwable spell's rune: the other hand
+        /// throws).
+        /// </summary>
         public bool IsOneHandOnly
         {
             get => _xrInteractable is GothicGrabInteractable grab && grab.IsOneHandOnly;
@@ -102,6 +103,9 @@ namespace Gothic.VR.Interaction.Backends.Xri
             }
         }
 
+        /// <summary>
+        /// false: only a hand right at it grabs it, no distance grab (the favorites ring's items).
+        /// </summary>
         public bool IsDistanceGrabbable
         {
             get => _xrInteractable is not GothicGrabInteractable grab || grab.IsDistanceGrabbable;
@@ -114,18 +118,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private void Awake()
         {
-            TrySubscribe();
-        }
-
-        /// <summary>
-        /// Awake for scene objects. Prefabs spawned at runtime and injected afterwards (Instantiate + Inject: the trade
-        /// goods and loot backpacks) have no backend in Awake yet - they subscribe in Start (it couldn't be grabbed).
-        /// </summary>
-        private void TrySubscribe()
-        {
-            if (_isSubscribed || !IsActive)
-                return;
-
             _interactable = GetComponent<VrInteractable>();
             _xrInteractable = GetComponent<XRBaseInteractable>();
             if (_interactable == null || _xrInteractable == null)
@@ -144,7 +136,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private void Start()
         {
-            TrySubscribe();
             if (!_isSubscribed)
                 return;
 
@@ -180,6 +171,8 @@ namespace Gothic.VR.Interaction.Backends.Xri
         /// Re-collects the colliders. The interaction manager maps colliders to interactables on registration only,
         /// therefore an enabled interactable is registered again (not while it's held or hovered).
         /// </summary>
+        /// <param name="isChildLinked">Colliders on child GameObjects grab this interactable too (XRI maps every
+        /// collected collider anyway).</param>
         public void SetupColliders(bool isChildLinked = false)
         {
             if (!_isSubscribed)

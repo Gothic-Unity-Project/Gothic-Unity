@@ -40,7 +40,7 @@ namespace Gothic.VR.Adapters.Vob
             }
 
             PrepareSounds(container);
-            VRMobHinge.Follow(VrHinges.FindActive(this),
+            VRMobHinge.Follow(VrHinges.Find(this),
                 GetComponentInParent<VobLoader>().Container);
         }
 
@@ -76,7 +76,7 @@ namespace Gothic.VR.Adapters.Vob
             }
 
             // We leverage the same "door" script for containers (As it's also just an object to be rotated.
-            var hinge = VrHinges.FindActive(this);
+            var hinge = VrHinges.Find(this);
             hinge?.SetSounds(_containerOpenedClips[mdsName.ToLower()], _containerClosedClips[mdsName.ToLower()]);
         }
     }

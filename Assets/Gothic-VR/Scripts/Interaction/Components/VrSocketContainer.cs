@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Gothic.VR.Interaction.Components
 {
     /// <summary>
-    /// Backend-neutral group of VrSocketSlots (backpack inventory, chest content).
+    /// Group of VrSocketSlots (backpack inventory, chest content).
     /// Uses the slots listed in the inspector or, if the list is empty, all VrSocketSlots below this GameObject.
     /// </summary>
     public class VrSocketContainer : MonoBehaviour, IVrSocketContainer
@@ -24,23 +24,6 @@ namespace Gothic.VR.Interaction.Components
             {
                 CollectSlots();
                 return _sockets;
-            }
-        }
-
-        /// <summary>
-        /// True if one of the slots has a backend part of the active VR backend (e.g. XriSocketBridge on XRI).
-        /// </summary>
-        public bool IsActive
-        {
-            get
-            {
-                foreach (var slot in Slots)
-                {
-                    if (slot != null && slot.HasActiveBackend)
-                        return true;
-                }
-
-                return false;
             }
         }
 

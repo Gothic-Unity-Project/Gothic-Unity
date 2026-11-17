@@ -4,26 +4,16 @@ using UnityEngine;
 namespace Gothic.VR.Interaction.Components
 {
     /// <summary>
-    /// Finds the hinge (door wing, chest lid) of the active VR backend. Shared prefabs may carry one per backend.
+    /// Finds the hinge (door wing, chest lid) of a mob.
     /// </summary>
     public static class VrHinges
     {
         /// <summary>
-        /// The first active IVrHinge on or below the component. Null if none of them is active (e.g. a door on a
-        /// backend without hinges yet).
+        /// The first IVrHinge on or below the component (inactive GameObjects included). Null if there is none.
         /// </summary>
-        public static IVrHinge FindActive(Component root)
+        public static IVrHinge Find(Component root)
         {
-            if (root == null)
-                return null;
-
-            foreach (var hinge in root.GetComponentsInChildren<IVrHinge>(true))
-            {
-                if (hinge.IsActive)
-                    return hinge;
-            }
-
-            return null;
+            return root != null ? root.GetComponentInChildren<IVrHinge>(true) : null;
         }
     }
 }

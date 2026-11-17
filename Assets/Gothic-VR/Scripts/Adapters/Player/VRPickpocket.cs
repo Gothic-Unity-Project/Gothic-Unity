@@ -49,7 +49,7 @@ namespace Gothic.VR.Adapters.Player
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly ConfigService _configService;
 
-        // The active backend's backpack prefab (VRBackpack.PrefabPath).
+        // The backpack prefab (VRBackpack.PrefabPath).
         private static string _backpackPrefabPath => VRBackpack.PrefabPath;
         private const string _backpackBodyName = "BackPack-Body";
         private const string _pelvisBoneName = "BIP01 PELVIS";

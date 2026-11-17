@@ -92,7 +92,7 @@ These don't fix wrong behaviour, but each is cheap and makes the larger items sm
 
 | # | Done | Change | Where | Effort | Source |
 |---|---|---|---|---|---|
-| 47 |  | Remove `IVrBackend` (issue #521), see the section below | 6 files in `Gothic-VR/Scripts` | S | #521 |
+| 47 | ✅ | **Done 2026-11-16** (narrow scope, `Xri` prefix kept; ADR `2026-11-16-remove-vr-backend-abstraction.md`): remove `IVrBackend` (issue #521), see the section below. Also removed the one-implementation bridge interfaces `IVrInteractableBackend` and `IVrSocketBackend` | 6 files in `Gothic-VR/Scripts` | S | #521 |
 | 48 |  | Delete dead code: `GetSoundClip`, `ObjectRoutines`, unused injections, make `CreateVobNpc` private. `DestroyVob` stays until #46 is decided | `VobService.cs:51`, `VobInitializerDomain.cs:847`, `NpcAiService.cs:36-38`, `NpcHelperService.cs:35` | S | vob H3.4, npc 12 |
 | 49 |  | Remove the cheap architecture baseline lines 28, 29, 31, 50, 51, 52, 56 | `ArchitectureBaseline.txt` and the files it names | S | vob §4, npc §4 |
 | 50 |  | Shared Core helpers: `GetItemSymbolName()`, `WeaponStateExtension`, one hero check, one `IsInCurrentDialog`, `IsSeat()`, a Daedalus constant helper | 11 + 20 + 40 + 3 call sites, replaced as files get touched | S to create | vob M2, npc 8 |
@@ -151,9 +151,10 @@ Notes for the narrow scope:
 - The expected runtime gain is small: the active-backend searches are cached per component. The real gain is less
   code and one less concept.
 - Check the shared prefabs for leftover per-backend bridge or container components before removing the loops.
-  Prefab inspection and changes go through Unity MCP.
-- It removes a decision (a pluggable backend), so the PR needs a short ADR that replaces the relevant part of
-  `Docs/HVR-replacement/`.
+  Prefab inspection and changes go through Unity MCP. **Checked**: each prefab carries at most one bridge and one
+  hinge.
+- It removes a decision (a pluggable backend), so the PR needs a short ADR. **Done**:
+  `Docs/adr/2026-11-16-remove-vr-backend-abstraction.md` replaces decision 2 of `Docs/adr/2026-10-28-hvr-removal.md`.
 - The issue text says "speed up lookup costs". If that refers to something beyond the `IsActive` searches, the
   scope should be confirmed with the issue author.
 
@@ -170,7 +171,7 @@ Notes for the narrow scope:
 | Does "services don't use adapters" apply inside Gothic-VR? 16 files break it and the doc is silent | vr 8 |
 | Are plain worker classes owned by an adapter allowed? | vr 20 |
 | Do both dialog hold modes stay? Each doubles the playtest surface | fix §5 |
-| Issue #521: narrow or wide scope? | #47 |
+| Issue #521: narrow or wide scope? **Decided 2026-11-16: narrow**, see `Docs/adr/2026-11-16-remove-vr-backend-abstraction.md` | #47 |
 
 ## Not covered by this plan
 

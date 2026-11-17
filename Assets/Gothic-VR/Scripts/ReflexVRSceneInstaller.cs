@@ -19,10 +19,11 @@ namespace Gothic.VR
             containerBuilder.OnContainerBuilt += (container) => container.Resolve<VrFavoritesService>().Init();
             containerBuilder.OnContainerBuilt += (container) => container.Resolve<VRHeroBlockService>().Init();
 
-            // VR ports (IVrInput, IVrHaptics, ...) come from the XR Interaction Toolkit backend.
-            var backend = new XriBackend();
-            backend.InstallBindings(containerBuilder);
-            containerBuilder.AddSingleton(backend, typeof(IVrBackend));
+            // The VR ports are implemented by the XR Interaction Toolkit. IVrRig lives on the player prefab.
+            containerBuilder.AddSingleton(typeof(XriInput), typeof(IVrInput), typeof(XriInput));
+            containerBuilder.AddSingleton(typeof(XriHaptics), typeof(IVrHaptics));
+            containerBuilder.AddSingleton(typeof(XriUiPointers), typeof(IVrUiPointers));
+            containerBuilder.AddSingleton(typeof(XriSfxPlayer), typeof(IVrSfxPlayer));
 
             containerBuilder.AddSingleton(typeof(VRPlayerService));
             containerBuilder.AddSingleton(typeof(VRMobUseService));

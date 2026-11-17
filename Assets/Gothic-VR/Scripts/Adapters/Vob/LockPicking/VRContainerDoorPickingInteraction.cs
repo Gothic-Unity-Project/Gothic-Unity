@@ -61,8 +61,8 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
         {
             var vobLoader = GetComponentInParent<VobLoader>();
             _lockable = vobLoader.Container;
-            // Every door and chest has one hinge (the door wing or the chest lid) per backend which supports it.
-            _hinge = VrHinges.FindActive(vobLoader);
+            // Every door and chest has one hinge: the door wing or the chest lid.
+            _hinge = VrHinges.Find(vobLoader);
             if (!_lockable.Vob.TryGetLock(out _isLocked, out _keyInstance, out _combination))
                 Logger.LogError($"VRDoorLockInteraction: No door or container found for >{_lockable.Vob.Name}<.",
                     LogCat.VR);

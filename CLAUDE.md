@@ -87,7 +87,7 @@ Gothic 1 vs Gothic 2 differences are isolated to `Gothic-Gothic1/` and `Gothic-G
 
 ### VR Framework
 
-VR interaction is our own `Gothic.VR.Interaction` layer (`Gothic-VR/Scripts/Interaction/`): backend-neutral ports (`Ports/`) and components (`Components/`), implemented by the XR Interaction Toolkit backend (`Backends/Xri/`). Game code talks to the ports, never to XRI types. VR-specific services live in `Gothic-VR/Scripts/Services/` and adapters in `Gothic-VR/Scripts/Adapters/`. History of the move away from HurricaneVR: `Docs/HVR-replacement/`.
+VR interaction is built on the XR Interaction Toolkit (`Gothic-VR/Scripts/Interaction/`, XRI code in `Backends/Xri/`). Game code talks to the ports in `Ports/`, never to XRI types. VR-specific services live in `Gothic-VR/Scripts/Services/` and adapters in `Gothic-VR/Scripts/Adapters/`.
 
 ### Asset Loading Pipeline
 

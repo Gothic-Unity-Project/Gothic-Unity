@@ -47,7 +47,6 @@ namespace Gothic.VR.Services.Context
         [Inject] private readonly IVrUiPointers _vrUiPointers;
         // Also creates the service, which listens to the haptic events (fight, lock picking, physical hands).
         [Inject] private readonly VrHapticsService _vrHapticsService;
-        [Inject] private readonly IVrBackend _vrBackend;
 
         private const string _contextName = "VR";
 
@@ -77,7 +76,7 @@ namespace Gothic.VR.Services.Context
         private bool _isGrabbingAllowedHere = true;
 
         /// <summary>
-        /// The player body of the active VR backend. null before SetupPlayerController().
+        /// The player body (rig). null before SetupPlayerController().
         /// </summary>
         public IVrRig Rig => _rig;
 
@@ -87,7 +86,7 @@ namespace Gothic.VR.Services.Context
         public VRPlayer Player => _player;
 
         /// <summary>
-        /// Physical hands of the player (Xri backend). Empty for backends with their own hand physics (HVR).
+        /// Physical hands of the player. Empty until the player is set up.
         /// </summary>
         public IReadOnlyList<VrPhysicsHand> PhysicsHands => _physicsHands;
 
@@ -168,16 +167,16 @@ namespace Gothic.VR.Services.Context
             // We call this method once at the very beginning of game start. We can safely assume we are in the Player.unity scene.
             var activeScene = SceneManager.GetActiveScene();
 
-            // VR Player: Gothic part and the backend's rig live on the same GameObject (inactive in the scene). We use
-            // the one with the backend's rig and remove any other, so that scene-wide lookups (dialog, canvases, ...)
-            // find only ours.
+            // VR Player: Gothic part and the rig live on the same GameObject (inactive in the scene). We use the one
+            // with a rig (a rig whose scripts are missing doesn't count) and remove any other, so that scene-wide
+            // lookups (dialog, canvases, ...) find only ours.
             var players = activeScene.GetRootGameObjects()
                 .SelectMany(i => i.GetComponentsInChildren<VRPlayer>(true))
                 .ToList();
-            _player = players.FirstOrDefault(i => _vrBackend.OwnsRig(i.GetComponent<IVrRig>()));
+            _player = players.FirstOrDefault(i => i.TryGetComponent<IVrRig>(out _));
             if (_player == null)
             {
-                var message = $"No VR player with a rig of the VR backend ({_vrBackend.Name}) found. " +
+                var message = $"No VR player with a rig ({nameof(IVrRig)}) found. " +
                               "Check the player prefab in Player.unity.";
                 Logger.LogError(message, LogCat.VR);
                 throw new MissingComponentException(message);
@@ -222,7 +221,7 @@ namespace Gothic.VR.Services.Context
             var pickpocket = new GameObject("_Pickpocket").AddComponent<VRPickpocket>();
             pickpocket.transform.SetParent(_player.transform, false);
 
-            // The hero's walk/run/sneak state, his footsteps and the speed potion's faster movement (any backend).
+            // The hero's walk/run/sneak state, his footsteps and the speed potion's faster movement.
             _player.gameObject.AddComponent<VRHeroMovement>();
 
             // Both hands on a melee weapon + both triggers = parry (option heroBlock, VRHeroBlockService).

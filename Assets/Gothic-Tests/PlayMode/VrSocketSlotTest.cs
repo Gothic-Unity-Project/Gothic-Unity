@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using Gothic.Core.Adapters.Vob;
 using Gothic.VR.Interaction.Backends.Xri;
 using Gothic.VR.Interaction.Components;
@@ -207,7 +206,6 @@ namespace Gothic.Tests.PlayMode
             var slot = go.AddComponent<VrSocketSlot>();
             var bridge = go.AddComponent<XriSocketBridge>();
             bridge.enabled = false;
-            InjectXriBackend(bridge);
             go.SetActive(true);
             return slot;
         }
@@ -234,7 +232,7 @@ namespace Gothic.Tests.PlayMode
             GothicGrabInteractable grab = null;
             if (withXri)
             {
-                InjectXriBackend(grabbableGo.AddComponent<XriInteractableBridge>());
+                grabbableGo.AddComponent<XriInteractableBridge>();
                 grab = grabbableGo.AddComponent<GothicGrabInteractable>();
                 grab.enabled = false;
                 grab.unparentTransformOnGrab = false;
@@ -242,13 +240,6 @@ namespace Gothic.Tests.PlayMode
 
             grabbableGo.SetActive(true);
             return new TestItem(loader, grabbableGo, interactable, body, cube.GetComponent<Renderer>(), grab);
-        }
-
-        private static void InjectXriBackend(Component component)
-        {
-            var field = component.GetType().GetField("_vrBackend", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.IsNotNull(field, $"{component.GetType().Name} has no _vrBackend field.");
-            field.SetValue(component, new XriBackend());
         }
 
         private GameObject Create(string goName)

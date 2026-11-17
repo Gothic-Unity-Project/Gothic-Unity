@@ -179,13 +179,15 @@ removed from the baseline. Rule 5 is enforced by the asmdef references.
 ## Inside Gothic-VR
 
 VR interaction runs on the XR Interaction Toolkit backend. Game code doesn't know it: it talks to the ports.
+There is one backend: its port implementations are bound in `ReflexVRSceneInstaller`, and there is no "active
+backend" check.
 
 | Folder (`Gothic-VR/Scripts/`) | Holds | Uses |
 |---|---|---|
 | `Interaction/Models/` | VR value types (`VrHandSide`, `VrGrabArgs`, `VrHapticPreset`) | nothing else |
 | `Interaction/Ports/` | the VR framework as interfaces (`IVrRig`, `IVrInput`, `IVrHaptics`, `IVrSocket`) | Models |
 | `Interaction/Backends/Xri/` | the only code with XRI types: port implementations, bridges | Ports, Models, Components |
-| `Interaction/Components/` | backend-neutral MonoBehaviours with the Gothic behaviour (`VrSocketSlot`, `VrPhysicsHand`) | Ports, Models, Core |
+| `Interaction/Components/` | MonoBehaviours with the Gothic behaviour (`VrSocketSlot`, `VrPhysicsHand`) | Ports, Models, Core, the two XRI bridges next to them |
 | `Adapters/`, `Services/` | the game in VR (`VRBackpack`, `VrHapticsService`) | all of the above |
 
 1. **The backend executes, Gothic decides.** A Gothic rule lives in a component, the backend part next to it only

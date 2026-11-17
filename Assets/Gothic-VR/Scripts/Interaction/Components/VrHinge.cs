@@ -10,7 +10,7 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.VR.Interaction.Components
 {
     /// <summary>
-    /// Backend-neutral hinge for doors and chest lids. The leaf is kinematic and rotated by our own angle
+    /// Hinge for doors and chest lids. The leaf is kinematic and rotated by our own angle
     /// solver (no joint: velocity tracking against a HingeJoint/ConfigurableJoint whipped and jammed the leaf):
     /// - While a hand holds the leaf, the hand's angular movement around the hinge axis (projected onto the hinge
     ///   plane) turns the leaf by the same angle, clamped to Min/MaxAngle.
@@ -26,7 +26,7 @@ namespace Gothic.VR.Interaction.Components
     /// - A physical hand (VrPhysicsHand) touching the leaf without holding it pushes it: the part of the hand's
     ///   blocked movement along the leaf's swing direction at the contact turns the leaf, at most MaxHandSpeed.
     ///
-    /// The grab itself is done by the backend (GothicGrabInteractable + XriInteractableBridge, with tracking off).
+    /// The grab itself is done by XRI (GothicGrabInteractable + XriInteractableBridge, with tracking off).
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class VrHinge : MonoBehaviour, IVrHinge
@@ -75,7 +75,6 @@ namespace Gothic.VR.Interaction.Components
         [Tooltip("A hand farther than this from the leaf (meters) lets go of it.")] [SerializeField]
         private float _breakDistance = 1f;
 
-        [Inject] private readonly IVrBackend _vrBackend;
         [Inject] private readonly IVrSfxPlayer _sfxPlayer;
 
         private readonly List<GameObject> _grabbers = new();
@@ -102,7 +101,6 @@ namespace Gothic.VR.Interaction.Components
         public event Action Opened;
         public event Action Closed;
 
-        public bool IsActive => _vrBackend != null;
         public bool IsOpen => _isOpen;
         public bool IsClosed => _isClosed;
         public bool IsLocked => _isLocked;
@@ -117,12 +115,6 @@ namespace Gothic.VR.Interaction.Components
 
         private void Start()
         {
-            if (!IsActive)
-            {
-                enabled = false;
-                return;
-            }
-
             // Moved by transform only. The Rigidbody is kept for the colliders and the lock picking.
             var body = GetComponent<Rigidbody>();
             body.isKinematic = true;

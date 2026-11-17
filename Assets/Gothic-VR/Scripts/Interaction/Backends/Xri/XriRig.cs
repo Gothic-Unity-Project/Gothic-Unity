@@ -30,7 +30,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// </summary>
     public class XriRig : MonoBehaviour, IVrRig
     {
-        [Inject] private readonly IVrInput _vrInput;
+        [Inject] private readonly XriInput _xriInput;
         [Inject] private readonly LedgeService _ledgeService;
 
         // The pointer line's color while it points at something.
@@ -121,7 +121,6 @@ namespace Gothic.VR.Interaction.Backends.Xri
         [SerializeField]
         private float _minCalibrationHeight = 0.5f;
 
-        private XriInput _xriInput;
         private List<IVrGrabber> _handGrabbers;
         // GetHandVisual/GetHandColliders are asked several times per frame (hero body, locks, popups): the hands are
         // found once per side (0 = left, 1 = right), again once destroyed or moved off their controller.
@@ -346,12 +345,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
 
         private void Start()
         {
-            _xriInput = _vrInput as XriInput;
-            if (_xriInput == null)
-                Logger.LogError("XriRig needs the XRI backend (XriInput). Sprinting and crouching won't work.",
-                    LogCat.VR);
-            else
-                CreateTeleportAimer();
+            CreateTeleportAimer();
 
             // Snapping has to run right after XRI moved the body this frame (see SnapToGround()).
             _bodyTransformer = _moveProvider.mediator != null ? _moveProvider.mediator.bodyTransformer : null;

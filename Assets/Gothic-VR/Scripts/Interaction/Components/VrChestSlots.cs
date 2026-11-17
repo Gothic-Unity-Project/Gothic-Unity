@@ -65,10 +65,10 @@ namespace Gothic.VR.Interaction.Components
 
         private void Start()
         {
-            _hinge = VrHinges.FindActive(this);
+            _hinge = VrHinges.Find(this);
             if (_hinge == null)
             {
-                Logger.LogWarning($"[Chest] {name} has no active lid hinge. It can't be opened.", LogCat.VR);
+                Logger.LogWarning($"[Chest] {name} has no lid hinge. It can't be opened.", LogCat.VR);
                 return;
             }
 
