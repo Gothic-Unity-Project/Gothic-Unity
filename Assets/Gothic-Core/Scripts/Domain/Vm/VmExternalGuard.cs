@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
@@ -95,6 +97,46 @@ namespace Gothic.Core.Domain.Vm
         {
             EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
+        }
+
+        /// <summary>
+        /// An external that takes two strings and returns one whose text may hold non-ASCII characters
+        /// (ConcatStrings). ZenKit's typed registration would scramble them on IL2CPP, see
+        /// ZenKitVmExtension.PushNativeString: here the parameters and the result pass the VM as bytes in the
+        /// installation's code page. Guarded like the others: a failing callback returns "".
+        /// </summary>
+        /// <param name="encoding">Read on every call - the language is detected after the externals are registered.</param>
+        public void RegisterStringExternal(string name, Func<string, string, string> cb, Func<Encoding> encoding)
+        {
+            EnsureDeclared(name);
+            if (!ZenKitVmExtension.HasNativeStrings)
+            {
+                Logger.LogWarning($"External >{name}<: ZenKit's VM handle isn't reachable - registered the ZenKit " +
+                                  "way, its non-ASCII characters are scrambled on Quest and Pico.", LogCat.ZenKit);
+                RegisterExternal<string, string, string>(name, (p0, p1) => cb(p0, p1));
+                return;
+            }
+
+            _vm.RegisterExternal(name, () =>
+            {
+                var result = string.Empty;
+                // Before the language is detected, Gothic's default code page.
+                var codePage = encoding() ?? Encoding.GetEncoding((int)StringEncoding.WestEurope);
+                try
+                {
+                    // Parameters come off the stack last first.
+                    var p1 = _vm.PopNativeString(codePage);
+                    var p0 = _vm.PopNativeString(codePage);
+                    result = cb(p0, p1);
+                }
+                catch (Exception e)
+                {
+                    Failed(name, e);
+                }
+
+                // Always pushed: the scripts expect a return value on the stack.
+                _vm.PushNativeString(result, codePage);
+            });
         }
 
         public void RegisterExternal<TP0>(string name, DaedalusVm.ExternalFuncV<TP0> cb)
