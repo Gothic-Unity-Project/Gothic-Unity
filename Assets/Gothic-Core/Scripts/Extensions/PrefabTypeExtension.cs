@@ -18,6 +18,7 @@ namespace Gothic.Core.Extensions
                 PrefabType.UiThumbnail => "Prefabs/UI/Thumbnail",
                 PrefabType.UiVirtualKeyboard => "Prefabs/UI/VirtualKeyboard",
                 PrefabType.UiHitNumber => "Prefabs/UI/UiHitNumber",
+                PrefabType.UiItemDetailsPopup => "Prefabs/UI/ItemDetailsPopup",
                 PrefabType.HitNumber => "Prefabs/UI/HitNumber",
 
                 PrefabType.UiDebugText => "Prefabs/UI/Debug/Text",

@@ -3,14 +3,19 @@ using Gothic.Core;
 using Gothic.Core.Adapters.Properties.Vobs;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
+using Gothic.Core.Models.Caches;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Services;
 using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using ZenKit.Daedalus;
 using ZenKit.Vobs;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.VR.Adapters.Player
 {
@@ -34,15 +39,14 @@ namespace Gothic.VR.Adapters.Player
         private const float _hoverDistance = 0.12f;
         private const float _updateInterval = 0.1f;
 
-        [Tooltip("World space popup (\"ItemDetailsPopup.prefab\"): background and auto-sized text.")]
-        [SerializeField] private GameObject _popupPrefab;
-
         [Inject] private readonly ConfigService _configService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly VRPlayerService _vrPlayerService;
 
         private VrInteractable _backpack;
         private bool _isCounter;
         private GameObject _canvasGo;
+        private bool _isCanvasMissing;
         private TMP_Text _text;
         private GameObject _shownItem;
         private Renderer[] _shownItemRenderers;
@@ -60,8 +64,6 @@ namespace Gothic.VR.Adapters.Player
         {
             _isCounter = GetComponent<VRBackpack>() == null;
             _backpack = _isCounter ? null : GetComponent<VrInteractable>();
-            BuildCanvas();
-            _canvasGo.SetActive(false);
             ReadOption();
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
         }
@@ -107,10 +109,11 @@ namespace Gothic.VR.Adapters.Player
         private void UpdateShownItem()
         {
             var item = FindItemToShow();
-            if (item == null || !TrySetText(item))
+            if (item == null || !TryBuildCanvas() || !TrySetText(item))
             {
                 _shownItem = null;
-                _canvasGo.SetActive(false);
+                if (_canvasGo != null)
+                    _canvasGo.SetActive(false);
                 return;
             }
 
@@ -301,13 +304,40 @@ namespace Gothic.VR.Adapters.Player
                 _canvasGo.transform.rotation = Quaternion.LookRotation(_canvasGo.transform.position - cam.transform.position);
         }
 
-        private void BuildCanvas()
+        /// <summary>
+        /// Built for the first item to show, from the prefab cache instead of a serialized reference: the trade
+        /// counter adds this component in code (no prefab to hold a reference), and the backpack's Start runs before
+        /// the cache is ready. A prefab that can't be loaded is one error instead of one per tick.
+        /// </summary>
+        private bool TryBuildCanvas()
         {
+            if (_canvasGo != null)
+                return true;
+            if (_isCanvasMissing)
+                return false;
+            // Stays set if the load throws or the prefab has no text.
+            _isCanvasMissing = true;
+
             // Not parented to the backpack: it follows the item in world space and must not inherit the backpack's scale.
-            _canvasGo = Instantiate(_popupPrefab);
-            _canvasGo.name = "_ItemDetailsPopup";
+            var canvasGo = _resourceCacheService.TryGetPrefabObject(PrefabType.UiItemDetailsPopup, "_ItemDetailsPopup");
+            _text = canvasGo != null ? canvasGo.GetComponentInChildren<TMP_Text>(true) : null;
+            if (_text == null)
+            {
+                Logger.LogError("[VRItemDetailsPopup] Popup prefab or its text is missing - no item details.",
+                    LogCat.VR);
+                if (canvasGo != null)
+                    Destroy(canvasGo);
+                return false;
+            }
+
+            // Lives as long as its owner: the world scene it would be created in is unloaded on a level change.
+            if (gameObject.scene.IsValid() && canvasGo.scene != gameObject.scene)
+                SceneManager.MoveGameObjectToScene(canvasGo, gameObject.scene);
+
+            _isCanvasMissing = false;
+            _canvasGo = canvasGo;
             _canvasGo.transform.localScale = Vector3.one * _canvasScale;
-            _text = _canvasGo.GetComponentInChildren<TMP_Text>(true);
+            return true;
         }
     }
 }
