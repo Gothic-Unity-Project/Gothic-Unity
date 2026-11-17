@@ -89,7 +89,8 @@ gitGraph
 - **`fix/*`** branches for the release start from `release/x.y.z` and go back into it via PR. No features here.
 - **Release candidate:** each RC build is reviewed and playtested. If it fails, more fixes go into the release branch.
 - **Release:** the release branch is merged into `main` and tagged `vx.y.z`. It is also merged back into `develop`
-  so the fixes are not lost.
+  so the fixes are not lost. When creating the GitHub release, set its target to `main`: it defaults to the default
+  branch (`develop`), and the release build is made from the tagged commit.
 - **`hotfix/*`** branches fix an already released version. They start from `main`, go back into `main` with a new
   patch tag (e.g. `v0.3.1`) and are also merged into `develop`. If a release branch is open at that time, merge the
   hotfix into it instead of `develop`.

@@ -12,7 +12,7 @@ Read-only: never edit files.
 
 ## Inputs
 
-1. `git log --oneline main..HEAD` and `git diff --stat main...HEAD` (or the range you're given).
+1. `git log --oneline develop..HEAD` and `git diff --stat develop...HEAD` (or the range you're given).
 2. The DeveloperConfig section `TODO TEST ME V1s and MVPs` in
    `Assets/Gothic-Core/Scripts/Models/Config/DeveloperConfig.cs` - every flag there is an untested feature.
 3. The changed files themselves, to understand the player-visible effect.

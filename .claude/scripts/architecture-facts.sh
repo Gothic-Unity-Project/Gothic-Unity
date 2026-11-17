@@ -3,17 +3,17 @@
 # Cheap: only git + grep/awk, no LLM tokens spent on reading full diffs.
 #
 # Usage:
-#   architecture-facts.sh            # committed branch changes: main...HEAD
-#   architecture-facts.sh --wip      # merge-base(main) vs working tree (incl. uncommitted, excl. untracked)
+#   architecture-facts.sh            # committed branch changes: develop...HEAD
+#   architecture-facts.sh --wip      # merge-base(develop) vs working tree (incl. uncommitted, excl. untracked)
 #   architecture-facts.sh <range>    # any git diff range, e.g. HEAD~3..HEAD
 
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 if [[ "${1:-}" == "--wip" ]]; then
-    RANGE="$(git merge-base main HEAD)"
+    RANGE="$(git merge-base develop HEAD)"
 else
-    RANGE="${1:-main...HEAD}"
+    RANGE="${1:-develop...HEAD}"
 fi
 
 CORE="Assets/Gothic-Core/Scripts/"

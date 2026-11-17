@@ -19,7 +19,7 @@ Every PR that makes a decision someone could question later: a new feature, a ne
 There is no status line. Where the record is tells its state:
 
 - **On a branch / in an open PR: proposed.** It may still change in that PR, until it is merged.
-- **In main: accepted and in force.** A record in main is never edited again - not its decisions, not its wording.
+- **Merged into `develop`: accepted and in force.** A merged record is never edited again - not its decisions, not its wording.
 - **A decision changes later: write a new record.** Its header names what it replaces: `- Replaces: [<old record>](<old file>)`, or only some decisions: `- Replaces: decisions 2-3 of [<old record>](<old file>)`. The old record stays as it is.
 - **Is an old decision still in force?** Search `Docs/adr/` for its file name in `Replaces:` lines. Not replaced: in force. Replaced: the newer record wins (for the decisions it names).
 - **Code that should work against an accepted decision** isn't built quietly: the human decides, and the change gets its new record in the same PR.
