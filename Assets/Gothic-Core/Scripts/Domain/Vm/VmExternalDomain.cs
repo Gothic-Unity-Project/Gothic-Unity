@@ -70,7 +70,7 @@ namespace Gothic.Core.Domain.Vm
         {
             _support.Init();
 
-            var vm = new VmExternalGuard(_gameStateService.GothicVm);
+            var vm = new VmExternalGuard(_gameStateService.GothicVm, () => _gameStateService.Encoding);
             vm.RegisterExternalDefault(DefaultExternal);
 
             _aiDomain.Register(vm);

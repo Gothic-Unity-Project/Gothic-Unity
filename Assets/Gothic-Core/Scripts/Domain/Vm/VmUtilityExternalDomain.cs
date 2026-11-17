@@ -35,7 +35,6 @@ namespace Gothic.Core.Domain.Vm
     /// </summary>
     public class VmUtilityExternalDomain
     {
-        [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly NpcHelperService _npcHelperService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly AudioService _audioService;
@@ -64,7 +63,7 @@ namespace Gothic.Core.Domain.Vm
             vm.RegisterExternal<string>("Snd_Play", Snd_Play);
             vm.RegisterExternal<int, int>("Perc_SetRange", Perc_SetRange);
             // Its result is the one external string that carries game text (names with umlauts, Cyrillic, ...).
-            vm.RegisterStringExternal("ConcatStrings", ConcatStrings, () => _gameStateService.Encoding);
+            vm.RegisterStringExternal("ConcatStrings", ConcatStrings);
             vm.RegisterExternal<string, int>("IntToString", IntToString);
             vm.RegisterExternal<string, float>("FloatToString", FloatToString);
             vm.RegisterExternal<int, float>("FloatToInt", FloatToInt);

@@ -35,6 +35,8 @@ namespace Gothic.Core.Extensions
         /// umlauts pushed by ZenKit's DaedalusVm.Push comes back scrambled once the scripts hand it on: each
         /// non-ASCII character shows up as two wrong ones. Mono (editor, Windows build) is fine. This pushes the
         /// bytes in the game's code page itself.
+        /// FIXME - Remove once ZenKitCS hands its strings to the native library without a custom marshaller
+        /// (not reported upstream yet).
         /// </summary>
         public static void PushNativeString(this DaedalusVm vm, string value, Encoding encoding)
         {

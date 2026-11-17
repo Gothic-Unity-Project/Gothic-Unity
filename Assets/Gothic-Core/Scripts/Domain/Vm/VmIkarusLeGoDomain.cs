@@ -53,7 +53,7 @@ namespace Gothic.Core.Domain.Vm
         public void Init()
         {
             _memory = new VirtualMemory();
-            _guard = new VmExternalGuard(_gameStateService.GothicVm);
+            _guard = new VmExternalGuard(_gameStateService.GothicVm, () => _gameStateService.Encoding);
 
             SetupCoreFunctions();
             SetupMemoryFunctions();

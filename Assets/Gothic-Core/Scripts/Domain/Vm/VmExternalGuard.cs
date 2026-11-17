@@ -20,11 +20,15 @@ namespace Gothic.Core.Domain.Vm
     public class VmExternalGuard
     {
         private readonly DaedalusVm _vm;
+        private readonly Func<Encoding> _encoding;
         private readonly HashSet<string> _failedExternals = new();
 
-        public VmExternalGuard(DaedalusVm vm)
+        /// <param name="encoding">The installation's code page (GameStateService.Encoding). Read on every use: the
+        /// language is detected after the externals are registered.</param>
+        public VmExternalGuard(DaedalusVm vm, Func<Encoding> encoding)
         {
             _vm = vm;
+            _encoding = encoding;
         }
 
         public DaedalusSymbol GetSymbolByName(string name)
@@ -104,9 +108,10 @@ namespace Gothic.Core.Domain.Vm
         /// (ConcatStrings). ZenKit's typed registration would scramble them on IL2CPP, see
         /// ZenKitVmExtension.PushNativeString: here the parameters and the result pass the VM as bytes in the
         /// installation's code page. Guarded like the others: a failing callback returns "".
+        /// Not covered yet: the other callbacks that return text (the Ikarus/LeGo overrides STR_SubStr, STR_Upper,
+        /// MEM_ReadString, SB_TOSTRING) still use ZenKit's typed registration.
         /// </summary>
-        /// <param name="encoding">Read on every call - the language is detected after the externals are registered.</param>
-        public void RegisterStringExternal(string name, Func<string, string, string> cb, Func<Encoding> encoding)
+        public void RegisterStringExternal(string name, Func<string, string, string> cb)
         {
             EnsureDeclared(name);
             if (!ZenKitVmExtension.HasNativeStrings)
@@ -120,22 +125,30 @@ namespace Gothic.Core.Domain.Vm
             _vm.RegisterExternal(name, () =>
             {
                 var result = string.Empty;
-                // Before the language is detected, Gothic's default code page.
-                var codePage = encoding() ?? Encoding.GetEncoding((int)StringEncoding.WestEurope);
                 try
                 {
-                    // Parameters come off the stack last first.
-                    var p1 = _vm.PopNativeString(codePage);
-                    var p0 = _vm.PopNativeString(codePage);
-                    result = cb(p0, p1);
+                    // Before the language is detected, Gothic's default code page.
+                    var codePage = _encoding() ?? Encoding.GetEncoding((int)StringEncoding.WestEurope);
+                    try
+                    {
+                        // Parameters come off the stack last first.
+                        var p1 = _vm.PopNativeString(codePage);
+                        var p0 = _vm.PopNativeString(codePage);
+                        result = cb(p0, p1);
+                    }
+                    catch (Exception e)
+                    {
+                        Failed(name, e);
+                    }
+
+                    // Always pushed: the scripts expect a return value on the stack.
+                    _vm.PushNativeString(result, codePage);
                 }
                 catch (Exception e)
                 {
+                    // The native call itself failed (a ZenKit update renamed it): nothing may cross into the VM.
                     Failed(name, e);
                 }
-
-                // Always pushed: the scripts expect a return value on the stack.
-                _vm.PushNativeString(result, codePage);
             });
         }
 
