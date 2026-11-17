@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
+using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using ZenKit;
 using Logger = Gothic.Core.Logging.Logger;
@@ -18,11 +20,18 @@ namespace Gothic.Core.Domain.Vm
     public class VmExternalGuard
     {
         private readonly DaedalusVm _vm;
+        private readonly Func<Encoding> _encoding;
+        private readonly bool _hasNativeHandle;
+        private readonly UIntPtr _nativeHandle;
         private readonly HashSet<string> _failedExternals = new();
 
-        public VmExternalGuard(DaedalusVm vm)
+        /// <param name="encoding">The installation's code page (GameStateService.Encoding). Read on every use: the
+        /// language is detected after the externals are registered.</param>
+        public VmExternalGuard(DaedalusVm vm, Func<Encoding> encoding)
         {
             _vm = vm;
+            _encoding = encoding;
+            _hasNativeHandle = vm.TryGetNativeHandle(out _nativeHandle);
         }
 
         public DaedalusSymbol GetSymbolByName(string name)
@@ -95,6 +104,55 @@ namespace Gothic.Core.Domain.Vm
         {
             EnsureDeclared(name);
             _vm.RegisterExternal(name, Guard(name, cb));
+        }
+
+        /// <summary>
+        /// An external that takes two strings and returns one whose text may hold non-ASCII characters
+        /// (ConcatStrings). ZenKit's typed registration would scramble them on IL2CPP, see
+        /// ZenKitVmExtension.PushNativeString: here the parameters and the result pass the VM as bytes in the
+        /// installation's code page. Guarded like the others: a failing callback returns "".
+        /// Not covered yet: the other callbacks that return text (the Ikarus/LeGo overrides STR_SubStr, STR_Upper,
+        /// MEM_ReadString, SB_TOSTRING) still use ZenKit's typed registration.
+        /// </summary>
+        public void RegisterStringExternal(string name, Func<string, string, string> cb)
+        {
+            EnsureDeclared(name);
+            if (!_hasNativeHandle)
+            {
+                Logger.LogWarning($"External >{name}<: ZenKit's VM handle isn't reachable - registered the ZenKit " +
+                                  "way, its non-ASCII characters are scrambled on Quest and Pico.", LogCat.ZenKit);
+                RegisterExternal<string, string, string>(name, (p0, p1) => cb(p0, p1));
+                return;
+            }
+
+            _vm.RegisterExternal(name, () =>
+            {
+                var result = string.Empty;
+                try
+                {
+                    // Before the language is detected, Gothic's default code page.
+                    var codePage = _encoding() ?? Encoding.GetEncoding((int)StringEncoding.WestEurope);
+                    try
+                    {
+                        // Parameters come off the stack last first.
+                        var p1 = ZenKitVmExtension.PopNativeString(_nativeHandle, codePage);
+                        var p0 = ZenKitVmExtension.PopNativeString(_nativeHandle, codePage);
+                        result = cb(p0, p1);
+                    }
+                    catch (Exception e)
+                    {
+                        Failed(name, e);
+                    }
+
+                    // Always pushed: the scripts expect a return value on the stack.
+                    ZenKitVmExtension.PushNativeString(_nativeHandle, result, codePage);
+                }
+                catch (Exception e)
+                {
+                    // The native call itself failed (a ZenKit update renamed it): nothing may cross into the VM.
+                    Failed(name, e);
+                }
+            });
         }
 
         public void RegisterExternal<TP0>(string name, DaedalusVm.ExternalFuncV<TP0> cb)
