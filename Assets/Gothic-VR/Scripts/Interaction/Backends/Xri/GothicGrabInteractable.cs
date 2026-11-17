@@ -24,7 +24,7 @@ namespace Gothic.VR.Interaction.Backends.Xri
     /// - A right hand attach transform: XRI holds an item with one static attach pose for both hands, so a pose made
     ///   for the left hand turned the item around in the right one (the backpack).
     ///
-    /// Disabled in the prefab. XriInteractableBridge enables it on the XRI backend once the runtime colliders exist.
+    /// Disabled in the prefab. XriInteractableBridge enables it once the runtime colliders exist.
     /// </summary>
     public class GothicGrabInteractable : XRGrabInteractable
     {

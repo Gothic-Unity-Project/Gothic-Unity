@@ -151,9 +151,10 @@ Notes for the narrow scope:
 - The expected runtime gain is small: the active-backend searches are cached per component. The real gain is less
   code and one less concept.
 - Check the shared prefabs for leftover per-backend bridge or container components before removing the loops.
-  Prefab inspection and changes go through Unity MCP.
-- It removes a decision (a pluggable backend), so the PR needs a short ADR that replaces the relevant part of
-  `Docs/HVR-replacement/`.
+  Prefab inspection and changes go through Unity MCP. **Checked**: each prefab carries at most one bridge and one
+  hinge.
+- It removes a decision (a pluggable backend), so the PR needs a short ADR. **Done**:
+  `Docs/adr/2026-11-16-remove-vr-backend-abstraction.md` replaces decision 2 of `Docs/adr/2026-10-28-hvr-removal.md`.
 - The issue text says "speed up lookup costs". If that refers to something beyond the `IsActive` searches, the
   scope should be confirmed with the issue author.
 
@@ -170,7 +171,7 @@ Notes for the narrow scope:
 | Does "services don't use adapters" apply inside Gothic-VR? 16 files break it and the doc is silent | vr 8 |
 | Are plain worker classes owned by an adapter allowed? | vr 20 |
 | Do both dialog hold modes stay? Each doubles the playtest surface | fix §5 |
-| Issue #521: narrow or wide scope? | #47 |
+| Issue #521: narrow or wide scope? **Decided 2026-11-16: narrow**, see `Docs/adr/2026-11-16-remove-vr-backend-abstraction.md` | #47 |
 
 ## Not covered by this plan
 

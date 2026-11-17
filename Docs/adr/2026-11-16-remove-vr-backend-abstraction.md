@@ -2,7 +2,7 @@
 
 - Date: 2026-11-16
 - Replaces: decision 2 of [HurricaneVR is removed, XR Interaction Toolkit is the only VR backend](2026-10-28-hvr-removal.md)
-- Technical details: Docs/architecture.md (VR interaction)
+- Technical details: Docs/architecture.md, section "Inside Gothic-VR"
 - Issue: #521
 
 ## Context
@@ -19,4 +19,6 @@ While HurricaneVR and the XR Interaction Toolkit lived side by side, the VR code
 
 - Less code and one concept less in the VR layer; the runtime gain is small.
 - Grabbables and sockets now work right away when they are created, also before dependency injection reached them.
+  Door and chest hinges move without it too, but play their sounds only once injected, and stepping off a ladder
+  at the top still needs injection.
 - Adding a second VR backend later means bringing back a way to choose between them.

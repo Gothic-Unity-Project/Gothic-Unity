@@ -179,6 +179,8 @@ removed from the baseline. Rule 5 is enforced by the asmdef references.
 ## Inside Gothic-VR
 
 VR interaction runs on the XR Interaction Toolkit backend. Game code doesn't know it: it talks to the ports.
+There is one backend: its port implementations are bound in `ReflexVRSceneInstaller`, and there is no "active
+backend" check.
 
 | Folder (`Gothic-VR/Scripts/`) | Holds | Uses |
 |---|---|---|

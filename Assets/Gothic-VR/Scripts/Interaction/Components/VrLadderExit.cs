@@ -43,6 +43,7 @@ namespace Gothic.VR.Interaction.Components
         private int _holdCount;
         private float _nextTryTime;
         private bool _isFailureLogged;
+        private bool _isInjectionWarningLogged;
 
         private void Awake()
         {
@@ -79,6 +80,18 @@ namespace Gothic.VR.Interaction.Components
         {
             if (_holdCount == 0 || Time.time < _nextTryTime)
                 return;
+
+            if (_contextInteractionService == null)
+            {
+                if (!_isInjectionWarningLogged)
+                {
+                    Logger.LogWarning($"[Ladder] {name} wasn't injected. Stepping off at the top doesn't work.",
+                        LogCat.VR);
+                    _isInjectionWarningLogged = true;
+                }
+
+                return;
+            }
 
             _rig ??= _contextInteractionService.GetImpl<VRContextInteractionService>().Rig;
             if (_rig == null || !_rig.IsClimbing || !TryGetTopY(out var topY))
