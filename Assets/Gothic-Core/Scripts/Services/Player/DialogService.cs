@@ -552,7 +552,8 @@ namespace Gothic.Core.Manager
 
         public void StopDialog(NpcContainer npc)
         {
-            _tradeService.End();
+            // The dialog is over: its choices must not come back with the trade's end.
+            _tradeService.End(isResumingDialog: false);
             _gameStateService.Dialogs.CurrentInstance = null;
             _gameStateService.Dialogs.CurrentOptions.Clear();
             _gameStateService.Dialogs.IsInDialog = false;
