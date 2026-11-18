@@ -38,8 +38,63 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 Pull requests are the best way to propose changes to the codebase. We welcome your pull requests:
 
 1. Try to align with current status of the project and team member's work (Discord).
-2. Fork the repo and create your branch from `main`.
+2. Fork the repo and create your branch from `develop` (see [Branching](#branching-git-flow)).
 3. Issue your pull request with extensive information about what changed and how to test it.
+
+### Branching (git flow)
+
+```mermaid
+%%{init: {'theme': 'base', 'gitGraph': {'mainBranchOrder': 6}, 'themeVariables': {
+    'git0': '#8DB8EC', 'gitBranchLabel0': '#000000',
+    'git1': '#1F5FBF', 'gitBranchLabel1': '#ffffff',
+    'git2': '#2E9E5B', 'gitBranchLabel2': '#ffffff',
+    'git3': '#9ED9B0', 'gitBranchLabel3': '#000000',
+    'git4': '#D93A2B', 'gitBranchLabel4': '#ffffff',
+    'git5': '#E0A100', 'gitBranchLabel5': '#000000'
+}}}%%
+gitGraph
+    commit id: "v0.2.0" tag: "v0.2.0"
+    branch develop order: 2
+    commit id: "features accumulate"
+    branch "feature/vr-grab" order: 1
+    commit id: "vr-grab"
+    commit id: "PR + playtest"
+    checkout develop
+    merge "feature/vr-grab"
+    branch "release/0.3.0" order: 3
+    commit id: "feature freeze"
+    checkout develop
+    commit id: "next features"
+    checkout "release/0.3.0"
+    branch "fix/quest2-crash" order: 4
+    commit id: "quest2-crash"
+    checkout "release/0.3.0"
+    merge "fix/quest2-crash" id: "RC build + review"
+    checkout main
+    merge "release/0.3.0" tag: "v0.3.0"
+    checkout develop
+    merge "release/0.3.0" id: "release fixes"
+    checkout main
+    branch "hotfix/0.3.1" order: 5
+    commit id: "save-crash"
+    checkout main
+    merge "hotfix/0.3.1" tag: "v0.3.1"
+    checkout develop
+    merge "hotfix/0.3.1" id: "hotfix"
+```
+
+- **`feature/*`** branches start from `develop` and go back into `develop` via PR (with playtest).
+- **Feature freeze:** a `release/x.y.z` branch is cut from `develop`. From then on `develop` is open for the
+  next features again.
+- **`fix/*`** branches for the release start from `release/x.y.z` and go back into it via PR. No features here.
+- **Release candidate:** each RC build is reviewed and playtested. If it fails, more fixes go into the release branch.
+- **Release:** the release branch is merged into `main` and tagged `vx.y.z`. It is also merged back into `develop`
+  so the fixes are not lost. When creating the GitHub release, set its target to `main`: it defaults to the default
+  branch (`develop`), and the release build is made from the tagged commit.
+- **`hotfix/*`** branches fix an already released version. They start from `main`, go back into `main` with a new
+  patch tag (e.g. `v0.3.1`) and are also merged into `develop`. If a release branch is open at that time, merge the
+  hotfix into it instead of `develop`.
+- `main` only ever contains released versions.
 
 ### Report bugs using GitHub's [issues](https://github.com/Gothic-Unity-Project/Gothic-Unity/issues)
 We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/Gothic-Unity-Project/Gothic-Unity/issues/new); it's that easy!
