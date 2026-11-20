@@ -555,7 +555,8 @@ MonoBehaviour:
   - m_Id: 193347490894176272
     m_Localized: 'Choose trade in the dialog: a counter appears. Left: lay down what
       you sell. Right: take what you buy. The middle shows the difference - OK pays
-      it with ore/gold from your inventory, X closes. Arrows scroll the rings.'
+      it with ore/gold from your inventory, X closes. Arrows scroll the rings. Hold
+      the trigger next to a stack to take single pieces.'
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176273
