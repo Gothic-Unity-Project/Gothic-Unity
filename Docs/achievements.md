@@ -32,6 +32,12 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
 6. **Save committed:** `SaveGameService.SaveCurrentGame()` calls `AchievementService.OnSaveCommitted(runId, saveNo)`
    (planned) after the slot folder was replaced successfully. `Capture()` runs before success is known, so a
    failed save never counts as the run's newest.
+7. **Unlock event:** `GlobalEventDispatcher.AchievementUnlocked(definition, tier)` (planned), raised only by
+   `AchievementService`, also when a tier is upgraded. The toast and the menu page listen to it and read the shared
+   read model; nobody polls the service.
+8. **Switch:** `GameSettings.json` `"AchievementsEnabled"` (planned, default `true`). Off: no facts are checked,
+   nothing is written to the profile or the save section, no pop-ups. Not a `DeveloperConfig` field (Editor only).
+   The wiki Player Guide ("Configuration") needs it once it is built.
 
 ## Definition format
 
@@ -63,8 +69,9 @@ Condition kinds (one per definition, `all`/`any` combine):
 | NPC aivar | `{ "npcAivar": "GRD_251_Kirgo", "aivar": "AIV_WASDEFEATEDBYSC", "value": 1 }` | never alone: read at the moment of the other fact in its `all` |
 
 Texts are in the file (not in the Unity string table), so a mod can bring its own. Missing language: English.
-Icons name an item instance (rendered like the inventory does) or a texture from the installation (`"texture":
-"..."`). Nothing of the original games ships with Gothic-Unity.
+Icons name a texture from the installation (`"texture": "..."`, works from day one) or an item instance
+(`"item": "..."`). There is no render-to-texture for items yet, so an `item` icon falls back to the definition's
+texture or a placeholder until it exists. Nothing of the original games ships with Gothic-Unity.
 
 Items, NPCs and kills are keyed by script instance names (`ItMiNugget`, `MinecrawlerQueen`), never by display
 names (`ItemInstance.Name`). The item fact is hero-only and reads the hero's packed inventory
@@ -245,6 +252,8 @@ loaded at runtime.
 - **Cost on Quest 2.** No per-frame work. A fact checks only its indexed definitions; variable reads are a handful
   of symbol lookups once per in-game minute; the profile file is written only on an unlock, a committed save or
   a death.
+- **Logging.** `LogCat.Achievements`, one-shot only: one warning per unavailable definition, one summary line per
+  load for the facts ignored while loading, one warning per broken seal. Nothing per check or per fact.
 - **Not detectable yet** (need an engine fact first): pickpocketing (engine-only in G1), hiding in a barrel,
   forging at the anvil, kill while transformed, kill with the victim's own weapon, control/rage spell kills, shrink.
 
@@ -257,5 +266,6 @@ loaded at runtime.
 | save section `core.achievements` | `Gothic-Core/Scripts/Domain/SaveGames/` |
 | `AchievementService` | `Gothic-Core/Scripts/Services/Achievements/`, ProjectScope |
 | seal (sign, verify, encode) | `Gothic-Core/Scripts/Domain/Achievements/AchievementSealDomain.cs`; committed dev key file, overwritten by CI before the build |
-| toast, menu page | `Gothic-VR` and `Gothic-Flat` adapters; icons textures-only at first (no render-to-texture for items exists yet) |
+| toast, menu page | one prefab each in `Gothic-Core/Resources/Prefabs/` (`PrefabType` + `ResourceCacheService`), adapters in Core; a VR Prefab Variant only where the placement differs |
+| `LogCat.Achievements` | new enum value (planned) in `Gothic-Core/Scripts/Logging/LogCat.cs` |
 | definition files | `Assets/StreamingAssets/Achievements/` |
