@@ -307,6 +307,18 @@ namespace Gothic.Core.Services.Caches
                 };
             }
 
+            // Issue #356: does this GPU support the array's format natively? If not (e.g. DXT1 on Quest), Unity
+            // decompresses it to RGBA32 - 8x the memory of DXT1.
+            var isFormatSupported = SystemInfo.SupportsTextureFormat(textureFormat);
+            var formatLog = $"[TextureArray] {texArrType}: {textureFormat} supported by GPU: {isFormatSupported}, " +
+                            $"created as {texArray.graphicsFormat}, {sliceCount} slices, {texArray.width}x" +
+                            $"{texArray.height}, {texArray.mipmapCount} mips ({SystemInfo.graphicsDeviceType}, " +
+                            $"{SystemInfo.graphicsDeviceName})";
+            if (isFormatSupported)
+                Logger.Log(formatLog, LogCat.PreCaching);
+            else
+                Logger.LogWarning(formatLog, LogCat.PreCaching);
+
             // Copy all the textures and their mips into the array. Textures which are smaller are tiled so bilinear sampling isn't broke.
             // This is why it's not possible to pack different textures together in the same slice.
             var i = -1;
