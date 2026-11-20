@@ -744,6 +744,7 @@ namespace Gothic.Core.Services.Npc
             else
                 _deathDomain.Die(victim);
             _deathDomain.StartDeadState(victim, killer);
+            GlobalEventDispatcher.NpcKilled.Invoke(victim, killer);
 
             if (victim.Instance.IsHero(_gameStateService.GothicVm))
                 EndGame(victim, killer);

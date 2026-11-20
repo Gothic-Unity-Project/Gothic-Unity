@@ -27,6 +27,7 @@ namespace Gothic.Core.Domain.Marvin
         [Inject] private readonly GameTimeService _gameTimeService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly NpcAiService _npcAiService;
         [Inject] private readonly PlayerService _playerService;
         [Inject] private readonly WayNetService _wayNetService;
 
@@ -99,6 +100,8 @@ namespace Gothic.Core.Domain.Marvin
             hero.Instance.Guild = guild;
             hero.Vob.Guild = guild;
             hero.Vob.GuildTrue = guild;
+            // Like the scripts' Npc_SetTrueGuild (also announces the guild change, e.g. for achievements).
+            _npcAiService.ExtSetTrueGuild(hero.Instance, guild);
 
             Logger.Log($"[MarvinCheatDomain] Guild: hero guild set to {guildSymbolName} ({guild})", LogCat.Ui);
             return true;
