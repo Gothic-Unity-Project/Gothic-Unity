@@ -1,0 +1,474 @@
+{
+  "version": 1,
+  "achievements": [
+    {
+      "id": "g1.gomez_shadow",
+      "title": {
+        "en": "Gomez' Shadow",
+        "de": "Gomez' Schatten"
+      },
+      "description": {
+        "en": "Become a Shadow of the Old Camp.",
+        "de": "Werde ein Schatten im Alten Lager."
+      },
+      "icon": {
+        "texture": "Map_OldCamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "CH1_JoinOC",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.disciple_of_the_sleeper",
+      "title": {
+        "en": "Disciple of the Sleeper",
+        "de": "Jünger des Schläfers"
+      },
+      "description": {
+        "en": "Become a novice of the Brotherhood in the swamp.",
+        "de": "Werde Novize der Bruderschaft im Sumpf."
+      },
+      "icon": {
+        "texture": "Map_PSICamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "CH1_JoinPsi",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.lares_crew",
+      "title": {
+        "en": "Lares' Crew",
+        "de": "Lares' Leute"
+      },
+      "description": {
+        "en": "Become a rogue of the New Camp.",
+        "de": "Werde Bandit im Neuen Lager."
+      },
+      "icon": {
+        "texture": "Map_NewCamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "CH1_JoinNC",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.hired_early",
+      "title": {
+        "en": "Hired Early",
+        "de": "Früh angeheuert"
+      },
+      "description": {
+        "en": "Join Lee's mercenaries before the first chapter ends.",
+        "de": "Werde noch im ersten Kapitel Söldner bei Lee."
+      },
+      "icon": {
+        "texture": "Map_NewCamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "all": [
+          {
+            "trueGuild": [
+              "GIL_SLD"
+            ]
+          },
+          {
+            "variable": "Kapitel",
+            "op": "==",
+            "value": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "g1.past_the_gatekeepers",
+      "title": {
+        "en": "Past the Gatekeepers",
+        "de": "Vorbeigemogelt"
+      },
+      "description": {
+        "en": "Get to Lares without being let in.",
+        "de": "Schaffe es zu Lares, ohne dass man dich vorlässt."
+      },
+      "icon": {
+        "texture": "Map_NewCamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "Lares_vorbeigemogelt",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g1.great_invocation",
+      "title": {
+        "en": "The Great Invocation",
+        "de": "Die große Anrufung"
+      },
+      "description": {
+        "en": "Be there when the Brotherhood calls the Sleeper.",
+        "de": "Sei dabei, wenn die Bruderschaft den Schläfer ruft."
+      },
+      "icon": {
+        "texture": "chapter3.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "Kapitel",
+        "op": ">=",
+        "value": 3
+      }
+    },
+    {
+      "id": "g1.bones_and_silence",
+      "title": {
+        "en": "Bones and Silence",
+        "de": "Knochen und Stille"
+      },
+      "description": {
+        "en": "Lead Baal Lukor through the orc graveyard and come back alive.",
+        "de": "Führe Baal Lukor durch den Orkfriedhof und kehre lebend zurück."
+      },
+      "icon": {
+        "texture": "Map_World_Orc.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "CH3_OrcGraveyard",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.five_stones",
+      "title": {
+        "en": "Five Stones for the Barrier",
+        "de": "Fünf Steine für die Barriere"
+      },
+      "description": {
+        "en": "Bring every focus stone to the Water Mages.",
+        "de": "Bringe alle Fokussteine zu den Wassermagiern."
+      },
+      "icon": {
+        "texture": "Map_World_Foki.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "CH3_BringFoci",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.hearts_of_stone",
+      "title": {
+        "en": "Hearts of Stone",
+        "de": "Herzen aus Stein"
+      },
+      "description": {
+        "en": "Take the golems' hearts and earn the way to Xardas.",
+        "de": "Nimm den Golems die Herzen und verdiene dir den Weg zu Xardas."
+      },
+      "icon": {
+        "texture": "chapter4.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "item": "ItArRuneTeleport3"
+      }
+    },
+    {
+      "id": "g1.friend_of_the_orcs",
+      "title": {
+        "en": "Friend of the Orcs",
+        "de": "Freund der Orks"
+      },
+      "description": {
+        "en": "Carry the orcs' sign of friendship.",
+        "de": "Trage das Freundschaftszeichen der Orks."
+      },
+      "icon": {
+        "texture": "Map_World_Orc.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "CH4_UluMulu",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.blade_awakens",
+      "title": {
+        "en": "The Blade Awakens",
+        "de": "Die Klinge erwacht"
+      },
+      "description": {
+        "en": "Give Uriziel back its power.",
+        "de": "Gib Uriziel seine Kraft zurück."
+      },
+      "icon": {
+        "texture": "chapter5.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "CH5_Uriziel",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.fed_up",
+      "title": {
+        "en": "Fed Up",
+        "de": "Bedient"
+      },
+      "description": {
+        "en": "Find out what Baloro's wonder weapon really is.",
+        "de": "Finde heraus, was Baloros Wunderwaffe wirklich ist."
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "Baloros_Waffe",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.pride_of_the_arena",
+      "title": {
+        "en": "Pride of the Arena",
+        "de": "Stolz der Arena"
+      },
+      "description": {
+        "en": "Beat Kirgo and Kharim in Scatty's arena.",
+        "de": "Besiege Kirgo und Kharim in Scattys Arena."
+      },
+      "icon": {
+        "texture": "Map_OldCamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "all": [
+          {
+            "infoTold": "DIA_Scatty_KirgoSuccess"
+          },
+          {
+            "infoTold": "DIA_Scatty_KHARIMSuccess"
+          },
+          {
+            "npcAivar": "GRD_251_Kirgo",
+            "aivar": "AIV_WASDEFEATEDBYSC",
+            "value": 1
+          },
+          {
+            "npcAivar": "SLD_729_Kharim",
+            "aivar": "AIV_WASDEFEATEDBYSC",
+            "value": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "g1.forged_anew",
+      "title": {
+        "en": "Forged Anew",
+        "de": "Neu geschmiedet"
+      },
+      "description": {
+        "en": "Have Stone strengthen your ore armor.",
+        "de": "Lass Stone deine Erzrüstung verstärken."
+      },
+      "icon": {
+        "texture": "Map_OldCamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "infoTold": "DIA_GRD_219_Stone4"
+      }
+    },
+    {
+      "id": "g1.debts_settled",
+      "title": {
+        "en": "Debts Settled",
+        "de": "Schulden beglichen"
+      },
+      "description": {
+        "en": "Pay what Jesse owes.",
+        "de": "Begleiche Jesses Schulden."
+      },
+      "icon": {
+        "texture": "Map_OldCamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "Jesse_PayForMe",
+        "op": "==",
+        "value": "LOG_SUCCESS"
+      }
+    },
+    {
+      "id": "g1.hidden_from_gomez",
+      "title": {
+        "en": "Hidden from Gomez",
+        "de": "Versteckt vor Gomez"
+      },
+      "description": {
+        "en": "Find the man who has hidden from Gomez for years.",
+        "de": "Finde den Mann, der sich seit Jahren vor Gomez versteckt."
+      },
+      "hidden": false,
+      "condition": {
+        "infoTold": "DIA_Gilbert_First"
+      }
+    },
+    {
+      "id": "g1.patience_of_a_saint",
+      "title": {
+        "en": "Patience of a Saint",
+        "de": "Engelsgeduld"
+      },
+      "description": {
+        "en": "Let Mud talk until he has nothing new to say.",
+        "de": "Lass Mud reden, bis ihm nichts Neues mehr einfällt."
+      },
+      "icon": {
+        "texture": "Map_OldCamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "infoTold": "DIA_Mud_Nerve_19"
+      }
+    },
+    {
+      "id": "g1.gentle_strength",
+      "title": {
+        "en": "Gentle Strength",
+        "de": "Sanfte Kraft"
+      },
+      "description": {
+        "en": "Convince Horatio, who swore off fighting, to train you.",
+        "de": "Überrede Horatio, der dem Kämpfen abgeschworen hat, dich zu trainieren."
+      },
+      "icon": {
+        "texture": "Map_NewCamp.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "CH1_HoratiosTeachings",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.worth_your_weight_in_ore",
+      "title": {
+        "en": "Worth Your Weight in Ore",
+        "de": "Erz wie Heu"
+      },
+      "description": {
+        "en": "Own 15,000 nuggets of ore.",
+        "de": "Besitze 15.000 Erzbrocken."
+      },
+      "icon": {
+        "texture": "OREBRICKS.TGA"
+      },
+      "hidden": false,
+      "condition": {
+        "item": "ItMiNugget",
+        "count": 15000
+      }
+    },
+    {
+      "id": "g1.someone_smoked_here",
+      "title": {
+        "en": "Someone Smoked Here",
+        "de": "Hier hat jemand geraucht"
+      },
+      "description": {
+        "en": "Find the lost smoking pipe.",
+        "de": "Finde die verlorene Pfeife."
+      },
+      "hidden": false,
+      "condition": {
+        "item": "ItMi_Stuff_Pipe_01"
+      }
+    },
+    {
+      "id": "g1.into_the_nest",
+      "title": {
+        "en": "Into the Nest",
+        "de": "Ins Nest"
+      },
+      "description": {
+        "en": "Kill the minecrawler queen.",
+        "de": "Töte die Minecrawler-Königin."
+      },
+      "icon": {
+        "texture": "Map_OldMine.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "killed": [
+          "MinecrawlerQueen"
+        ]
+      }
+    },
+    {
+      "id": "g1.pest_control",
+      "title": {
+        "en": "Pest Control",
+        "de": "Kammerjäger"
+      },
+      "description": {
+        "en": "Squash 10 meatbugs.",
+        "de": "Zertritt 10 Fleischwanzen."
+      },
+      "hidden": false,
+      "condition": {
+        "killed": [
+          "Meatbug"
+        ],
+        "count": 10,
+        "byHero": true
+      }
+    },
+    {
+      "id": "g1.steady_hands",
+      "title": {
+        "en": "Steady Hands",
+        "de": "Ruhige Hand"
+      },
+      "description": {
+        "en": "Pick 20 locks.",
+        "de": "Knacke 20 Schlösser."
+      },
+      "hidden": false,
+      "condition": {
+        "counter": "lockpick.success",
+        "count": 20
+      }
+    },
+    {
+      "id": "g1.reader_in_the_colony",
+      "title": {
+        "en": "Reader in the Colony",
+        "de": "Leseratte"
+      },
+      "description": {
+        "en": "Read 10 different books or letters.",
+        "de": "Lies 10 verschiedene Bücher oder Briefe."
+      },
+      "icon": {
+        "texture": "Book_Brown_L.tga"
+      },
+      "hidden": false,
+      "condition": {
+        "distinct": "document.shown",
+        "count": 10
+      }
+    }
+  ]
+}
