@@ -267,6 +267,24 @@ namespace Gothic.Core.Services.Caches
             if (_downloadedSegments.TryGetValue(key, out var downloaded))
                 return downloaded;
 
+            var node = Vfs.Find(key);
+            if (node == null)
+            {
+                _brokenSegments.Add(key);
+                Logger.LogWarning($"Music segment >{key}< not found in VFS. Skipping it from now on.", LogCat.Audio);
+                return null;
+            }
+
+            // dmusic crashes natively for some unfinished small themes (<1kB). Skipped with a warning until fixed.
+            // Issue report: https://github.com/GothicKit/dmusic-cs/issues/1
+            if (node.Buffer.Bytes.Length < 1000)
+            {
+                _brokenSegments.Add(key);
+                Logger.LogWarning($"Music segment >{key}< might be broken with less than 1kB size. Skipping it from " +
+                                  "now on.", LogCat.Audio);
+                return null;
+            }
+
             Segment segment = null;
 
             try

@@ -96,7 +96,7 @@ namespace Gothic.Core.Services.Config
                 if (!CheckIfGothicInstallationExists(version))
                     continue;
 
-                var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
+                var rootPath = GetGameRootPath(version);
                 var inis = ModIniScanner.FindGameInis(rootPath);
 
                 // No readable game ini (e.g. a GothicGame.ini without [INFO] title=) - the game still starts as before.
@@ -248,7 +248,7 @@ namespace Gothic.Core.Services.Config
         /// </summary>
         public void LoadGothicInis(GameVersion version)
         {
-            var baseRootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
+            var baseRootPath = GetGameRootPath(version);
             var rootPath = EffectiveModPath ?? baseRootPath;
             // In any case (Linux: an installation may have System/ or GOTHIC.INI). A missing one keeps its expected
             // path for the error.
@@ -267,9 +267,17 @@ namespace Gothic.Core.Services.Config
             GlobalEventDispatcher.GothicInisInitialized.Invoke();
         }
 
+        /// <summary>
+        /// The game's installation folder from GameSettings.json (Gothic1Path/Gothic2Path), without a mod path.
+        /// </summary>
+        public string GetGameRootPath(GameVersion version)
+        {
+            return version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
+        }
+
         public bool CheckIfGothicInstallationExists(GameVersion version)
         {
-            var rootPath = version == GameVersion.Gothic1 ? Root.Gothic1Path : Root.Gothic2Path;
+            var rootPath = GetGameRootPath(version);
             return PathExtension.FindIgnoringCase(rootPath, "_work") != null &&
                    PathExtension.FindIgnoringCase(rootPath, "Data") != null;
         }
