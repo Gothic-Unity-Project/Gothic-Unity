@@ -56,7 +56,7 @@ namespace Gothic.Core.Domain.Audio
         private Performance _retiredPerformance;
 
         private Dictionary<string, MusicThemeInstance> _themes = new();
-        private MusicThemeInstance _currentTheme;
+        private Segment _currentSegment;
         private DaedalusVm _vm;
 
         // Set once RenderPcm faulted (see PCMReaderCallback). Read and written on the audio thread only.
@@ -100,6 +100,16 @@ namespace Gothic.Core.Domain.Audio
         {
             ClearZones();
             PlayInternal(musicInstanceName);
+        }
+
+        /// <summary>
+        /// Lab: theme from another game's VM/VFS. Plays the given segment with the theme's transition, without music
+        /// zones like <see cref="Play(string)"/>.
+        /// </summary>
+        public void Play(MusicThemeInstance theme, Segment segment)
+        {
+            ClearZones();
+            PlayInternal(theme, segment);
         }
 
         /// <summary>
@@ -189,29 +199,6 @@ namespace Gothic.Core.Domain.Audio
 
         private void PlayInternal(MusicThemeInstance theme)
         {
-            // Do not restart the current theme if already playing.
-            // Multiple MusicThemeInstances can reference the same audio. Therefore, checking actual files only.
-            if (_currentTheme != null && theme.File == _currentTheme.File)
-            {
-                return;
-            }
-            
-            var themeFileNode = _resourceCacheService.Vfs.Find(theme.File);
-            if (themeFileNode == null)
-            {
-                Logger.LogWarning($"Music theme >{theme.File}< not found in VFS. Safety skip", LogCat.Audio);
-                return;
-            }
-
-            // DMusic crashes for some unfinished small themes (<3kB). Therefore, skipping them now with a warning until fixed.
-            // Issue report: https://github.com/GothicKit/dmusic-cs/issues/1
-
-            if (themeFileNode.Buffer.Bytes.Length < 1000)
-            {
-                Logger.LogWarning($"Music theme >{theme.File}< might be broken with less than 1kB size. Safety skip", LogCat.Audio);
-                return;
-            }
-
             var segment = _resourceCacheService.TryGetSegment(theme.File);
             if (segment == null)
             {
@@ -219,6 +206,17 @@ namespace Gothic.Core.Domain.Audio
                     LogCat.Audio);
                 return;
             }
+
+            PlayInternal(theme, segment);
+        }
+
+        private void PlayInternal(MusicThemeInstance theme, Segment segment)
+        {
+            // Do not restart the current segment if already playing. Multiple MusicThemeInstances can reference the
+            // same audio. In game, the same segment equals the same file: ResourceCacheService returns one downloaded
+            // Segment object per file.
+            if (segment == _currentSegment)
+                return;
 
             var timing = ToTiming(theme.TransSubType);
             var embellishment = ToEmbellishment(theme.TransType);
@@ -231,7 +229,7 @@ namespace Gothic.Core.Domain.Audio
             // TODO - But I have no clue if decayTime is the right timer to set here. Alter if you have better ears than I have. ;-)
             _reverbFilterComp.decayTime = theme.ReverbTime / 1000; // ms in seconds
 
-            _currentTheme = theme;
+            _currentSegment = segment;
         }
 
         /// <summary>
@@ -356,7 +354,7 @@ namespace Gothic.Core.Domain.Audio
 
             _retiredPerformance = _dxPerformance;
             _dxPerformance = Performance.Create(_frequencyRate);
-            _currentTheme = null;
+            _currentSegment = null;
             Logger.Log("[Music] Fresh DirectMusic performance for the world's music", LogCat.Audio);
         }
 

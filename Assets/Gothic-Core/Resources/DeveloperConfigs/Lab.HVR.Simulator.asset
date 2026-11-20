@@ -71,6 +71,7 @@ MonoBehaviour:
   SunLightIntensity: 1
   SunUpdateInterval: 2
   AmbientLightColor: {r: 0.10196079, g: 0.10196079, b: 0.10196079, a: 1}
+  EnableWorldLightmaps: 1
   StartTimeHour: 8
   StartTimeMinute: 0
   TimeSpeedMultiplier: 1

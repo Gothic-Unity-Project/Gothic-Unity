@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using DirectMusic;
 using Gothic.Core.Domain.Audio;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -147,6 +148,14 @@ namespace Gothic.Core.Manager
         public void PlayMusic(string musicInstanceName)
         {
             _musicDomain.Play(musicInstanceName);
+        }
+
+        /// <summary>
+        /// Lab: plays a theme of any game's music VM with its segment (e.g., the other game's ResourceCacheService).
+        /// </summary>
+        public void PlayMusic(MusicThemeInstance theme, Segment segment)
+        {
+            _musicDomain.Play(theme, segment);
         }
 
         private void OnMainMenuLoaded()

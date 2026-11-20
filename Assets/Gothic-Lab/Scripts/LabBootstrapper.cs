@@ -117,8 +117,7 @@ namespace Gothic.Lab
             ZenKit.Logger.Set(_configService.Dev.ZenKitLogLevel, Logger.OnZenKitLogMessage);
             DirectMusic.Logger.Set(_configService.Dev.DirectMusicLogLevel, Logger.OnDirectMusicLogMessage);
 
-            _resourceCacheService.Init(DeveloperConfig.GameVersion == GameVersion.Gothic1
-                ? _configService.Root.Gothic1Path : _configService.Root.Gothic2Path);
+            _resourceCacheService.Init(_configService.GetGameRootPath(DeveloperConfig.GameVersion));
 
             _audioService.InitMusic();
             _staticCacheService.Init();
