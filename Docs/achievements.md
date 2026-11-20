@@ -58,11 +58,28 @@ Condition kinds (one per definition, `all`/`any` combine):
 | Info told | `{ "infoTold": "DIA_Gilbert_First" }` | dialog info told |
 | Item count | `{ "item": "ItMiNugget", "count": 15000 }` | hero items changed |
 | Kill | `{ "killed": ["MinecrawlerQueen"], "count": 1, "byHero": true }` | NPC killed |
-| Counter | `{ "counter": "lockpick.success", "count": 20 }` | the counter's fact |
+| Counter | `{ "counter": "lockpick.success", "count": 20 }` | `AchievementService.Increment(counterId)` |
+| Distinct | `{ "distinct": "document.shown", "count": 10 }` (N different X) | `AchievementService.AddDistinct(counterId, key)` |
+| NPC aivar | `{ "npcAivar": "GRD_251_Kirgo", "aivar": "AIV_WASDEFEATEDBYSC", "value": 1 }` | never alone: read at the moment of the other fact in its `all` |
 
 Texts are in the file (not in the Unity string table), so a mod can bring its own. Missing language: English.
 Icons name an item instance (rendered like the inventory does) or a texture from the installation (`"texture":
 "..."`). Nothing of the original games ships with Gothic-Unity.
+
+Items, NPCs and kills are keyed by script instance names (`ItMiNugget`, `MinecrawlerQueen`), never by display
+names (`ItemInstance.Name`). The item fact is hero-only and reads the hero's packed inventory
+(`NpcInventoryService`, `GetPacked().UnpackItems()`): an NPC holding the same item (e.g. `ItArRuneTeleport3` in
+`PC_Rockefeller.d`) doesn't count. An NPC aivar is read from the NPC found by its instance name; no such NPC in the
+world means the condition is false.
+
+Counters are public: `AchievementService.Increment(counterId)` (and `AddDistinct(counterId, key)` for "N different
+X", e.g. document instance names) is called by Core services and by modules (VR, Flat, mods), so a new counter needs
+no switch in Core. Core's counter ids are constants in one file (`Models/Achievements/AchievementCounterIds.cs`);
+modules prefix their own (`vr.*`, `{modId}.*`). Counter values and distinct keys are run data.
+
+A log topic constant is resolved to its text through the VM symbol (ZenKit decodes it with the installation's code
+page), the same string path the quest log gets from `Log_SetTopicStatus`, and compared to the text the scripts
+produce - never to hand-typed text. Umlauts in script strings broke before (#526).
 
 Variables are int script variables only (float and string variables aren't supported). `value` is an int literal
 or the name of a script constant, resolved through the VM symbol table when the definitions load.
@@ -144,7 +161,7 @@ loaded at runtime.
 | log `CH4_UluMulu` success | **Friend of the Orcs** - Carry the orcs' sign of friendship. | **Freund der Orks** - Trage das Freundschaftszeichen der Orks. |
 | log `CH5_Uriziel` success (first) | **The Blade Awakens** - Give Uriziel back its power. | **Die Klinge erwacht** - Gib Uriziel seine Kraft zurück. |
 | log `Baloros_Waffe` success | **Fed Up** - Find out what Baloro's wonder weapon really is. | **Bedient** - Finde heraus, was Baloros Wunderwaffe wirklich ist. |
-| infos `DIA_Scatty_KirgoSuccess` + `DIA_Scatty_KHARIMSuccess` | **Pride of the Arena** - Beat Kirgo and Kharim in Scatty's arena. | **Stolz der Arena** - Besiege Kirgo und Kharim in Scattys Arena. |
+| all: infos `DIA_Scatty_KirgoSuccess` + `DIA_Scatty_KHARIMSuccess`, `AIV_WASDEFEATEDBYSC` of `GRD_251_Kirgo` + `SLD_729_Kharim` | **Pride of the Arena** - Beat Kirgo and Kharim in Scatty's arena. | **Stolz der Arena** - Besiege Kirgo und Kharim in Scattys Arena. |
 | info `DIA_GRD_219_Stone4` | **Forged Anew** - Have Stone strengthen your ore armor. | **Neu geschmiedet** - Lass Stone deine Erzrüstung verstärken. |
 | variable `Jesse_PayForMe == LOG_SUCCESS` | **Debts Settled** - Pay what Jesse owes. | **Schulden beglichen** - Begleiche Jesses Schulden. |
 | info `DIA_Gilbert_First` | **Hidden from Gomez** - Find the man who has hidden from Gomez for years. | **Versteckt vor Gomez** - Finde den Mann, der sich seit Jahren vor Gomez versteckt. |
@@ -155,7 +172,7 @@ loaded at runtime.
 | kill `MinecrawlerQueen` | **Into the Nest** - Kill the minecrawler queen. | **Ins Nest** - Töte die Minecrawler-Königin. |
 | kill `Meatbug` x 10 by hero | **Pest Control** - Squash 10 meatbugs. | **Kammerjäger** - Zertritt 10 Fleischwanzen. |
 | counter `lockpick.success` x 20 | **Steady Hands** - Pick 20 locks. | **Ruhige Hand** - Knacke 20 Schlösser. |
-| 10 different documents shown | **Reader in the Colony** - Read 10 different books or letters. | **Leseratte** - Lies 10 verschiedene Bücher oder Briefe. |
+| distinct `document.shown` x 10 | **Reader in the Colony** - Read 10 different books or letters. | **Leseratte** - Lies 10 verschiedene Bücher oder Briefe. |
 
 ### Gothic 2 - draft, conditions still to be mapped (`daedalus-scout` on the G2 scripts)
 
@@ -201,8 +218,9 @@ loaded at runtime.
 - **Kill facts.** Raised once in `FightService.Kill()`, never in `NpcDeathDomain.RunZsDead` (that also runs for
   corpses restored from a save). Falls, Marvin's kill and drowning all have the victim as its own killer, so a
   fall-damage achievement needs a death cause first.
-- **Defeat vs. kill.** Arena fights knock out, they don't kill: use the scripts' `AIV_WASDEFEATEDBYSC` flags or the
-  told infos.
+- **Defeat vs. kill.** Arena fights knock out, they don't kill: use the scripts' `AIV_WASDEFEATEDBYSC` flags.
+- **Told is not won.** `DIA_Scatty_KirgoSuccess` / `_KHARIMSuccess` are told after a lost fight too
+  (`DIA_GRD_210_Scatty.d`, "Und du hast dich besiegen lassen!"), so the told infos need the defeat flags in `all`.
 - **Chapter 4 resets the guild** to `GIL_NONE`: guild achievements react to `Npc_SetTrueGuild`, not to the current
   guild.
 - **Similar items.** `ItMi_Stuff_OldCoin_01` vs `_02`, `ItMi_Stuff_Pipe_01` vs the blue/yellow pipes.
