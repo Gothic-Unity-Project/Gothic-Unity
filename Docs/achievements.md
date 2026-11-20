@@ -12,7 +12,9 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
 2. **Facts** are announced once, where they happen (`GlobalEventDispatcher`): log topic status set
    (`StoryService`), hero's true guild set (`NpcAiService.ExtSetTrueGuild`), dialog info told (`DialogService`),
    NPC killed (`FightService.Kill`: victim + killer; "by hero" is `GetCreditedAttacker(killer).IsHero`), hero's
-   items changed (`NpcInventoryService`), lock picked, document shown, Marvin mode changed, hero died.
+   items changed (`NpcInventoryService`), lock picked (`LockPickComboFinished` with a lock pick as the tool - it
+   also fires for keys), document shown (`DocShow`, key `DocModel.Identity`: the item instance, or a hash of a mob
+   page's textures and text), Marvin mode changed, hero died.
 3. **`AchievementService`** keeps the definitions indexed by the fact that can complete them. A fact only checks
    that small subset. Global variables have no fact: their ~20 conditions are re-checked on every in-game minute
    (`GlobalEventDispatcher.GameTimeMinuteChangeCallback`, about 4 s real time) while in a world. This existing tick
@@ -26,16 +28,17 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
    "own profile" is this key too. One profile writer (`Domain/Achievements/`) writes it to a temp file and renames
    it, a frame after the change (not in the hit or death frame), like save games.
 5. **Run data** (run id, save number, tier, counters) goes into the save game's `UNITYSAVE.json` as section
-   `core.achievements`. The section only captures and restores; `AchievementService` owns the run state. It is
-   registered in `SaveGameService.Init()` like Core's other sections, so `Reset()` runs on a new game and before
-   every load.
-6. **Save committed:** `SaveGameService.SaveCurrentGame()` calls `AchievementService.OnSaveCommitted(runId, saveNo)`
-   (planned) after the slot folder was replaced successfully. `Capture()` runs before success is known, so a
-   failed save never counts as the run's newest.
-7. **Unlock event:** `GlobalEventDispatcher.AchievementUnlocked(definition, tier)` (planned), raised only by
+   `core.achievements` (`AchievementRunSaveSection`). The section only captures and restores; `AchievementService`
+   owns the run state and decides the run on the first `WorldSceneLoaded` after `LoadGameStart` (new game, the
+   restored section, or none). It is registered in `SaveGameService.Init()` like Core's other sections, so
+   `Reset()` runs on a new game and before every load.
+6. **Save committed:** `SaveGameService.SaveCurrentGame()` calls `AchievementService.OnSaveCommitted()` after the
+   slot folder was replaced successfully; the service commits the run id and save number its `Capture()` wrote.
+   `Capture()` runs before success is known, so a failed save never counts as the run's newest.
+7. **Unlock event:** `GlobalEventDispatcher.AchievementUnlocked(definition, tier)`, raised only by
    `AchievementService`, also when a tier is upgraded. The toast and the menu page listen to it and read the shared
    read model; nobody polls the service.
-8. **Switch:** `GameSettings.json` `"AchievementsEnabled"` (planned, default `true`). Off: no facts are checked,
+8. **Switch:** `GameSettings.json` `"AchievementsEnabled"` (default `true`). Off: no facts are checked,
    nothing is written to the profile or the save section, no pop-ups. Not a `DeveloperConfig` field (Editor only).
    The wiki Player Guide ("Configuration") needs it once it is built.
 
@@ -134,22 +137,25 @@ The goal is that a text editor isn't enough to fake an achievement - not real se
 - **What is sealed:** the profile file, and the `core.achievements` section of each save (tier, run id, save
   number, counters). Without the second, deleting the Beliar mark in `UNITYSAVE.json` would give Innos again.
 - **How:** HMAC-SHA256 over the content. Key = build key + device id. The save section's seal also covers its run
-  id and save number, so it can't be copied into another save.
+  id and save number, and the save's own SAVEINFO date and play time, so it can't be copied into another save.
 - **Device id:** a random id generated once and stored in the persistent data folder
   (`<persistentDataPath>/Achievements/device.id`), not `SystemInfo.deviceUniqueIdentifier` - that one can be
   `unsupportedIdentifier` or change after an OS update on Quest/Pico. Only deleting the app data or a new device
   makes a new id.
-- **Build key:** a dev key file is committed (e.g. a `TextAsset` in `Resources`); CI overwrites it from a GitHub
-  secret before the build. Editor and self-made builds keep the dev key and only trust their own files. No `#if`
+- **Build key:** a dev key file is committed (`Gothic-Core/Resources/Achievements/AchievementsSealKey.txt`, a
+  `TextAsset`); CI overwrites it from the GitHub secret `ACHIEVEMENTS_SEAL_KEY` before the build (no secret, e.g.
+  forks: the dev key stays). Editor and self-made builds keep the dev key and only trust their own files. No `#if`
   and no git-ignored code file, so every checkout compiles.
 - **Who does what:** `AchievementService` reads the build key and the device id and passes the bytes to
   `AchievementSealDomain`, which is pure (no `SystemInfo`, no file access) and EditMode-testable.
 - **Stored** as gzip + base64 (not readable at a glance); decoding is a few lines for bug reports.
-- **Hash chain:** every unlock carries its run id, save number and the hash of the previous unlock, so inserting
-  or reordering entries breaks the chain.
+- **Hash chain:** every unlock carries its run id, save number and the hash of the previous sealed unlock, so
+  inserting or reordering entries breaks the chain. Unsealed entries stay outside the chain (no hash) until earned
+  again; the chain is renewed over the sealed entries on every write.
 - **Plausibility:** an Innos unlock needs a known run whose save numbers are consistent.
 - **Broken seal:** nothing is deleted. Affected unlocks show as "unsealed" (greyed, broken seal icon) and don't
-  count for completion; earning them again re-seals them. A save with a broken section plays as Beliar.
+  count for completion; earning them again re-seals them. A broken profile seal also forgets the profile's runs
+  (their saves play as Adanos). A save with a broken section plays as Beliar.
 - **Cost:** the seal is verified once when the profile or a save is loaded and the result is cached; one hash per
   write, never per frame.
 
@@ -241,7 +247,7 @@ loaded at runtime.
 - **Similar items.** `ItMi_Stuff_OldCoin_01` vs `_02`, `ItMi_Stuff_Pipe_01` vs the blue/yellow pipes.
 - **Loading is not playing.** Restoring a save or entering a world runs scripts that set log topics, variables and
   items. Facts are ignored from `LoadGameStart` / `LoadingSceneLoaded` until the world is ready: `WorldScene` calls
-  `AchievementService.OnWorldReady()` (planned) after the loading screen is hidden. That is after all
+  `AchievementService.OnWorldReady()` after the loading screen is hidden. That is after all
   `WorldSceneLoaded` listeners (e.g. `ScriptVarsSaveSection`, `MobStatesSaveSection` restore state there, in
   registration order), the `STARTUP_*` / `INIT_*` scripts and the surroundings build. The gate never opens inside
   `WorldSceneLoaded`. The variable snapshot is taken at that point, for every world entered (a level change resets
@@ -265,7 +271,8 @@ loaded at runtime.
 | loading, condition checks, profile file | `Gothic-Core/Scripts/Domain/Achievements/` |
 | save section `core.achievements` | `Gothic-Core/Scripts/Domain/SaveGames/` |
 | `AchievementService` | `Gothic-Core/Scripts/Services/Achievements/`, ProjectScope |
+| read model for the UI | `AchievementService.GetEntries()` (`AchievementEntry` list), `GetCompletion()`, `CurrentTier`; built by `AchievementReadModelDomain` |
 | seal (sign, verify, encode) | `Gothic-Core/Scripts/Domain/Achievements/AchievementSealDomain.cs`; committed dev key file, overwritten by CI before the build |
 | toast, menu page | one prefab each in `Gothic-Core/Resources/Prefabs/` (`PrefabType` + `ResourceCacheService`), adapters in Core; a VR Prefab Variant only where the placement differs |
-| `LogCat.Achievements` | new enum value (planned) in `Gothic-Core/Scripts/Logging/LogCat.cs` |
+| `LogCat.Achievements` | `Gothic-Core/Scripts/Logging/LogCat.cs` |
 | definition files | `Assets/StreamingAssets/Achievements/` |

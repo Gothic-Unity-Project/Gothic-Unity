@@ -10,6 +10,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Proxy;
 using Gothic.Core.Models.SaveGames;
+using Gothic.Core.Services.Achievements;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -136,6 +137,7 @@ namespace Gothic.Core.Services.World
             RegisterSection(new ScriptVarsSaveSection().Inject());
             RegisterSection(new SkySaveSection().Inject());
             RegisterSection(new MobStatesSaveSection().Inject());
+            RegisterSection(new AchievementRunSaveSection().Inject());
 
             // All NPCs of the world exist now.
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(() =>
@@ -447,6 +449,9 @@ namespace Gothic.Core.Services.World
                 ReopenRuntimeSaveGame();
                 return false;
             }
+
+            // Only now the save counts as the run's newest (Capture() ran before success was known).
+            ReflexProjectInstaller.DIContainer.Resolve<AchievementService>().OnSaveCommitted();
 
             // ZenKit's SaveGame now points to the .tmp folder. Re-open it from the slot, so that worlds which aren't
             // loaded yet are fetched from the new save.

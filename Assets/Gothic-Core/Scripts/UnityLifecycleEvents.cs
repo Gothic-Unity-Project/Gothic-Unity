@@ -1,5 +1,6 @@
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Achievements;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.Npc;
@@ -38,6 +39,7 @@ namespace Gothic.VR
         [Inject] private readonly BarrierService _barrierService;
         [Inject] private readonly HeroPerceptionService _heroPerceptionService;
         [Inject] private readonly SpeechToTextService _speechToTextService;
+        [Inject] private readonly AchievementService _achievementService;
 
 
         private void Update()
@@ -58,8 +60,18 @@ namespace Gothic.VR
             _barrierService.FixedUpdate();
         }
 
+        /// <summary>
+        /// Headset taken off / app sent to the background - it may never come back.
+        /// </summary>
+        private void OnApplicationPause(bool isPaused)
+        {
+            if (isPaused)
+                _achievementService.Flush();
+        }
+
         private void OnApplicationQuit()
         {
+            _achievementService.Teardown();
             _gameStateService.Dispose();
 
             _npcMeshCullingService.OnApplicationQuit();
