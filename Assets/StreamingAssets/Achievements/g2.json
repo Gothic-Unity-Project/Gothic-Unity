@@ -242,8 +242,8 @@
         "de": "Ein reicher Mann"
       },
       "description": {
-        "en": "Own 20,000 gold coins.",
-        "de": "Besitze 20.000 Goldmünzen."
+        "en": "Own 20,000 gold.",
+        "de": "Besitze 20.000 Gold."
       },
       "hidden": false,
       "condition": {
@@ -258,8 +258,8 @@
         "de": "Wurst für alle"
       },
       "description": {
-        "en": "Hand out sausages to 13 people.",
-        "de": "Verteile Wurst an 13 Leute."
+        "en": "Hand every novice a sausage, missing nobody.",
+        "de": "Gib jedem Novizen eine Wurst, ohne einen auszulassen."
       },
       "hidden": false,
       "condition": {

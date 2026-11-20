@@ -216,8 +216,8 @@ loaded at runtime.
 | 50 locks picked | counter `lockpick.success` x 50 | **No Chest Is Safe** - Pick 50 locks. | **Keine Truhe ist sicher** - Knacke 50 Schlösser. |
 | strength from apples | later: needs a counter on apple use | **Fruit of Strength** - Grow stronger by eating apples. | **Kraftfutter** - Werde stärker durch Äpfel. |
 | Eye of Innos found | item `ItMi_InnosEye_Broken_MIS` | **The Eye Found** - Recover the Eye of Innos. | **Das Auge gefunden** - Bringe das Auge Innos' zurück. |
-| 20,000 gold | item `ItMi_Gold` x 20000 | **A Rich Man** - Own 20,000 gold coins. | **Ein reicher Mann** - Besitze 20.000 Goldmünzen. |
-| sausages handed out | variable `Wurst_Gegeben` >= 13 | **Sausage for Everyone** - Hand out sausages to 13 people. | **Wurst für alle** - Verteile Wurst an 13 Leute. |
+| 20,000 gold | item `ItMi_Gold` x 20000 | **A Rich Man** - Own 20,000 gold. | **Ein reicher Mann** - Besitze 20.000 Gold. |
+| sausages handed out | variable `Wurst_Gegeben` >= 13 | **Sausage for Everyone** - Hand every novice a sausage, missing nobody. | **Wurst für alle** - Gib jedem Novizen eine Wurst, ohne einen auszulassen. |
 
 ### Ideas that need an engine fact first (later PRs)
 
