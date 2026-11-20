@@ -15,10 +15,18 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
    items changed (`NpcInventoryService`), lock picked, document shown, Marvin mode changed, hero died.
 3. **`AchievementService`** keeps the definitions indexed by the fact that can complete them. A fact only checks
    that small subset. Global variables have no fact: their ~20 conditions are re-checked every 2 s while in a world.
-4. **Unlocks** go to `<persistentDataPath>/Achievements/<ConfigService.ModCacheSuffix>.json`, written to a temp
-   file and renamed (a frame after the unlock, not in the hit frame), like save games.
+4. **Unlocks** go to the profile `<persistentDataPath>/Achievements/<GameVersion><ModCacheSuffix>.json`, e.g.
+   `Gothic1.json`, `Gothic2_mod_DM_E.json`. Same key as `StaticCacheService` (`ContextGameVersionService.Version` +
+   `ConfigService.ModCacheSuffix`, the suffix is empty for vanilla), so G1 and G2 never share a file and a mod's
+   "own profile" is this key too. One profile writer (`Domain/Achievements/`) writes it to a temp file and renames
+   it, a frame after the change (not in the hit or death frame), like save games.
 5. **Run data** (run id, save number, tier, counters) goes into the save game's `UNITYSAVE.json` as section
-   `core.achievements`.
+   `core.achievements`. The section only captures and restores; `AchievementService` owns the run state. It is
+   registered in `SaveGameService.Init()` like Core's other sections, so `Reset()` runs on a new game and before
+   every load.
+6. **Save committed:** `SaveGameService.SaveCurrentGame()` calls `AchievementService.OnSaveCommitted(runId, saveNo)`
+   (planned) after the slot folder was replaced successfully. `Capture()` runs before success is known, so a
+   failed save never counts as the run's newest.
 
 ## Definition format
 
@@ -64,9 +72,19 @@ Every run has a tier, every unlock remembers the tier it was earned in. A later 
 | Adanos | normal play with saves and loads | Marvin mode is turned on |
 | Beliar | Marvin mode was on in this run | never (for the saves written afterwards) |
 
-- A new game gets a new run id. Every save of that run carries the run id and a rising save number.
-- The profile file remembers per run: the newest save number (written after the save succeeded), and whether the
-  hero died after it ("spent").
+- A new game gets a new run id. The run has a save counter that rises by one on every successful save, and each
+  save carries the run id and its number. Every save counts: manual slots (today slots 1-15), and quick and auto
+  saves once they exist. Overwriting a slot just writes a higher number.
+- The profile remembers per run the newest committed save number (`OnSaveCommitted`) and whether the hero died
+  after it ("spent").
+- Loading a save with a lower number than the run's newest means the player went back: Adanos. A copied save keeps
+  its run id and number, so the same rule applies. Deleting saves never raises a tier and never breaks the check:
+  the profile keeps the newest number even when that save is gone.
+- The profile decides when save and profile disagree: a run the profile doesn't know, or a save number above the
+  profile's newest, plays as Adanos.
+- "Spent" is recorded on `HeroDied` through the same profile writer as unlocks (a frame later, before the death
+  screen can be left). Pending writes are flushed when the game quits or is paused (headset taken off). A crash in
+  that one frame loses the mark or an unlock written in it - accepted.
 - A save without achievement data (older saves) starts as Adanos with a new run id.
 - Loading a save restores its run's tier; then the rule above may lower it to Adanos. Loading a clean save of the
   same run after cheating gives back that save's tier - cheats only taint the saves written while tainted.
