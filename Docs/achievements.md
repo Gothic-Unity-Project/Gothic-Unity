@@ -245,8 +245,8 @@ loaded at runtime.
   `WorldSceneLoaded` listeners (e.g. `ScriptVarsSaveSection`, `MobStatesSaveSection` restore state there, in
   registration order), the `STARTUP_*` / `INIT_*` scripts and the surroundings build. The gate never opens inside
   `WorldSceneLoaded`. The variable snapshot is taken at that point, for every world entered (a level change resets
-  it too), so a save from before achievements existed unlocks nothing by itself. NPCs built lazily afterwards
-  run their instance scripts on themselves; the hero-only item fact ignores them.
+  it too), so loading a save unlocks nothing by itself - no retroactive unlocks (ADR, decision 8). NPCs built
+  lazily afterwards run their instance scripts on themselves; the hero-only item fact ignores them.
 - **Info told comes before the info runs.** Variables the dialog sets are seen by the next minute tick.
 - **Mods.** Base lists are off with a mod; symbol validation catches renamed scripts in a mod's own file.
 - **Cost on Quest 2.** No per-frame work. A fact checks only its indexed definitions; variable reads are a handful
