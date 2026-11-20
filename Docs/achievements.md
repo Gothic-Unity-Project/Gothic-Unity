@@ -195,26 +195,29 @@ loaded at runtime.
 | counter `lockpick.success` x 20 | **Steady Hands** - Pick 20 locks. | **Ruhige Hand** - Knacke 20 Schlösser. |
 | distinct `document.shown` x 10 | **Reader in the Colony** - Read 10 different books or letters. | **Leseratte** - Lies 10 verschiedene Bücher oder Briefe. |
 
-### Gothic 2 - draft, conditions still to be mapped (`daedalus-scout` on the G2 scripts)
+### Gothic 2 - conditions verified against the G2 NotR 2.6 scripts
 
-| Moment | English | German |
-|---|---|---|
-| join the militia | **Lord Andre's Man** - Join the city militia. | **Lord Andres Mann** - Tritt der Stadtmiliz bei. |
-| become a novice | **Behind Monastery Walls** - Become a novice in the monastery of Innos. | **Hinter Klostermauern** - Werde Novize im Kloster Innos'. |
-| become a mercenary | **Onar's Blade** - Become one of Lee's mercenaries on Onar's farm. | **Onars Klinge** - Werde Söldner auf Onars Hof. |
-| proof from Garond | **Word from the Valley** - Bring Lord Hagen proof of the dragons. | **Nachricht aus dem Tal** - Bringe Lord Hagen den Beweis für die Drachen. |
-| Eye of Innos repaired | **The Eye Made Whole** - Restore the Eye of Innos at the stone circle. | **Das Auge geheilt** - Stelle das Auge Innos' am Steinkreis wieder her. |
-| all dragons of the valley | **Four Fewer Dragons** - Slay the dragons in the Valley of Mines. | **Vier Drachen weniger** - Erschlage die Drachen im Minental. |
-| sail to Irdorath | **Cast Off** - Take a ship to Irdorath. | **Leinen los** - Segle nach Irdorath. |
-| undead dragon | **Beliar's Champion Falls** - Defeat the undead dragon. | **Beliars Streiter fällt** - Besiege den untoten Drachen. |
-| enter Jharkendar | **Beyond the Portal** - Step through the portal into Jharkendar. | **Jenseits des Portals** - Betritt Jharkendar durch das Portal. |
-| join Greg's pirates | **Greg's Crew** - Join the pirates. | **Gregs Mannschaft** - Heuere bei den Piraten an. |
-| defeat Raven | **The Raven Falls** - Stop Raven in his temple. | **Der Rabe fällt** - Halte Raven in seinem Tempel auf. |
-| join the thieves' guild | **Down in the Sewers** - Find the thieves' guild beneath Khorinis. | **Unter der Stadt** - Finde die Diebesgilde unter Khorinis. |
-| black troll | **The Black Giant** - Defeat the black troll. | **Der schwarze Riese** - Besiege den schwarzen Troll. |
-| 50 orcs killed | **Orcbane** - Kill 50 orcs. | **Orkschreck** - Töte 50 Orks. |
-| 50 locks picked | **No Chest Is Safe** - Pick 50 locks. | **Keine Truhe ist sicher** - Knacke 50 Schlösser. |
-| strength from apples | **Fruit of Strength** - Grow stronger by eating apples. | **Kraftfutter** - Werde stärker durch Äpfel. |
+| Moment | Condition | English | German |
+|---|---|---|---|
+| join the militia | trueGuild `GIL_MIL` | **Lord Andre's Man** - Join the city militia. | **Lord Andres Mann** - Tritt der Stadtmiliz bei. |
+| become a novice | trueGuild `GIL_NOV` | **Behind Monastery Walls** - Become a novice in the monastery of Innos. | **Hinter Klostermauern** - Werde Novize im Kloster Innos'. |
+| become a mercenary | trueGuild `GIL_SLD` | **Onar's Blade** - Become one of Lee's mercenaries on Onar's farm. | **Onars Klinge** - Werde Söldner auf Onars Hof. |
+| proof from Garond | info `DIA_Garond_Success` | **Word from the Valley** - Bring Lord Hagen proof of the dragons. | **Nachricht aus dem Tal** - Bringe Lord Hagen den Beweis für die Drachen. |
+| Eye of Innos repaired | variable `MIS_RitualInnosEyeRepair` == `LOG_SUCCESS` | **The Eye Made Whole** - Restore the Eye of Innos at the stone circle. | **Das Auge geheilt** - Stelle das Auge Innos' am Steinkreis wieder her. |
+| all dragons of the valley | variable `MIS_AllDragonsDead` == 1 | **Four Fewer Dragons** - Slay the dragons in the Valley of Mines. | **Vier Drachen weniger** - Erschlage die Drachen im Minental. |
+| sail to Irdorath | variable `Kapitel` >= 6 | **Cast Off** - Take a ship to Irdorath. | **Leinen los** - Segle nach Irdorath. |
+| undead dragon | variable `UndeadDragonIsDead` == 1 | **Beliar's Champion Falls** - Defeat the undead dragon. | **Beliars Streiter fällt** - Besiege den untoten Drachen. |
+| enter Jharkendar | variable `ENTERED_ADDONWORLD` == 1 | **Beyond the Portal** - Step through the portal into Jharkendar. | **Jenseits des Portals** - Betritt Jharkendar durch das Portal. |
+| join Greg's pirates | trueGuild `GIL_PIR` | **Greg's Crew** - Join the pirates. | **Gregs Mannschaft** - Heuere bei den Piraten an. |
+| defeat Raven | variable `RavenIsDead` == 1 | **The Raven Falls** - Stop Raven in his temple. | **Der Rabe fällt** - Halte Raven in seinem Tempel auf. |
+| join the thieves' guild | info `DIA_Cassia_Aufnahme` | **Down in the Sewers** - Find the thieves' guild beneath Khorinis. | **Unter der Stadt** - Finde die Diebesgilde unter Khorinis. |
+| black troll | kill `Troll_Black` by hero | **The Black Giant** - Defeat the black troll. | **Der schwarze Riese** - Besiege den schwarzen Troll. |
+| 50 orcs killed | later: needs a kill-by-guild kind (orcs) | **Orcbane** - Kill 50 orcs. | **Orkschreck** - Töte 50 Orks. |
+| 50 locks picked | counter `lockpick.success` x 50 | **No Chest Is Safe** - Pick 50 locks. | **Keine Truhe ist sicher** - Knacke 50 Schlösser. |
+| strength from apples | later: needs a counter on apple use | **Fruit of Strength** - Grow stronger by eating apples. | **Kraftfutter** - Werde stärker durch Äpfel. |
+| Eye of Innos found | item `ItMi_InnosEye_Broken_MIS` | **The Eye Found** - Recover the Eye of Innos. | **Das Auge gefunden** - Bringe das Auge Innos' zurück. |
+| 20,000 gold | item `ItMi_Gold` x 20000 | **A Rich Man** - Own 20,000 gold coins. | **Ein reicher Mann** - Besitze 20.000 Goldmünzen. |
+| sausages handed out | variable `Wurst_Gegeben` >= 13 | **Sausage for Everyone** - Hand out sausages to 13 people. | **Wurst für alle** - Verteile Wurst an 13 Leute. |
 
 ### Ideas that need an engine fact first (later PRs)
 
