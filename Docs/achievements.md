@@ -14,7 +14,12 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
    NPC killed (`FightService.Kill`: victim + killer; "by hero" is `GetCreditedAttacker(killer).IsHero`), hero's
    items changed (`NpcInventoryService`), lock picked, document shown, Marvin mode changed, hero died.
 3. **`AchievementService`** keeps the definitions indexed by the fact that can complete them. A fact only checks
-   that small subset. Global variables have no fact: their ~20 conditions are re-checked every 2 s while in a world.
+   that small subset. Global variables have no fact: their ~20 conditions are re-checked on every in-game minute
+   (`GlobalEventDispatcher.GameTimeMinuteChangeCallback`, about 4 s real time) while in a world. This existing tick
+   needs no new `Update` or coroutine, and it stops with the game: `GameTimeService` stops it while loading, and
+   it waits while `Time.timeScale` is 0 (videos). `AchievementService.Init()` subscribes to the facts and the tick
+   and a teardown removes the listeners; facts from per-world services reach the ProjectScope service only through
+   `GlobalEventDispatcher`.
 4. **Unlocks** go to the profile `<persistentDataPath>/Achievements/<GameVersion><ModCacheSuffix>.json`, e.g.
    `Gothic1.json`, `Gothic2_mod_DM_E.json`. Same key as `StaticCacheService` (`ContextGameVersionService.Version` +
    `ConfigService.ModCacheSuffix`, the suffix is empty for vanilla), so G1 and G2 never share a file and a mod's
@@ -48,7 +53,7 @@ Condition kinds (one per definition, `all`/`any` combine):
 | Kind | JSON | Checked on |
 |---|---|---|
 | Log topic status | `{ "logTopic": "CH1_JoinOC", "status": "success" }` (topic = script constant name, resolved to its text) | `Log_SetTopicStatus` |
-| Global variable | `{ "variable": "Kapitel", "op": ">=", "value": 3 }` | every 2 s while in a world, only when the value changed since world load |
+| Global variable | `{ "variable": "Kapitel", "op": ">=", "value": 3 }` or `"value": "LOG_SUCCESS"` | every in-game minute while in a world, only when the value changed since the world got ready |
 | True guild | `{ "trueGuild": ["GIL_SLD"] }` | `Npc_SetTrueGuild` on the hero |
 | Info told | `{ "infoTold": "DIA_Gilbert_First" }` | dialog info told |
 | Item count | `{ "item": "ItMiNugget", "count": 15000 }` | hero items changed |
@@ -59,8 +64,15 @@ Texts are in the file (not in the Unity string table), so a mod can bring its ow
 Icons name an item instance (rendered like the inventory does) or a texture from the installation (`"texture":
 "..."`). Nothing of the original games ships with Gothic-Unity.
 
-A definition whose script symbols don't exist (renamed variable, missing info) loads as unavailable and logs one
-warning (`LogCat.Achievements`) - it never throws.
+Variables are int script variables only (float and string variables aren't supported). `value` is an int literal
+or the name of a script constant, resolved through the VM symbol table when the definitions load.
+
+A fact handler reads the variables its definitions reference synchronously, at the moment of the fact: "Hired
+Early" reads `Kapitel` inside the guild fact, so it can't see a later chapter. The minute tick only serves
+definitions that are a pure variable condition.
+
+A definition whose script symbols don't exist (renamed variable, missing constant, missing info) loads as
+unavailable and logs one warning (`LogCat.Achievements`) - it never throws.
 
 ## Tiers: Innos, Adanos, Beliar
 
@@ -195,13 +207,18 @@ loaded at runtime.
   guild.
 - **Similar items.** `ItMi_Stuff_OldCoin_01` vs `_02`, `ItMi_Stuff_Pipe_01` vs the blue/yellow pipes.
 - **Loading is not playing.** Restoring a save or entering a world runs scripts that set log topics, variables and
-  items. Facts are ignored from `LoadGameStart` / `LoadingSceneLoaded` until `WorldSceneLoaded`. Variables are
-  snapshotted then, so a save from before achievements existed unlocks nothing by itself (retroactive unlocks are
-  an open decision).
-- **Info told comes before the info runs.** Variables the dialog sets are seen by the next 2 s check.
+  items. Facts are ignored from `LoadGameStart` / `LoadingSceneLoaded` until the world is ready: `WorldScene` calls
+  `AchievementService.OnWorldReady()` (planned) after the loading screen is hidden. That is after all
+  `WorldSceneLoaded` listeners (e.g. `ScriptVarsSaveSection`, `MobStatesSaveSection` restore state there, in
+  registration order), the `STARTUP_*` / `INIT_*` scripts and the surroundings build. The gate never opens inside
+  `WorldSceneLoaded`. The variable snapshot is taken at that point, for every world entered (a level change resets
+  it too), so a save from before achievements existed unlocks nothing by itself. NPCs built lazily afterwards
+  run their instance scripts on themselves; the hero-only item fact ignores them.
+- **Info told comes before the info runs.** Variables the dialog sets are seen by the next minute tick.
 - **Mods.** Base lists are off with a mod; symbol validation catches renamed scripts in a mod's own file.
 - **Cost on Quest 2.** No per-frame work. A fact checks only its indexed definitions; variable reads are a handful
-  of symbol lookups; the profile file is written only on an unlock.
+  of symbol lookups once per in-game minute; the profile file is written only on an unlock, a committed save or
+  a death.
 - **Not detectable yet** (need an engine fact first): pickpocketing (engine-only in G1), hiding in a barrel,
   forging at the anvil, kill while transformed, kill with the victim's own weapon, control/rage spell kills, shrink.
 
@@ -209,7 +226,7 @@ loaded at runtime.
 
 | Part | Place |
 |---|---|
-| definitions, run state, profile data | `Gothic-Core/Scripts/Models/Achievements/` |
+| definitions, run state, profile data, the read model VR and Flat UI share (entry, best tier, sealed) | `Gothic-Core/Scripts/Models/Achievements/` |
 | loading, condition checks, profile file | `Gothic-Core/Scripts/Domain/Achievements/` |
 | save section `core.achievements` | `Gothic-Core/Scripts/Domain/SaveGames/` |
 | `AchievementService` | `Gothic-Core/Scripts/Services/Achievements/`, ProjectScope |
