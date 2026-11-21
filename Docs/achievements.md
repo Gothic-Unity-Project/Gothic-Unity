@@ -299,6 +299,9 @@ loaded at runtime.
 | `AchievementService` | `Gothic-Core/Scripts/Services/Achievements/`, ProjectScope |
 | read model for the UI | `AchievementService.GetEntries()` (`AchievementEntry` list), `GetCompletion()`, `CurrentTier`; built by `AchievementReadModelDomain` |
 | seal (sign, verify, encode) | `Gothic-Core/Scripts/Domain/Achievements/AchievementSealDomain.cs`; committed dev key file, overwritten by CI before the build |
-| toast, menu page | one prefab each in `Gothic-Core/Resources/Prefabs/` (`PrefabType` + `ResourceCacheService`), adapters in Core; a VR Prefab Variant only where the placement differs |
+| toast | `Prefabs/UI/Achievements/AchievementToast` (`PrefabType.UiAchievementToast`), adapter `Adapters/UI/Achievements/AchievementToast`; created once by `PlayerScene` after `ZenKitBootstrapped`. Core prefab: screen overlay, top right (Flat). VR Prefab Variant `Resources/VR/Prefabs/UI/Achievements/AchievementToast`: world space, `VRFollowCamera` + `VRUiOnTop` like `PrintScreen` |
+| menu page | `Prefabs/UI/Achievements/AchievementsPage` (`PrefabType.UiAchievementsPage`), adapters `AchievementsPage` + `AchievementsPageEntry`; calls `RecheckNow()` before `GetEntries()` on every open. VR: help panel tab "Achievements" (`VRAchievementsTab` loads the page, `Docs/vr-help-panels.md`). Flat: no entry point yet - Flat has no in-game menu |
+| tier look (name + colour: Innos gold, Adanos blue, Beliar red) | `Adapters/UI/Achievements/AchievementTierStyle` |
+| UI texts | string table `Gothic-UI`, keys `achievements.*` (all locales; titles and descriptions come from the definition files) |
 | `LogCat.Achievements` | `Gothic-Core/Scripts/Logging/LogCat.cs` |
 | definition files | `Assets/StreamingAssets/Achievements/` |
