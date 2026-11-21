@@ -90,9 +90,16 @@ Condition kinds (one per definition, `all`/`any` combine):
 | NPC aivar | `{ "npcAivar": "GRD_251_Kirgo", "aivar": "AIV_WASDEFEATEDBYSC", "value": 1 }` | never alone: read at the moment of the other fact in its `all` |
 
 Texts are in the file (not in the Unity string table), so a mod can bring its own. Missing language: English.
-Icons name a texture from the installation (`"texture": "..."`, works from day one) or an item instance
-(`"item": "..."`). There is no render-to-texture for items yet, so an `item` icon falls back to the definition's
-texture or a placeholder until it exists. Nothing of the original games ships with Gothic-Unity.
+Icons name an item instance (`"item": "ItMi_InnosEye_MIS"`) or a texture from the installation
+(`"texture": "Map_OldCamp.tga"`), or both (the texture is the fallback). Items are drawn once per session, behind
+the first world's loading screen (`AchievementService` -> `ItemIconService.Prewarm` -> `ItemIconRenderDomain`: the
+item's own mesh via `VobService.CreateItemMesh`, its own light, a hidden orthographic camera, a cached 128 px
+texture). Page lines and toasts only read that cache - never a render during play. An item the scripts don't
+have is dropped from the icon at load (`AchievementDefinitionDomain.Resolve`, one warning) and the texture or the
+"!" placeholder shows instead; the achievement stays available. An item without a drawable mesh (e.g.
+`ITAR_Raven_Addon`, `ItWrBookOfTales`) logs `[ItemIcon] ... has no mesh to draw` once and falls back the same way. Prefer items for things the hero holds (armor, food,
+keys, runes, gold) and textures for places and creatures (maps, loading screens, bodies). Nothing of the original
+games ships with Gothic-Unity.
 
 Items, NPCs and kills are keyed by script instance names (`ItMiNugget`, `MinecrawlerQueen`), never by display
 names (`ItemInstance.Name`). The item fact is hero-only and reads the hero's packed inventory
@@ -212,6 +219,15 @@ loaded at runtime.
 | kill `Meatbug` x 10 by hero | **Pest Control** - Squash 10 meatbugs. | **Kammerjäger** - Zertritt 10 Fleischwanzen. |
 | counter `lockpick.success` x 20 | **Steady Hands** - Pick 20 locks. | **Ruhige Hand** - Knacke 20 Schlösser. |
 | distinct `document.shown` x 10 | **Reader in the Colony** - Read 10 different books or letters. | **Leseratte** - Lies 10 verschiedene Bücher oder Briefe. |
+| variable `EnteredTemple == 1` (`STARTUP_ORCTEMPEL`, level change) | **Below the Mountain** - Enter the Sleeper's temple. | **Unter dem Berg** - Betritt den Tempel des Schläfers. |
+| log `theriddle_log` success (sixth Chromanin book) | **Chromanin's Riddle** - Follow the stranger's books to the end. | **Chromanins Rätsel** - Folge den Büchern des Fremden bis zum Ende. |
+| item `UrizielRune` (Xardas' "JA, tu es!" choice) | **Sword Into Rune** - Let Xardas turn Uriziel's power into a rune. | **Vom Schwert zur Rune** - Lass Xardas Uriziels Kraft in eine Rune bannen. |
+| all: kill by hero `EBR_100_Gomez`, `EBR_101_Scar`, `EBR_102_Arto`, `EBR_105_Raven`, `EBR_106_Bartholo`, `Kapitel >= 5` at the last kill | **End of the Barons** - Kill every ore baron, the last of them in chapter 5. | **Das Ende der Barone** - Töte jeden Erzbaron, den letzten im fünften Kapitel. |
+| all: log `CH1_JoinOC` success, `Points_OC >= 32` (Diego's `JoinAnalyze` maximum) | **Model Recruit** - Join the Old Camp with every point Diego can count. | **Musterrekrut** - Werde ins Alte Lager aufgenommen, mit jedem Punkt, den Diego zählen kann. |
+| all: log `CH1_JoinNC` success, `Points_NC >= 50` (all five +10 sources at Lares) | **Well Connected** - Join Lares' gang with every favour the New Camp has to give. | **Gut vernetzt** - Tritt Lares' Bande bei, mit jedem Gefallen, den das Neue Lager zu vergeben hat. |
+| all: log `CH1_JoinPsi` success, infos `DIA_BaalOrun_GotWeed`, `DIA_BaalCadar_SleepSpell`, `DIA_BaalNamib_FirstTalk`, `DIA_BaalTyon_Vision`, `DIA_BaalTondral_SendToKalom` (Kalom's own count) | **Blessed by the Gurus** - Win over all five gurus before Cor Kalom takes you in. | **Von den Gurus gesegnet** - Gewinne alle fünf Gurus, bevor Cor Kalom dich aufnimmt. |
+| all: info `GUR_1201_CorKalom_Crawlerzangen`, item `ItAt_Crawler_01` x 30 (told before the info hands them over) | **Mandible Collector** - Bring Cor Kalom 30 minecrawler mandibles at once. | **Zangensammler** - Bringe Cor Kalom 30 Minecrawler-Zangen auf einmal. |
+| all: `Knows_GetTeeth`, `_Claws`, `_Fur`, `_Hide`, `_MCMandibles`, `_MCPlates`, `_BFSting` == 1 (`Knows_GetTongue` is never taught, `Knows_GetUluMulu` is story) | **Hunter's Knowledge** - Learn every trophy skill the hunters teach. | **Jägerwissen** - Lerne alles, was die Jäger übers Ausweiden lehren. |
 
 ### Gothic 2 - conditions verified against the G2 NotR 2.6 scripts
 
@@ -230,12 +246,38 @@ loaded at runtime.
 | defeat Raven | variable `RavenIsDead` == 1 | **The Raven Falls** - Stop Raven in his temple. | **Der Rabe fällt** - Halte Raven in seinem Tempel auf. |
 | join the thieves' guild | info `DIA_Cassia_Aufnahme` | **Down in the Sewers** - Find the thieves' guild beneath Khorinis. | **Unter der Stadt** - Finde die Diebesgilde unter Khorinis. |
 | black troll | kill `Troll_Black` by hero | **The Black Giant** - Defeat the black troll. | **Der schwarze Riese** - Besiege den schwarzen Troll. |
-| 50 orcs killed | later: needs a kill-by-guild kind (orcs) | **Orcbane** - Kill 50 orcs. | **Orkschreck** - Töte 50 Orks. |
+| 50 orcs killed | kill by hero x 50 of the 24 orc instances (`OrcWarrior_*`, `OrcElite_*`, `OrkElite_*`, `OrcShaman_*`; not `NONE_110_Urshak`, not `UndeadOrcWarrior`) | **Orcbane** - Kill 50 orcs. | **Orkschreck** - Töte 50 Orks. |
 | 50 locks picked | counter `lockpick.success` x 50 | **No Chest Is Safe** - Pick 50 locks. | **Keine Truhe ist sicher** - Knacke 50 Schlösser. |
-| strength from apples | later: needs a counter on apple use | **Fruit of Strength** - Grow stronger by eating apples. | **Kraftfutter** - Werde stärker durch Äpfel. |
+| strength from apples | later: needs a counter on apple use (`Apple_Bonus` is reset to 0 in the same `Use_Apple` call that gives the strength) | **Fruit of Strength** - Grow stronger by eating apples. | **Kraftfutter** - Werde stärker durch Äpfel. |
 | Eye of Innos found | item `ItMi_InnosEye_Broken_MIS` | **The Eye Found** - Recover the Eye of Innos. | **Das Auge gefunden** - Bringe das Auge Innos' zurück. |
 | 20,000 gold | item `ItMi_Gold` x 20000 | **A Rich Man** - Own 20,000 gold. | **Ein reicher Mann** - Besitze 20.000 Gold. |
 | sausages handed out | variable `Wurst_Gegeben` >= 13 | **Sausage for Everyone** - Hand every novice a sausage, missing nobody. | **Wurst für alle** - Gib jedem Novizen eine Wurst, ohne einen auszulassen. |
+| sea chart in the monastery's secret library | variable `MIS_SCKnowsWayToIrdorath` == 1 (`Use_Seamap_Irdorath`) | **Under the Monastery** - Find the sea chart in Xardas' hidden library below the monastery. | **Unter dem Kloster** - Finde die Seekarte in Xardas' verborgener Bibliothek unter dem Kloster. |
+| into the bandit camp (addon) | variable `Player_HasTalkedToBanditCamp` == 1 (Ramon lets you in, or dies) | **Wolf Among Wolves** - Get into the bandit camp in Jharkendar. | **Wolf unter Wölfen** - Gelange ins Banditenlager in Jharkendar. |
+| Diego at the old exchange place (addon) | infoTold `DIA_Addon_ThiefOW_Nostalgie` | **Old Friends** - Bring Diego back to where it all began. | **Alte Freunde** - Bringe Diego dorthin zurück, wo alles begann. |
+| castle gate opened | variable `MIS_OCGateOpen` == 1 (`EVT_OC_MAINGATE_FUNC_S1`) | **Gate Opener** - Open the castle gate in the Valley of Mines. | **Toröffner** - Öffne das Burgtor im Minental. |
+| old coins to Wasili | variable `OldCoinCounter` >= 40 (the first coin isn't counted by the script) | **Coin Collector** - Sell Wasili 40 more old coins after the first. | **Münzsammler** - Verkaufe Wasili nach der ersten noch 40 alte Münzen. |
+| into the city past the guards | all: infoTold `DIA_Lares_HALLO`, `Mil_310_schonmalreingelassen` == 0, `Mil_333_schonmalreingelassen` == 0 (Lares' "swum here?" branch) | **Over the Wall** - Reach Lares in the harbour without passing the city guards. | **Über die Mauer** - Erreiche Lares am Hafen, ohne an den Stadtwachen vorbeizugehen. |
+| minecrawler armor | variable `Player_GotCrawlerArmor` == 1 | **Old Armor, New Plates** - Have Wolf make you armor from minecrawler plates. | **Alte Rüstung, neue Platten** - Lass dir von Wolf eine Rüstung aus Minecrawler-Platten fertigen. |
+| blood chalices | variable `MIS_CassiaKelche` == `LOG_SUCCESS` (6 chalices) | **Chalice Hunter** - Bring Cassia all six blood chalices. | **Kelchjäger** - Bringe Cassia alle sechs Blutkelche. |
+| Randolph wins | all: `MIS_Rukhar_Wettkampf` == `LOG_SUCCESS`, `Rukhar_Won_Wettkampf` == 0 | **Drinking Partner** - Help Randolph drink Rukhar under the table. | **Trinkkumpan** - Hilf Randolph, Rukhar unter den Tisch zu trinken. |
+| orc warlords (paladin only) | kill x 23 of `OrcElite_AntiPaladin`, `_1`..`_3`, `OrkElite_AntiPaladinOrkOberst` (all inserted only for `GIL_PAL` in `B_ENTER_NEWWORLD_Kapitel_4`; any killer, the rings stay) | **Warlords' Rings** - As a paladin, see all 23 orc warlords that hunt you in Khorinis fall. | **Ringe der Kriegsherren** - Sorge als Paladin dafür, dass alle 23 Ork-Kriegsherren fallen, die in Khorinis Jagd auf dich machen. |
+| lizardman eggs (Bennet, DJG) | variable `DragonEggCounter` >= 12 (Bennet's "not many left" line) | **Nest Robber** - Bring Bennet a dozen lizardman eggs. | **Nesträuber** - Bringe Bennet ein Dutzend Echsenmenschen-Eier. |
+| all possessed found (mostly KDF) | all: `NpcObsessedByDMT_Brutus`, `_Engrom`, `_Vino`, `_Malak`, `_Fernando`, `_Bromor`, `_Sekob`, `_Randolph` == 1 | **The Seekers' Victims** - Find everyone the Seekers have possessed. | **Opfer der Suchenden** - Finde jeden, den die Suchenden besessen haben. |
+| Nadja | variable `Nadja_Nacht` >= 1 | **Red Lantern** - Pay Nadja a visit. | **Rote Laterne** - Statte Nadja einen Besuch ab. |
+| criminals behind bars (militia; Fernando addon) | all: `Rengaru_`, `Halvor_`, `Nagur_`, `Canthar_Ausgeliefert` == 1, `MIS_Andre_REDLIGHT` == `LOG_SUCCESS` (Borka), `Fernando_ImKnast` == 1 (Sarah is framed, so not on the list) | **Law and Order** - Put every criminal in town behind bars. | **Recht und Ordnung** - Bringe jeden Verbrecher der Stadt hinter Gitter. |
+| every blade to Harad | all: infoTold `DIA_Harad_SellBlades`, items `ItMw_1H_Common_01`, `ItMw_Schwert1`, `ItMw_Schwert4`, `ItMw_Rubinklinge`, `ItMw_ElBastardo` (told before the info takes them) | **Harad's Supplier** - Bring Harad one of every blade he buys, all at once. | **Harads Lieferant** - Bringe Harad von jeder Klinge, die er kauft, eine - alle auf einmal. |
+| every hide to Bosper | all: infoTold `DIA_Bosper_SellFur`, items sheep, wolf, warg, shadow, troll, black troll, `ItAt_Addon_KeilerFur` | **Fur Trader** - Bring Bosper every kind of hide at once. | **Fellhändler** - Bringe Bosper jede Art von Fell auf einmal. |
+| 50 dark mushrooms | variable `Constantino_DunkelpilzCounter` >= 50 | **Mushroom Picker** - Sell Constantino 50 dark mushrooms. | **Pilzsammler** - Verkaufe Constantino 50 Dunkelpilze. |
+| all masters agree | all: `DIA_Harad_Zustimmung_Permanent`, `Bosper_Zustimmung_Once`, `DIA_Matteo_Zustimmung_perm`, `Constantino_Logpatch2` == 1, `MIS_Thorben_GetBlessings` == `LOG_SUCCESS` | **Apprentice Wanted** - Win the approval of all five masters in town. | **Lehrling gesucht** - Gewinne die Zustimmung aller fünf Meister der Stadt. |
+| Bilgot rescued | variable `MIS_RescueBilgot` == `LOG_SUCCESS` | **Bilgot Brought Home** - Lead Bilgot out of the Valley of Mines. | **Bilgot heimgebracht** - Führe Bilgot aus dem Minental. |
+| thieves' guild, peacefully | all: infoTold `DIA_Cassia_Aufnahme`, `Attila_Key` == 1 (Attila handed the key over) | **No Blood Spilled** - Join the thieves' guild without a fight with Attila. | **Ohne Blutvergießen** - Tritt der Diebesgilde bei, ohne mit Attila zu kämpfen. |
+| Diego's villa | variable `MIS_DiegosResidence` == `LOG_SUCCESS` | **A House for Diego** - Help Diego win his villa. | **Ein Haus für Diego** - Hilf Diego zu seiner Villa. |
+| gold digging (addon) | variable `Hero_HackChance` >= 90 ("Meister Buddler"; 10 start + teachers + learning by doing) | **Gold Panner** - Become a master digger: a 90 percent chance at gold. | **Goldwäscher** - Werde Meister Buddler: 90 Prozent Chance auf Gold. |
+| five stone tablets (addon) | variable `MIS_Saturas_LookingForHousesOfRulers` == `LOG_SUCCESS` (`ItMi_Addon_Stone_01..05` to Saturas) | **Stone Tablets** - Bring Saturas all five stone tablets of the builders. | **Steintafeln** - Bringe Saturas alle fünf Steintafeln der Erbauer. |
+| free pass from Henry (addon) | all: infoTold `DIA_Addon_Henry_Tribut`, `_Malcom`, `_MeatForMorgan`, `_BaltramPack`, `MIS_Henry_FreeBDTTower` == `LOG_SUCCESS` (Henry's own discount, 500 -> 0) | **Haggler** - Talk Henry down to a free pass into the pirate camp. | **Feilscher** - Handle Henry bis zum freien Eintritt ins Piratenlager herunter. |
+| Irdorath without the Eye | variable `SC_InnosEyeVergessen_DI` == 1 (`Enter_DI_FirstTime_Trigger`) | **Forgot Something?** - Land on Irdorath without the Eye of Innos. | **Etwas vergessen?** - Lande ohne das Auge Innos' auf Irdorath. |
+| 100 pockets | variable `VictimCount` >= 100 (`B_GiveThiefXP`; `B_ResetThiefLevel` takes one back on a failed attempt) | **Pickpocket of Khorinis** - Pick 100 pockets (a failed attempt costs one). | **Taschendieb von Khorinis** - Bestiehl 100 Leute (ein Fehlversuch kostet einen). |
 
 ### Ideas that need an engine fact first (later PRs)
 
@@ -249,6 +291,13 @@ loaded at runtime.
 | forge a sword | **Smith's Apprentice** - Forge your first sword. | **Schmiedelehrling** - Schmiede dein erstes Schwert. |
 | finish without sleeping | **Sleep Is for the Dead** - Finish the game without ever sleeping. | **Schlafen kann ich, wenn ich tot bin** - Beende das Spiel, ohne je zu schlafen. |
 | kill an orc dog while transformed into one | **Dog Eat Dog** - As an orc dog, kill an orc dog. | **Hund frisst Hund** - Töte als Orkhund einen Orkhund. |
+| G1: Scraper's trousers at the tavern (`DIA_Org_876_AmSfb` is told before it checks the armor; `AIV_PASSGATE` is set after) | **Borrowed Trousers** - Get into the tavern for free in borrowed trousers. | **Geliehene Hosen** - Komm mit geliehenen Hosen umsonst in die Kneipe. |
+| G1: harvest sold to Cipher (a sale in the trade screen) | **Weed for Ore** - Sell the day's swampweed harvest to a New Camp fence. | **Kraut gegen Erz** - Verkaufe die Tagesernte Sumpfkraut an einen Hehler im Neuen Lager. |
+| G2: all of Sylvio's men beaten (a knockout fact; the scripts read `AIV_DefeatedByPlayer` only in Jarvis' quest) | **Duelist** - Beat all of Sylvio's men in single combat. | **Duellant** - Besiege alle Männer Sylvios im Zweikampf. |
+| G2: thieves' guild treasure (opening a specific chest) | **Guild Treasure** - Find the hidden treasure of the thieves' guild. | **Gildenschatz** - Finde den versteckten Schatz der Diebesgilde. |
+| G2: Greg's treasures (int array element: `RAKEPLACE[n]`) | **Greg's Hoard** - Find all of Greg's hidden treasures. | **Gregs Hort** - Finde alle versteckten Schätze von Greg. |
+| G2: builders' language (int array element: `PLAYER_TALENT_FOREIGNLANGUAGE[LANGUAGE_3]`) | **Tongue of the Builders** - Master the builders' language. | **Sprache der Erbauer** - Meistere die Sprache der Erbauer. |
+| G2: hidden ladder in Jharkendar (no script; a ladder/position fact) | **Hidden Ladder** - Climb the hidden ladder in Jharkendar. | **Versteckte Leiter** - Klettere die versteckte Leiter in Jharkendar hinauf. |
 
 ## Careful about
 

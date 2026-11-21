@@ -12,7 +12,7 @@
         "de": "Werde ein Schatten im Alten Lager."
       },
       "icon": {
-        "texture": "Map_OldCamp.tga"
+        "texture": "MAP_OLDCAMP.TGA"
       },
       "hidden": false,
       "condition": {
@@ -31,7 +31,7 @@
         "de": "Werde Novize der Bruderschaft im Sumpf."
       },
       "icon": {
-        "texture": "Map_PSICamp.tga"
+        "texture": "MAP_PSICAMP.TGA"
       },
       "hidden": false,
       "condition": {
@@ -50,7 +50,7 @@
         "de": "Werde Bandit im Neuen Lager."
       },
       "icon": {
-        "texture": "Map_NewCamp.tga"
+        "texture": "MAP_NEWCAMP.TGA"
       },
       "hidden": false,
       "condition": {
@@ -69,7 +69,7 @@
         "de": "Werde noch im ersten Kapitel Söldner bei Lee."
       },
       "icon": {
-        "texture": "Map_NewCamp.tga"
+        "item": "SLD_ARMOR_L"
       },
       "hidden": false,
       "condition": {
@@ -98,7 +98,7 @@
         "de": "Schaffe es zu Lares, ohne dass man dich vorlässt."
       },
       "icon": {
-        "texture": "Map_NewCamp.tga"
+        "item": "ORG_ARMOR_L"
       },
       "hidden": false,
       "condition": {
@@ -118,7 +118,7 @@
         "de": "Sei dabei, wenn die Bruderschaft den Schläfer ruft."
       },
       "icon": {
-        "texture": "chapter3.tga"
+        "item": "ItMi_Stuff_Idol_Sleeper_01"
       },
       "hidden": false,
       "condition": {
@@ -138,7 +138,7 @@
         "de": "Führe Baal Lukor durch den Orkfriedhof und kehre lebend zurück."
       },
       "icon": {
-        "texture": "Map_World_Orc.tga"
+        "texture": "LOADING_ORCGRAVEYARD.TGA"
       },
       "hidden": false,
       "condition": {
@@ -157,7 +157,7 @@
         "de": "Bringe alle Fokussteine zu den Wassermagiern."
       },
       "icon": {
-        "texture": "Map_World_Foki.tga"
+        "item": "Focus_1"
       },
       "hidden": false,
       "condition": {
@@ -176,7 +176,7 @@
         "de": "Nimm den Golems die Herzen und verdiene dir den Weg zu Xardas."
       },
       "icon": {
-        "texture": "chapter4.tga"
+        "item": "ItAt_StoneGolem_01"
       },
       "hidden": false,
       "condition": {
@@ -194,7 +194,7 @@
         "de": "Trage das Freundschaftszeichen der Orks."
       },
       "icon": {
-        "texture": "Map_World_Orc.tga"
+        "item": "UluMulu"
       },
       "hidden": false,
       "condition": {
@@ -213,7 +213,7 @@
         "de": "Gib Uriziel seine Kraft zurück."
       },
       "icon": {
-        "texture": "chapter5.tga"
+        "item": "Mythrilklinge02"
       },
       "hidden": false,
       "condition": {
@@ -230,6 +230,9 @@
       "description": {
         "en": "Find out what Baloro's wonder weapon really is.",
         "de": "Finde heraus, was Baloros Wunderwaffe wirklich ist."
+      },
+      "icon": {
+        "item": "ItFoWine"
       },
       "hidden": false,
       "condition": {
@@ -248,7 +251,7 @@
         "de": "Besiege Kirgo und Kharim in Scattys Arena."
       },
       "icon": {
-        "texture": "Map_OldCamp.tga"
+        "texture": "CHAPTER2.TGA"
       },
       "hidden": false,
       "condition": {
@@ -283,7 +286,7 @@
         "de": "Lass Stone deine Erzrüstung verstärken."
       },
       "icon": {
-        "texture": "Map_OldCamp.tga"
+        "item": "ORE_ARMOR_H"
       },
       "hidden": false,
       "condition": {
@@ -301,7 +304,7 @@
         "de": "Begleiche Jesses Schulden."
       },
       "icon": {
-        "texture": "Map_OldCamp.tga"
+        "item": "ItMiNugget"
       },
       "hidden": false,
       "condition": {
@@ -320,6 +323,9 @@
         "en": "Find the man who has hidden from Gomez for years.",
         "de": "Finde den Mann, der sich seit Jahren vor Gomez versteckt."
       },
+      "icon": {
+        "texture": "CHAPTER1.TGA"
+      },
       "hidden": false,
       "condition": {
         "infoTold": "DIA_Gilbert_First"
@@ -336,7 +342,7 @@
         "de": "Lass Mud reden, bis ihm nichts Neues mehr einfällt."
       },
       "icon": {
-        "texture": "Map_OldCamp.tga"
+        "item": "VLK_ARMOR_L"
       },
       "hidden": false,
       "condition": {
@@ -354,7 +360,7 @@
         "de": "Überrede Horatio, der dem Kämpfen abgeschworen hat, dich zu trainieren."
       },
       "icon": {
-        "texture": "Map_NewCamp.tga"
+        "texture": "MOWORICEPLANT01.TGA"
       },
       "hidden": false,
       "condition": {
@@ -373,7 +379,7 @@
         "de": "Besitze 15.000 Erzbrocken."
       },
       "icon": {
-        "texture": "OREBRICKS.TGA"
+        "texture": "ERZ.TGA"
       },
       "hidden": false,
       "condition": {
@@ -391,6 +397,9 @@
         "en": "Find the lost smoking pipe.",
         "de": "Finde die verlorene Pfeife."
       },
+      "icon": {
+        "item": "ItMi_Stuff_Pipe_01"
+      },
       "hidden": false,
       "condition": {
         "item": "ItMi_Stuff_Pipe_01"
@@ -407,7 +416,7 @@
         "de": "Töte die Minecrawler-Königin."
       },
       "icon": {
-        "texture": "Map_OldMine.tga"
+        "item": "ItAt_Crawlerqueen"
       },
       "hidden": false,
       "condition": {
@@ -425,6 +434,9 @@
       "description": {
         "en": "Squash 10 meatbugs.",
         "de": "Zertritt 10 Fleischwanzen."
+      },
+      "icon": {
+        "texture": "BQM_MEATBUG.TGA"
       },
       "hidden": false,
       "condition": {
@@ -445,6 +457,9 @@
         "en": "Pick 20 locks.",
         "de": "Knacke 20 Schlösser."
       },
+      "icon": {
+        "item": "ItKeLockpick"
+      },
       "hidden": false,
       "condition": {
         "counter": "lockpick.success",
@@ -462,12 +477,302 @@
         "de": "Lies 10 verschiedene Bücher oder Briefe."
       },
       "icon": {
-        "texture": "Book_Brown_L.tga"
+        "item": "ItWr_Book_Circle_01"
       },
       "hidden": false,
       "condition": {
         "distinct": "document.shown",
         "count": 10
+      }
+    },
+    {
+      "id": "g1.below_the_mountain",
+      "title": {
+        "en": "Below the Mountain",
+        "de": "Unter dem Berg"
+      },
+      "description": {
+        "en": "Enter the Sleeper's temple.",
+        "de": "Betritt den Tempel des Schläfers."
+      },
+      "icon": {
+        "texture": "CHAPTER6.TGA"
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "EnteredTemple",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g1.chromanins_riddle",
+      "title": {
+        "en": "Chromanin's Riddle",
+        "de": "Chromanins Rätsel"
+      },
+      "description": {
+        "en": "Follow the stranger's books to the end.",
+        "de": "Folge den Büchern des Fremden bis zum Ende."
+      },
+      "icon": {
+        "item": "theriddle1"
+      },
+      "hidden": false,
+      "condition": {
+        "logTopic": "theriddle_log",
+        "status": "success"
+      }
+    },
+    {
+      "id": "g1.sword_into_rune",
+      "title": {
+        "en": "Sword Into Rune",
+        "de": "Vom Schwert zur Rune"
+      },
+      "description": {
+        "en": "Let Xardas turn Uriziel's power into a rune.",
+        "de": "Lass Xardas Uriziels Kraft in eine Rune bannen."
+      },
+      "icon": {
+        "item": "UrizielRune"
+      },
+      "hidden": false,
+      "condition": {
+        "item": "UrizielRune"
+      }
+    },
+    {
+      "id": "g1.end_of_the_barons",
+      "title": {
+        "en": "End of the Barons",
+        "de": "Das Ende der Barone"
+      },
+      "description": {
+        "en": "Kill every ore baron, the last of them in chapter 5.",
+        "de": "Töte jeden Erzbaron, den letzten im fünften Kapitel."
+      },
+      "icon": {
+        "item": "EBR_ARMOR_H"
+      },
+      "hidden": false,
+      "condition": {
+        "all": [
+          {
+            "killed": [
+              "EBR_100_Gomez"
+            ],
+            "count": 1,
+            "byHero": true
+          },
+          {
+            "killed": [
+              "EBR_101_Scar"
+            ],
+            "count": 1,
+            "byHero": true
+          },
+          {
+            "killed": [
+              "EBR_102_Arto"
+            ],
+            "count": 1,
+            "byHero": true
+          },
+          {
+            "killed": [
+              "EBR_105_Raven"
+            ],
+            "count": 1,
+            "byHero": true
+          },
+          {
+            "killed": [
+              "EBR_106_Bartholo"
+            ],
+            "count": 1,
+            "byHero": true
+          },
+          {
+            "variable": "Kapitel",
+            "op": ">=",
+            "value": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "g1.model_recruit",
+      "title": {
+        "en": "Model Recruit",
+        "de": "Musterrekrut"
+      },
+      "description": {
+        "en": "Join the Old Camp with every point Diego can count.",
+        "de": "Werde ins Alte Lager aufgenommen, mit jedem Punkt, den Diego zählen kann."
+      },
+      "icon": {
+        "item": "STT_ARMOR_M"
+      },
+      "hidden": false,
+      "condition": {
+        "all": [
+          {
+            "logTopic": "CH1_JoinOC",
+            "status": "success"
+          },
+          {
+            "variable": "Points_OC",
+            "op": ">=",
+            "value": 32
+          }
+        ]
+      }
+    },
+    {
+      "id": "g1.well_connected",
+      "title": {
+        "en": "Well Connected",
+        "de": "Gut vernetzt"
+      },
+      "description": {
+        "en": "Join Lares' gang with every favour the New Camp has to give.",
+        "de": "Tritt Lares' Bande bei, mit jedem Gefallen, den das Neue Lager zu vergeben hat."
+      },
+      "icon": {
+        "item": "ORG_ARMOR_M"
+      },
+      "hidden": false,
+      "condition": {
+        "all": [
+          {
+            "logTopic": "CH1_JoinNC",
+            "status": "success"
+          },
+          {
+            "variable": "Points_NC",
+            "op": ">=",
+            "value": 50
+          }
+        ]
+      }
+    },
+    {
+      "id": "g1.blessed_by_the_gurus",
+      "title": {
+        "en": "Blessed by the Gurus",
+        "de": "Von den Gurus gesegnet"
+      },
+      "description": {
+        "en": "Win over all five gurus before Cor Kalom takes you in.",
+        "de": "Gewinne alle fünf Gurus, bevor Cor Kalom dich aufnimmt."
+      },
+      "icon": {
+        "item": "GUR_ARMOR_M"
+      },
+      "hidden": false,
+      "condition": {
+        "all": [
+          {
+            "logTopic": "CH1_JoinPsi",
+            "status": "success"
+          },
+          {
+            "infoTold": "DIA_BaalOrun_GotWeed"
+          },
+          {
+            "infoTold": "DIA_BaalCadar_SleepSpell"
+          },
+          {
+            "infoTold": "DIA_BaalNamib_FirstTalk"
+          },
+          {
+            "infoTold": "DIA_BaalTyon_Vision"
+          },
+          {
+            "infoTold": "DIA_BaalTondral_SendToKalom"
+          }
+        ]
+      }
+    },
+    {
+      "id": "g1.mandible_collector",
+      "title": {
+        "en": "Mandible Collector",
+        "de": "Zangensammler"
+      },
+      "description": {
+        "en": "Bring Cor Kalom 30 minecrawler mandibles at once.",
+        "de": "Bringe Cor Kalom 30 Minecrawler-Zangen auf einmal."
+      },
+      "icon": {
+        "item": "ItAt_Crawler_01"
+      },
+      "hidden": false,
+      "condition": {
+        "all": [
+          {
+            "infoTold": "GUR_1201_CorKalom_Crawlerzangen"
+          },
+          {
+            "item": "ItAt_Crawler_01",
+            "count": 30
+          }
+        ]
+      }
+    },
+    {
+      "id": "g1.hunters_knowledge",
+      "title": {
+        "en": "Hunter's Knowledge",
+        "de": "Jägerwissen"
+      },
+      "description": {
+        "en": "Learn every trophy skill the hunters teach.",
+        "de": "Lerne alles, was die Jäger übers Ausweiden lehren."
+      },
+      "icon": {
+        "item": "ItAt_Wolf_01"
+      },
+      "hidden": false,
+      "condition": {
+        "all": [
+          {
+            "variable": "Knows_GetTeeth",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Knows_GetClaws",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Knows_GetFur",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Knows_GetHide",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Knows_GetMCMandibles",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Knows_GetMCPlates",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Knows_GetBFSting",
+            "op": "==",
+            "value": 1
+          }
+        ]
       }
     }
   ]
