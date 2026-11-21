@@ -28,12 +28,65 @@ namespace Gothic.Core.Domain.Achievements
 
         [Inject] private readonly ConfigService _configService;
 
+        /// <summary>
+        /// The definitions of the running game or mod (Load()), empty if it has none.
+        /// </summary>
+        public List<AchievementDefinition> Definitions { get; private set; } = new();
+
+        /// <summary>
+        /// Which facts can complete which definition. Empty until EnsureResolved() found a VM.
+        /// </summary>
+        public AchievementTriggerIndex Index { get; private set; } = new();
+
+        private bool _isResolved;
+
+
+        /// <summary>
+        /// Reads the definitions of the running game or mod anew. Their symbols are resolved by EnsureResolved().
+        /// Throws on IO errors.
+        /// </summary>
+        public void Load(GameVersion version)
+        {
+            Definitions = ReadDefinitions(version);
+            Index = new AchievementTriggerIndex();
+            _isResolved = false;
+        }
+
+        /// <summary>
+        /// Resolves the script symbols and builds the index once a VM exists. True if it happened now.
+        /// </summary>
+        public bool EnsureResolved(DaedalusVm vm)
+        {
+            if (_isResolved || vm == null)
+                return false;
+
+            Resolve(Definitions, vm);
+            Index = BuildIndex(Definitions);
+            _isResolved = true;
+            return true;
+        }
+
+        /// <summary>
+        /// One that doesn't parse is skipped with a warning.
+        /// </summary>
+        private List<AchievementDefinition> ReadDefinitions(GameVersion version)
+        {
+            var text = ReadDefinitionFile(version);
+            if (text == null)
+                return new List<AchievementDefinition>();
+
+            var errors = new List<string>();
+            var definitions = Parse(text, errors);
+            foreach (var error in errors)
+                Logger.LogWarning($"[Achievements] Definition skipped: {error}", LogCat.Achievements);
+            return definitions;
+        }
 
         /// <summary>
         /// The file's text, or null if there is none (a mod without its own list: logged, a missing vanilla list is a
         /// warning). Throws on IO errors.
         /// </summary>
-        public string ReadDefinitionFile(GameVersion version)
+        private string ReadDefinitionFile(GameVersion version)
         {
             if (!_configService.IsModActive)
             {

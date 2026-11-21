@@ -13,7 +13,7 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
    G2 entries exist only in the addon (Jharkendar, Greg's crew, Raven).
 2. **Facts** are announced once, where they happen (`GlobalEventDispatcher`): log topic status set
    (`StoryService`), hero's true guild set (`NpcAiService.ExtSetTrueGuild`), dialog info told (`DialogService`),
-   NPC killed (`FightService.Kill`: victim + killer; "by hero" is `GetCreditedAttacker(killer).IsHero`), hero's
+   NPC killed (`FightService.Kill`: victim + killer; "by hero" is `killer.GetCreditedAttacker(hero).IsHero`), hero's
    items changed (`NpcInventoryService`), lock picked (`LockPickComboFinished` with a lock pick as the tool - it
    also fires for keys), document shown (`DocShow`, key `DocModel.Identity`: the item instance, or a hash of a mob
    page's textures and text), Marvin mode changed, hero died.
@@ -297,7 +297,7 @@ loaded at runtime.
 | Part | Place |
 |---|---|
 | definitions, run state, profile data, the read model VR and Flat UI share (entry, best tier, sealed) | `Gothic-Core/Scripts/Models/Achievements/` |
-| loading, condition checks, profile file | `Gothic-Core/Scripts/Domain/Achievements/` |
+| loading, condition checks, profile file | `Gothic-Core/Scripts/Domain/Achievements/`: `AchievementDefinitionDomain` (files, symbols, index), `AchievementFactDomain` (game events -> facts), `AchievementRunDomain` (tiers, run and save bookkeeping), `AchievementProfileDomain` (profile file, key) |
 | save section `core.achievements` | `Gothic-Core/Scripts/Domain/SaveGames/` |
 | `AchievementService` | `Gothic-Core/Scripts/Services/Achievements/`, ProjectScope |
 | read model for the UI | `AchievementService.GetEntries()` (`AchievementEntry` list), `GetCompletion()`, `CurrentTier`; built by `AchievementReadModelDomain` |

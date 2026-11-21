@@ -6,7 +6,9 @@ using System.Text;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Achievements;
+using Gothic.Core.Services.Caches;
 using Reflex.Attributes;
+using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Domain.Achievements
@@ -21,8 +23,10 @@ namespace Gothic.Core.Domain.Achievements
         public const string FolderName = "Achievements";
         private const string _deviceIdFileName = "device.id";
         private const int _deviceIdBytes = 32;
+        private const string _buildKeyResourcePath = "Achievements/AchievementsSealKey";
 
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
 
         private readonly AchievementSealDomain _sealDomain = new();
 
@@ -30,6 +34,36 @@ namespace Gothic.Core.Domain.Achievements
         private byte[] _key;
         private AchievementProfileData _pendingProfile;
 
+
+        private static string Folder => Path.Combine(Application.persistentDataPath, FolderName);
+
+        /// <summary>
+        /// The profile file of a game (and mod): &lt;GameVersion&gt;&lt;ModCacheSuffix&gt;.
+        /// </summary>
+        public static string GetProfilePath(string profileKey)
+        {
+            return Path.Combine(Folder, $"{profileKey}.json");
+        }
+
+        /// <summary>
+        /// The seal key of this build and installation. Editor and self-made builds use the committed dev key, CI
+        /// builds the key from a GitHub secret. Throws if the device id can't be read or written.
+        /// </summary>
+        public byte[] CreateKey()
+        {
+            return AchievementSealDomain.CreateKey(ReadBuildKey(), ReadOrCreateDeviceId(Folder));
+        }
+
+        private byte[] ReadBuildKey()
+        {
+            var text = _resourceCacheService.TryGetTextAsset(_buildKeyResourcePath)?.text?.Trim();
+            if (!string.IsNullOrEmpty(text))
+                return Encoding.UTF8.GetBytes(text);
+
+            Logger.LogWarning($"[Achievements] Build key Resources/{_buildKeyResourcePath} is missing. Seals use an " +
+                              "empty key.", LogCat.Achievements);
+            return Array.Empty<byte>();
+        }
 
         /// <summary>
         /// A random id generated once per installation. Not SystemInfo.deviceUniqueIdentifier: it can be

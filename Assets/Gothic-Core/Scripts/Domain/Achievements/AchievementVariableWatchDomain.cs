@@ -1,16 +1,22 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
+using Gothic.Core.Manager;
 using Gothic.Core.Models.Achievements;
+using Reflex.Attributes;
 
 namespace Gothic.Core.Domain.Achievements
 {
     /// <summary>
     /// Pure variable conditions (Docs/achievements.md, "How it works"). Script moments mark the variables dirty, one
     /// check follows a frame later however many moments came. Only a value that differs from the snapshot can unlock:
-    /// the snapshot is taken when a new game or a save is ready, a level change keeps it. Pure: the state comes from
-    /// an IAchievementStateReader (EditMode-testable).
+    /// the snapshot is taken when a new game or a save is ready, a level change keeps it. The state comes from an
+    /// IAchievementStateReader (EditMode-testable); only ScheduleCheck() needs the injected UnityMonoService.
     /// </summary>
     public class AchievementVariableWatchDomain
     {
+        [Inject] private readonly UnityMonoService _unityMonoService;
+
         private static readonly AchievementFact _variableCheck = new(AchievementFactKind.VariableCheck);
 
         private readonly AchievementConditionDomain _conditionDomain = new();
@@ -32,6 +38,24 @@ namespace Gothic.Core.Domain.Achievements
 
             IsDirty = true;
             return true;
+        }
+
+        /// <summary>
+        /// A script moment: check runs a frame later (when the calling script has finished too), once however many
+        /// moments come in this frame - unless ClearDirty() or a check came in between.
+        /// </summary>
+        public void ScheduleCheck(Action check)
+        {
+            if (MarkDirty())
+                _unityMonoService.StartCoroutine(CheckNextFrame(check));
+        }
+
+        private IEnumerator CheckNextFrame(Action check)
+        {
+            yield return null;
+
+            if (IsDirty)
+                check();
         }
 
         /// <summary>
