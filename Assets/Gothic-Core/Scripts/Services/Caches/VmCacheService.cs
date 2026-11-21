@@ -132,11 +132,9 @@ namespace Gothic.Core.Services.Caches
 
         private bool IsItemInstanceSymbol(DaedalusSymbol symbol)
         {
-            // ZenKit's own $INSTANCE_HELP (index 0 - what a missing item symbol in a script points to) is an
-            // instance without a parent class: its init failed natively and aborted ItemHoshi's script before
-            // Mdl_SetVisualBody (an invisible NPC).
-            if (symbol != null && symbol.Type == DaedalusDataType.Instance && symbol.Parent >= 0 &&
-                !symbol.Name.StartsWith("$", StringComparison.Ordinal))
+            // ZenKit's own $INSTANCE_HELP failed natively and aborted ItemHoshi's script before Mdl_SetVisualBody
+            // (an invisible NPC) - IsInstanceWithClass leaves it out.
+            if (symbol.IsInstanceWithClass())
                 return true;
 
             Logger.LogWarning($"[VmCache] '{symbol?.Name}' is no instance ({symbol?.Type}) - no item.", LogCat.ZenKit);

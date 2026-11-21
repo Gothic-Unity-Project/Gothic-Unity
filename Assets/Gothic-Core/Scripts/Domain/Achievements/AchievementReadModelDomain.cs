@@ -30,6 +30,7 @@ namespace Gothic.Core.Domain.Achievements
                     Title = definition.Title.Get(language),
                     Description = definition.Description.Get(language),
                     IconTexture = string.IsNullOrEmpty(definition.Icon.Texture) ? null : definition.Icon.Texture,
+                    IconItem = string.IsNullOrEmpty(definition.Icon.Item) ? null : definition.Icon.Item,
                     IsHidden = definition.IsHidden,
                     IsUnavailable = definition.IsUnavailable,
                     IsUnlocked = unlock != null,

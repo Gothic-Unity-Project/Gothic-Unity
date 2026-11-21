@@ -6,6 +6,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Achievements;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Newtonsoft.Json.Linq;
@@ -32,6 +33,7 @@ namespace Gothic.Core.Services.Achievements
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly MarvinService _marvinService;
+        [Inject] private readonly ItemIconService _itemIconService;
 
         private readonly AchievementDefinitionDomain _definitionDomain = new AchievementDefinitionDomain().Inject();
         private readonly AchievementProfileDomain _profileDomain = new AchievementProfileDomain().Inject();
@@ -164,6 +166,8 @@ namespace Gothic.Core.Services.Achievements
         private void OnWorldSceneLoaded()
         {
             EnsureLoaded();
+            if (IsEnabled)
+                PrewarmItemIcons();
             if (IsEnabled && _runDomain.StartPendingRun(_profile, _marvinService.IsMarvinMode))
                 _profileDomain.ScheduleWrite(_profile);
         }
@@ -227,6 +231,22 @@ namespace Gothic.Core.Services.Achievements
             if (_definitionDomain.EnsureResolved(_gameStateService.GothicVm))
                 Logger.Log($"[Achievements] {_definitionDomain.Definitions.Count} definitions for profile " +
                            $"{_profileKey}.", LogCat.Achievements);
+        }
+
+        /// <summary>
+        /// Item icons are drawn here, behind the loading screen, never when a page or toast shows them. Only the
+        /// first world of a session draws; later ones find them cached.
+        /// </summary>
+        private void PrewarmItemIcons()
+        {
+            var items = new List<string>();
+            foreach (var definition in _definitionDomain.Definitions)
+            {
+                if (!string.IsNullOrEmpty(definition.Icon.Item))
+                    items.Add(definition.Icon.Item);
+            }
+
+            _itemIconService.Prewarm(items);
         }
 
         private bool CanRecord()

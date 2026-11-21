@@ -17,6 +17,11 @@ namespace Gothic.Core.Models.Achievements
         public string IconTexture;
 
         /// <summary>
+        /// An item instance drawn as the icon (ItemIconService), or null. Wins over IconTexture when it renders.
+        /// </summary>
+        public string IconItem;
+
+        /// <summary>
         /// Show "?" instead of title and description while it's locked.
         /// </summary>
         public bool IsHidden;

@@ -130,6 +130,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(VmCacheService));
             containerBuilder.AddSingleton(typeof(MultiTypeCacheService));
             containerBuilder.AddSingleton(typeof(TextureCacheService));
+            containerBuilder.AddSingleton(typeof(ItemIconService));
             containerBuilder.AddSingleton(typeof(MorphMeshCacheService));
             containerBuilder.AddSingleton(typeof(NpcArmorPositionCacheService));
             containerBuilder.AddSingleton(typeof(StaticCacheService));

@@ -491,6 +491,12 @@ MonoBehaviour:
     m_Localized: Obiettivo ottenuto
     m_Metadata:
       m_Items: []
+  - m_Id: 196080985626931200
+    m_Localized: "{0}: niente trucchi, mai tornato a un salvataggio precedente\n{1}:
+      gioco normale, salvi e carichi quando vuoi\n{2}: trucchi (modalit\xE0 Marvin)
+      usati"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

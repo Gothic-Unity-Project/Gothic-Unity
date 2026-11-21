@@ -501,6 +501,12 @@ MonoBehaviour:
     m_Localized: "\xDAsp\u011Bch z\xEDsk\xE1n"
     m_Metadata:
       m_Items: []
+  - m_Id: 196080985626931200
+    m_Localized: "{0}: bez cheat\u016F, nikdy zp\u011Bt ke star\u0161\xED ulo\u017Een\xE9
+      h\u0159e\n{1}: b\u011B\u017En\xE9 hran\xED, ukl\xE1d\xE1n\xED a na\u010D\xEDt\xE1n\xED
+      dle libosti\n{2}: pou\u017Eity cheaty (re\u017Eim Marvin)"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

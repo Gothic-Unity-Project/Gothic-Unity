@@ -74,6 +74,41 @@ namespace Gothic.Tests.EditMode.Achievements
         }
 
         [Test]
+        public void ItemIconParsesWithAndWithoutTexture()
+        {
+            const string json = @"{ ""achievements"": [
+                { ""id"": ""a"", ""title"": { ""en"": ""A"" }, ""description"": { ""en"": ""A"" },
+                  ""icon"": { ""item"": ""ItMi_InnosEye_MIS"", ""texture"": ""Map_OldCamp.tga"" },
+                  ""condition"": { ""infoTold"": ""DIA_Gilbert_First"" } },
+                { ""id"": ""b"", ""title"": { ""en"": ""B"" }, ""description"": { ""en"": ""B"" },
+                  ""icon"": { ""item"": ""ItKe_Lockpick"" },
+                  ""condition"": { ""infoTold"": ""DIA_Gilbert_First"" } } ] }";
+            var errors = new List<string>();
+
+            var definitions = AchievementDefinitionParser.Parse(json, errors);
+
+            Assert.IsEmpty(errors, string.Join("\n", errors));
+            Assert.AreEqual("ItMi_InnosEye_MIS", definitions[0].Icon.Item);
+            Assert.AreEqual("Map_OldCamp.tga", definitions[0].Icon.Texture);
+            Assert.AreEqual("ItKe_Lockpick", definitions[1].Icon.Item);
+            Assert.IsNull(definitions[1].Icon.Texture);
+        }
+
+        [Test]
+        public void EveryShippedAchievementHasAnIcon()
+        {
+            foreach (var file in new[] { _g1, _g2 })
+            {
+                foreach (var definition in AchievementDefinitionParser.Parse(ReadDefinitionFile(file),
+                             new List<string>()))
+                {
+                    Assert.IsFalse(string.IsNullOrEmpty(definition.Icon.Item) &&
+                                   string.IsNullOrEmpty(definition.Icon.Texture), $"{definition.Id} has no icon.");
+                }
+            }
+        }
+
+        [Test]
         public void EveryConditionKindParses()
         {
             const string json = @"{ ""achievements"": [

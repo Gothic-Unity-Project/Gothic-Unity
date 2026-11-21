@@ -40,6 +40,7 @@ namespace Gothic.Core.Adapters.UI.Achievements
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly LocalizationService _localizationService;
         [Inject] private readonly TextureCacheService _textureCacheService;
+        [Inject] private readonly ItemIconService _itemIconService;
 
         private readonly Queue<(AchievementDefinition Definition, AchievementTier Tier)> _queue = new();
         private float _hideAt;
@@ -87,7 +88,7 @@ namespace Gothic.Core.Adapters.UI.Achievements
             _headerText.text = $"{header} - {AchievementTierStyle.GetColoredName(tier)}";
             _titleText.text = definition.Title.Get(language);
             _descriptionText.text = definition.Description.Get(language);
-            SetIcon(definition.Icon.Texture);
+            SetIcon(definition.Icon);
 
             _hideAt = Time.unscaledTime + _seconds;
             gameObject.SetActive(true);
@@ -95,15 +96,11 @@ namespace Gothic.Core.Adapters.UI.Achievements
             Logger.Log($"[AchievementToast] Showing >{definition.Id}< ({tier}).", LogCat.Achievements);
         }
 
-        private void SetIcon(string textureName)
+        private void SetIcon(AchievementIcon icon)
         {
-            var texture = string.IsNullOrEmpty(textureName) ? null : _textureCacheService.TryGetTexture(textureName);
-            if (!string.IsNullOrEmpty(textureName) && texture == null)
-                Logger.LogWarning($"[AchievementToast] Icon texture >{textureName}< not found.", LogCat.Achievements);
-
-            _icon.texture = texture;
-            _icon.gameObject.SetActive(texture != null);
-            _iconPlaceholder.SetActive(texture == null);
+            if (!AchievementIconView.Show(_icon, _iconPlaceholder, icon.Item, icon.Texture, _itemIconService,
+                    _textureCacheService))
+                Logger.LogWarning($"[AchievementToast] Icon texture >{icon.Texture}< not found.", LogCat.Achievements);
         }
     }
 }

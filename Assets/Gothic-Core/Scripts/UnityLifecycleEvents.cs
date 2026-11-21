@@ -29,6 +29,7 @@ namespace Gothic.VR
         // Caches
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly TextureCacheService _textureCacheService;
+        [Inject] private readonly ItemIconService _itemIconService;
         [Inject] private readonly MorphMeshCacheService _morphMeshCacheService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly NpcArmorPositionCacheService _npcArmorCacheService;
@@ -80,6 +81,7 @@ namespace Gothic.VR
 
             // Caches
             _textureCacheService.Dispose();
+            _itemIconService.Dispose();
             _morphMeshCacheService.Dispose();
             _multiTypeCacheService.Dispose();
             _npcArmorCacheService.Dispose();

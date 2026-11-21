@@ -1,8 +1,8 @@
 namespace Gothic.Core.Models.Achievements
 {
     /// <summary>
-    /// A texture of the installation (works today) or an item instance (needs an item renderer, falls back to the
-    /// texture or a placeholder until then). Both empty: placeholder.
+    /// An item instance (drawn like the item itself) and/or a texture of the installation. The item wins; the texture
+    /// is its fallback. Both empty, or neither found: placeholder.
     /// </summary>
     public class AchievementIcon
     {

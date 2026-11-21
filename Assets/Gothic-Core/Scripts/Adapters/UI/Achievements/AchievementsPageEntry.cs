@@ -1,3 +1,4 @@
+using Gothic.Core.Services.Caches;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,16 +27,55 @@ namespace Gothic.Core.Adapters.UI.Achievements
 
         [Tooltip("Alpha of a line that isn't earned (or whose seal is broken).")]
         [SerializeField] private float _greyedAlpha = 0.45f;
+        [Tooltip("The line's height (LayoutElement); it grows when the title wraps.")]
+        [SerializeField] private LayoutElement _layoutElement;
+        [Tooltip("Gap between the title's last line and the description.")]
+        [SerializeField] private float _titleGap = 6f;
+        [Tooltip("Space below the description for the progress bar.")]
+        [SerializeField] private float _bottomSpace = 36f;
 
-        public void Show(string title, string description, string state, Texture icon, bool isGreyed)
+        private float _baseHeight = -1f;
+        private float _baseDescriptionTop;
+
+        public void Show(string title, string description, string state, bool isGreyed)
         {
             _titleText.text = title;
             _descriptionText.text = description;
             _stateText.text = state;
-            _icon.texture = icon;
-            _icon.gameObject.SetActive(icon != null);
-            _iconPlaceholder.SetActive(icon == null);
             _canvasGroup.alpha = isGreyed ? _greyedAlpha : 1f;
+        }
+
+        /// <summary>
+        /// TMP wraps a long title to a second line and shrinks it if needed (auto-size, two lines high); the
+        /// description starts under the title's last line and the line grows by what the title took. Needs the
+        /// line's final width - AchievementsPage calls it after a layout pass.
+        /// </summary>
+        public void FitTitle()
+        {
+            var description = _descriptionText.rectTransform;
+            if (_baseHeight < 0f)
+            {
+                _baseHeight = _layoutElement.preferredHeight;
+                _baseDescriptionTop = -description.anchoredPosition.y;
+            }
+
+            _titleText.ForceMeshUpdate(true, true);
+            var title = _titleText.rectTransform;
+            var descriptionTop = Mathf.Max(_baseDescriptionTop,
+                -title.anchoredPosition.y + _titleText.renderedHeight + _titleGap);
+            description.anchoredPosition = new Vector2(description.anchoredPosition.x, -descriptionTop);
+
+            var height = Mathf.Max(_baseHeight, descriptionTop + description.sizeDelta.y + _bottomSpace);
+            _layoutElement.preferredHeight = height;
+            _layoutElement.minHeight = height;
+        }
+
+        /// <returns>False: the named texture isn't in the installation.</returns>
+        public bool ShowIcon(string item, string texture, ItemIconService itemIconService,
+            TextureCacheService textureCacheService)
+        {
+            return AchievementIconView.Show(_icon, _iconPlaceholder, item, texture, itemIconService,
+                textureCacheService);
         }
 
         /// <param name="target">0: no progress bar.</param>

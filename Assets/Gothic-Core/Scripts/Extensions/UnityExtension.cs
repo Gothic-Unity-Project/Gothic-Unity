@@ -1,10 +1,23 @@
 using UnityEngine;
+using UnityEngine.UI;
 using ZenKit.Util;
 
 namespace Gothic.Core.Extensions
 {
     public static class UnityExtension
     {
+        private static readonly Rect _flippedUv = new(0f, 1f, 1f, -1f);
+        private static readonly Rect _uprightUv = new(0f, 0f, 1f, 1f);
+
+        /// <summary>
+        /// Gothic textures are uploaded top row first - a RawImage shows them upside down unless flipped. Textures
+        /// Unity rendered itself (e.g. ItemIconService) are already upright.
+        /// </summary>
+        public static void SetUpright(this RawImage image, bool isGothicTexture)
+        {
+            image.uvRect = isGothicTexture ? _flippedUv : _uprightUv;
+        }
+
         /// <summary>
         /// Transform Vector3 to Unity Vector3.
         /// transformScale - Gothic positions are in cm, but Unity in m. (factor 100). Most of the time we just transform it directly.

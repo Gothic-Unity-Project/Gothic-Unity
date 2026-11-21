@@ -497,6 +497,11 @@ MonoBehaviour:
     m_Localized: "Zdobyto osi\u0105gni\u0119cie"
     m_Metadata:
       m_Items: []
+  - m_Id: 196080985626931200
+    m_Localized: "{0}: bez kod\xF3w, nigdy powrotu do starszego zapisu\n{1}: zwyk\u0142a
+      gra, zapis i wczytywanie do woli\n{2}: u\u017Cyto kod\xF3w (tryb Marvina)"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

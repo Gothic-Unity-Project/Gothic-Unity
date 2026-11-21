@@ -135,11 +135,14 @@ namespace Gothic.Core.Domain.Achievements
 
         /// <summary>
         /// Resolves the script symbols of every definition. A missing symbol makes it unavailable (one warning each).
+        /// A missing icon item only drops the item from the icon (texture or placeholder instead, one warning).
         /// </summary>
         public void Resolve(List<AchievementDefinition> definitions, DaedalusVm vm)
         {
             foreach (var definition in definitions)
             {
+                ResolveIconItem(definition, vm);
+
                 if (TryResolve(definition.Condition, vm, out var missing))
                     continue;
 
@@ -147,6 +150,20 @@ namespace Gothic.Core.Domain.Achievements
                 Logger.LogWarning($"[Achievements] {definition.Id} is unavailable: the scripts have no {missing}.",
                     LogCat.Achievements);
             }
+        }
+
+        private static void ResolveIconItem(AchievementDefinition definition, DaedalusVm vm)
+        {
+            var item = definition.Icon.Item;
+            if (string.IsNullOrEmpty(item))
+                return;
+
+            if (vm.GetSymbolByName(item).IsInstanceWithClass())
+                return;
+
+            definition.Icon.Item = null;
+            Logger.LogWarning($"[Achievements] {definition.Id}: icon item {item} isn't in the scripts - showing " +
+                              "its texture or the placeholder.", LogCat.Achievements);
         }
 
         private static bool TryResolve(AchievementCondition condition, DaedalusVm vm, out string missing)
