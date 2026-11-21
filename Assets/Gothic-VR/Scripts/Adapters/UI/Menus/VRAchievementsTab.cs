@@ -1,7 +1,7 @@
-using Gothic.Core;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Caches;
 using Gothic.Core.Services.Caches;
+using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -16,16 +16,18 @@ namespace Gothic.VR.Adapters.UI.Menus
         [Tooltip("Scale of the Core page (Canvas units) inside this help page.")]
         [SerializeField] private float _pageScale = 0.01f;
 
+        [Inject] private readonly ResourceCacheService _resourceCacheService;
+
         private bool _isCreated;
 
         private void OnEnable()
         {
-            if (_isCreated)
+            // Not injected yet: the help panel's first enable, before the player prefab is injected (no page shown).
+            if (_isCreated || _resourceCacheService == null)
                 return;
             _isCreated = true;
 
-            var resourceCacheService = ReflexProjectInstaller.DIContainer.Resolve<ResourceCacheService>();
-            var page = resourceCacheService.TryGetPrefabObject(PrefabType.UiAchievementsPage, parent: gameObject);
+            var page = _resourceCacheService.TryGetPrefabObject(PrefabType.UiAchievementsPage, parent: gameObject);
             if (page == null)
             {
                 Logger.LogWarning("[VRAchievementsTab] No achievements page prefab.", LogCat.VR);
