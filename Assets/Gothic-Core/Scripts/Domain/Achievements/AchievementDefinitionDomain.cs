@@ -30,15 +30,20 @@ namespace Gothic.Core.Domain.Achievements
 
 
         /// <summary>
-        /// The file's text, or null if there is none (a mod without its own list).
+        /// The file's text, or null if there is none (a mod without its own list: logged, a missing vanilla list is a
+        /// warning). Throws on IO errors.
         /// </summary>
         public string ReadDefinitionFile(GameVersion version)
         {
             if (!_configService.IsModActive)
             {
                 var fileName = version == GameVersion.Gothic1 ? "g1.json" : "g2.json";
-                return ReadStreamingAsset(Path.Combine(Application.streamingAssetsPath, _streamingAssetsFolder,
-                    fileName));
+                var path = Path.Combine(Application.streamingAssetsPath, _streamingAssetsFolder, fileName);
+                var text = ReadStreamingAsset(path);
+                if (text == null)
+                    Logger.LogWarning($"[Achievements] {path} is missing or can't be read: no achievements.",
+                        LogCat.Achievements);
+                return text;
             }
 
             var modPath = _configService.EffectiveModPath;
@@ -47,12 +52,16 @@ namespace Gothic.Core.Domain.Achievements
                 return File.ReadAllText(modFile);
 
             var iniPath = _configService.GothicMod?.IniFilePath;
-            if (string.IsNullOrEmpty(iniPath))
-                return null;
+            var iniFile = string.IsNullOrEmpty(iniPath)
+                ? null
+                : PathExtension.FindIgnoringCase(Path.GetDirectoryName(iniPath),
+                    Path.GetFileNameWithoutExtension(iniPath) + _modIniFileSuffix);
+            if (iniFile != null)
+                return File.ReadAllText(iniFile);
 
-            var iniFileName = Path.GetFileNameWithoutExtension(iniPath) + _modIniFileSuffix;
-            var iniFile = PathExtension.FindIgnoringCase(Path.GetDirectoryName(iniPath), iniFileName);
-            return iniFile == null ? null : File.ReadAllText(iniFile);
+            Logger.Log($"[Achievements] The mod has no own list ({_modFileName} or <ini>{_modIniFileSuffix}): no " +
+                       "achievements.", LogCat.Achievements);
+            return null;
         }
 
         /// <summary>
