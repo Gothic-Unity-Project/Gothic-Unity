@@ -49,5 +49,6 @@ Changing a button while the panels are open shows on the next open.
 
 `Tab achievements` (key `achievements.tab`) and `Pages/Page achievements` with `VRAchievementsTab`: the first time
 the page is shown it loads the Core page (`PrefabType.UiAchievementsPage`, 640 x 900 Canvas units at scale 0.01 =
-the 6.4 x 9 page). The page itself (`AchievementsPage`) rebuilds on every open and on an unlock while open. See
-`Docs/achievements.md`.
+the 6.4 x 9 page). The page itself (`AchievementsPage`) rebuilds on every open and on an unlock while open.
+`VRHelpPanelAchievementRecheck` on `Help` re-checks the story variables each time the panel opens (a fallback
+moment), so the tabs stay a plain switcher. See `Docs/achievements.md`.

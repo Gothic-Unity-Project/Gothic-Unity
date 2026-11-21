@@ -1,7 +1,5 @@
 using System;
 using Gothic.Core.Logging;
-using Gothic.Core.Services.Achievements;
-using Reflex.Attributes;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,8 +25,6 @@ namespace Gothic.VR.Adapters.UI.Menus
         [Tooltip("Text color of the other topics' buttons.")]
         [SerializeField] private Color _inactiveTabColor = Color.white;
 
-        [Inject] private readonly AchievementService _achievementService;
-
         private TMP_Text[] _tabLabels;
 
         private void Awake()
@@ -51,10 +47,6 @@ namespace Gothic.VR.Adapters.UI.Menus
         private void OnEnable()
         {
             Show(0);
-
-            // A fallback moment for achievements: a story variable changed by a script we don't hook counts now.
-            // Null on the first enable, before the player prefab is injected (no world yet).
-            _achievementService?.RecheckNow();
         }
 
         /// <summary>

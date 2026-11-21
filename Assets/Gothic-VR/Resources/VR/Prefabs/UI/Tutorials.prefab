@@ -1236,6 +1236,7 @@ GameObject:
   - component: {fileID: 8954557078240590157}
   - component: {fileID: 2029570376165436501}
   - component: {fileID: 6787351148501413490}
+  - component: {fileID: 2802224498040713170}
   m_Layer: 5
   m_Name: Help
   m_TagString: Untagged
@@ -1357,6 +1358,18 @@ MonoBehaviour:
   - {fileID: 475415613286556765}
   _activeTabColor: {r: 1, g: 0.85, b: 0.4, a: 1}
   _inactiveTabColor: {r: 1, g: 1, b: 1, a: 1}
+--- !u!114 &2802224498040713170
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2355034974786271543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d0db6a7f5af17515b293b81dd369694, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gothic.VR::Gothic.VR.Adapters.UI.Menus.VRHelpPanelAchievementRecheck
 --- !u!1 &2574759379074861209
 GameObject:
   m_ObjectHideFlags: 0

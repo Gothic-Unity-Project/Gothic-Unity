@@ -33,7 +33,7 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
    A moment only marks the variables dirty (`AchievementVariableWatchDomain`); one check runs a frame later
    (`UnityMonoService` coroutine), however many moments came in that frame, and after the calling script has
    finished. Nothing is dirty, nothing runs: zero per-frame cost. Fallback checks (`AchievementService.RecheckNow()`)
-   catch a variable set by a script we don't hook: the VR help panel opens (`VRHelpTabs`), the achievements page
+   catch a variable set by a script we don't hook: the VR help panel opens (`VRHelpPanelAchievementRecheck`), the achievements page
    opens, and right before a save is captured (`CaptureRun`). Flat has no help panel yet.
    `AchievementService.Init()` subscribes to the facts and moments and a teardown removes the listeners; facts from
    per-world services reach the ProjectScope service only through `GlobalEventDispatcher`.
