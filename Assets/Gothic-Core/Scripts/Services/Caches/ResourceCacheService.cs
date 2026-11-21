@@ -453,6 +453,18 @@ namespace Gothic.Core.Services.Caches
             return font;
         }
 
+        /// <summary>
+        /// A text file from Resources (e.g. the achievements' build key). Not cached: read once by its owner.
+        /// </summary>
+        [CanBeNull]
+        public TextAsset TryGetTextAsset([NotNull] string resourcesPath)
+        {
+            var asset = Resources.Load<TextAsset>(resourcesPath);
+            if (asset == null)
+                Logger.LogWarning($"Text asset at >{resourcesPath}< not found.", LogCat.Loading);
+            return asset;
+        }
+
         [CanBeNull]
         private GameObject TryGetPrefab(PrefabType key)
         {

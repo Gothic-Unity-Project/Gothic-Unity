@@ -72,6 +72,28 @@ namespace Gothic.Core.Const
         }
 
         /// <summary>
+        /// Folder and file names of local achievements (Docs/achievements.md).
+        /// </summary>
+        public static class Achievements
+        {
+            // One folder name in three places: definition files (StreamingAssets), profiles and device id
+            // (persistentDataPath), build key (Resources).
+            public const string FolderName = "Achievements";
+
+            // Resources path of the seal's build key. CI overwrites the committed dev key (.github/workflows).
+            public const string BuildKeyResourcePath = FolderName + "/AchievementsSealKey";
+
+            public const string G1FileName = "g1.json";
+            public const string G2FileName = "g2.json";
+
+            // A mod's own list: in its folder, or next to its ini as <ini name> + ModIniFileSuffix.
+            public const string ModFileName = "Achievements.json";
+            public const string ModIniFileSuffix = ".achievements.json";
+
+            public const string DeviceIdFileName = "device.id";
+        }
+
+        /// <summary>
         /// Resources paths of the TMP fonts for texts built at runtime (ResourceCacheService.TryGetFontAsset).
         /// </summary>
         public static class Fonts

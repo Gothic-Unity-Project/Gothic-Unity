@@ -10,5 +10,7 @@ namespace Gothic.Core.Models.Config
         public List<JsonModFolder> ModFolders;
         public string LogLevel;
         public string LogCategories;
+        // Local achievements (Docs/achievements.md). Off: nothing is recorded, no pop-ups.
+        public bool AchievementsEnabled = true;
     }
 }

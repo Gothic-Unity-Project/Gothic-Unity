@@ -1,0 +1,286 @@
+{
+  "version": 1,
+  "achievements": [
+    {
+      "id": "g2.lord_andres_man",
+      "title": {
+        "en": "Lord Andre's Man",
+        "de": "Lord Andres Mann"
+      },
+      "description": {
+        "en": "Join the city militia.",
+        "de": "Tritt der Stadtmiliz bei."
+      },
+      "hidden": false,
+      "condition": {
+        "trueGuild": [
+          "GIL_MIL"
+        ]
+      }
+    },
+    {
+      "id": "g2.behind_monastery_walls",
+      "title": {
+        "en": "Behind Monastery Walls",
+        "de": "Hinter Klostermauern"
+      },
+      "description": {
+        "en": "Become a novice in the monastery of Innos.",
+        "de": "Werde Novize im Kloster Innos'."
+      },
+      "hidden": false,
+      "condition": {
+        "trueGuild": [
+          "GIL_NOV"
+        ]
+      }
+    },
+    {
+      "id": "g2.onars_blade",
+      "title": {
+        "en": "Onar's Blade",
+        "de": "Onars Klinge"
+      },
+      "description": {
+        "en": "Become one of Lee's mercenaries on Onar's farm.",
+        "de": "Werde Söldner auf Onars Hof."
+      },
+      "hidden": false,
+      "condition": {
+        "trueGuild": [
+          "GIL_SLD"
+        ]
+      }
+    },
+    {
+      "id": "g2.word_from_the_valley",
+      "title": {
+        "en": "Word from the Valley",
+        "de": "Nachricht aus dem Tal"
+      },
+      "description": {
+        "en": "Bring Lord Hagen proof of the dragons.",
+        "de": "Bringe Lord Hagen den Beweis für die Drachen."
+      },
+      "hidden": false,
+      "condition": {
+        "infoTold": "DIA_Garond_Success"
+      }
+    },
+    {
+      "id": "g2.the_eye_found",
+      "title": {
+        "en": "The Eye Found",
+        "de": "Das Auge gefunden"
+      },
+      "description": {
+        "en": "Recover the Eye of Innos.",
+        "de": "Bringe das Auge Innos' zurück."
+      },
+      "hidden": false,
+      "condition": {
+        "item": "ItMi_InnosEye_Broken_MIS"
+      }
+    },
+    {
+      "id": "g2.the_eye_made_whole",
+      "title": {
+        "en": "The Eye Made Whole",
+        "de": "Das Auge geheilt"
+      },
+      "description": {
+        "en": "Restore the Eye of Innos at the stone circle.",
+        "de": "Stelle das Auge Innos' am Steinkreis wieder her."
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "MIS_RitualInnosEyeRepair",
+        "op": "==",
+        "value": "LOG_SUCCESS"
+      }
+    },
+    {
+      "id": "g2.four_fewer_dragons",
+      "title": {
+        "en": "Four Fewer Dragons",
+        "de": "Vier Drachen weniger"
+      },
+      "description": {
+        "en": "Slay the dragons in the Valley of Mines.",
+        "de": "Erschlage die Drachen im Minental."
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "MIS_AllDragonsDead",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.cast_off",
+      "title": {
+        "en": "Cast Off",
+        "de": "Leinen los"
+      },
+      "description": {
+        "en": "Take a ship to Irdorath.",
+        "de": "Segle nach Irdorath."
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "Kapitel",
+        "op": ">=",
+        "value": 6
+      }
+    },
+    {
+      "id": "g2.beliars_champion_falls",
+      "title": {
+        "en": "Beliar's Champion Falls",
+        "de": "Beliars Streiter fällt"
+      },
+      "description": {
+        "en": "Defeat the undead dragon.",
+        "de": "Besiege den untoten Drachen."
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "UndeadDragonIsDead",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.beyond_the_portal",
+      "title": {
+        "en": "Beyond the Portal",
+        "de": "Jenseits des Portals"
+      },
+      "description": {
+        "en": "Step through the portal into Jharkendar.",
+        "de": "Betritt Jharkendar durch das Portal."
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "ENTERED_ADDONWORLD",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.gregs_crew",
+      "title": {
+        "en": "Greg's Crew",
+        "de": "Gregs Mannschaft"
+      },
+      "description": {
+        "en": "Join the pirates.",
+        "de": "Heuere bei den Piraten an."
+      },
+      "hidden": false,
+      "condition": {
+        "infoTold": "DIA_Addon_Greg_JoinPirates"
+      }
+    },
+    {
+      "id": "g2.the_raven_falls",
+      "title": {
+        "en": "The Raven Falls",
+        "de": "Der Rabe fällt"
+      },
+      "description": {
+        "en": "Stop Raven in his temple.",
+        "de": "Halte Raven in seinem Tempel auf."
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "RavenIsDead",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.down_in_the_sewers",
+      "title": {
+        "en": "Down in the Sewers",
+        "de": "Unter der Stadt"
+      },
+      "description": {
+        "en": "Find the thieves' guild beneath Khorinis.",
+        "de": "Finde die Diebesgilde unter Khorinis."
+      },
+      "hidden": false,
+      "condition": {
+        "infoTold": "DIA_Cassia_Aufnahme"
+      }
+    },
+    {
+      "id": "g2.the_black_giant",
+      "title": {
+        "en": "The Black Giant",
+        "de": "Der schwarze Riese"
+      },
+      "description": {
+        "en": "Defeat the black troll.",
+        "de": "Besiege den schwarzen Troll."
+      },
+      "hidden": false,
+      "condition": {
+        "killed": [
+          "Troll_Black"
+        ],
+        "count": 1,
+        "byHero": true
+      }
+    },
+    {
+      "id": "g2.a_rich_man",
+      "title": {
+        "en": "A Rich Man",
+        "de": "Ein reicher Mann"
+      },
+      "description": {
+        "en": "Own 20,000 gold.",
+        "de": "Besitze 20.000 Gold."
+      },
+      "hidden": false,
+      "condition": {
+        "item": "ItMi_Gold",
+        "count": 20000
+      }
+    },
+    {
+      "id": "g2.sausage_for_everyone",
+      "title": {
+        "en": "Sausage for Everyone",
+        "de": "Wurst für alle"
+      },
+      "description": {
+        "en": "Hand every novice a sausage, missing nobody.",
+        "de": "Gib jedem Novizen eine Wurst, ohne einen auszulassen."
+      },
+      "hidden": false,
+      "condition": {
+        "variable": "Wurst_Gegeben",
+        "op": ">=",
+        "value": 13
+      }
+    },
+    {
+      "id": "g2.no_chest_is_safe",
+      "title": {
+        "en": "No Chest Is Safe",
+        "de": "Keine Truhe ist sicher"
+      },
+      "description": {
+        "en": "Pick 50 locks.",
+        "de": "Knacke 50 Schlösser."
+      },
+      "hidden": false,
+      "condition": {
+        "counter": "lockpick.success",
+        "count": 50
+      }
+    }
+  ]
+}

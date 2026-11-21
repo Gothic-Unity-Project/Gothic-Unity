@@ -27,5 +27,6 @@ namespace Gothic.Core.Logging
         Vob,
         Audio,
         Debug,
+        Achievements,
     }
 }

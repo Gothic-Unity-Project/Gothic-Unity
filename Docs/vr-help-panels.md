@@ -7,7 +7,7 @@ Clicking the Gothic logo in the VR menu toggles three panels above the menu ring
 |---|---|---|
 | `Quest2` (controls) | above the status menu | controller drawing, labels follow the control layout |
 | `Hero Slots` | above the main menu | hero outline, the 4 body slots (both hips, backpack left shoulder, holster right shoulder) |
-| `Help` | above the quest log | tabs left (`VRHelpTabs`), one page per topic right: controller drawing + text |
+| `Help` | above the quest log | tabs left (`VRHelpTabs`), one page per topic right: controller drawing + text; the last tab is the achievements list |
 
 ## Files
 
@@ -42,5 +42,13 @@ Changing a button while the panels are open shows on the next open.
 2. In `Tutorials.prefab` under `Help`: duplicate a `Tabs/Tab <topic>` button and a `Pages/Page <topic>`, point
    their `LocalizeStringEvent`s and the page's `ControllerHelpPage` texts at the new keys.
 3. Append the button to `VRHelpTabs._tabs` and the page to `_pages` (same order). The buttons are 1.1 units apart
-   from y 3.0 down (5 tabs: swim, trade, magic, ranged, ring end at y -1.4); the headline starts at y -4.4, so up to 7
-   tabs fit before they need to move closer.
+   from y 3.0 down (6 tabs: swim, trade, magic, ranged, ring, achievements end at y -2.5); the headline starts at
+   y -4.4, so up to 7 tabs fit before they need to move closer.
+
+## Achievements tab
+
+`Tab achievements` (key `achievements.tab`) and `Pages/Page achievements` with `VRAchievementsTab`: the first time
+the page is shown it loads the Core page (`PrefabType.UiAchievementsPage`, 640 x 900 Canvas units at scale 0.01 =
+the 6.4 x 9 page). The page itself (`AchievementsPage`) rebuilds on every open and on an unlock while open.
+`VRHelpPanelAchievementRecheck` on `Help` re-checks the story variables each time the panel opens (a fallback
+moment), so the tabs stay a plain switcher. See `Docs/achievements.md`.

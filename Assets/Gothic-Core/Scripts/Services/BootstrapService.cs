@@ -7,6 +7,7 @@ using Gothic.Core.Domain;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Config;
+using Gothic.Core.Services.Achievements;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -65,6 +66,7 @@ namespace Gothic.Core.Services
         
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
         [Inject] private readonly StaticCacheService _staticCacheService;
+        [Inject] private readonly AchievementService _achievementService;
 
 
         private BootstrapDomain _bootstrapDomain = new BootstrapDomain().Inject();
@@ -119,6 +121,7 @@ namespace Gothic.Core.Services
             _dialogService.Init();
             _saveGameService.Init();
             _gameEndingService.Init();
+            _achievementService.Init();
         }
 
         /// <summary>

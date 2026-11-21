@@ -136,6 +136,7 @@ namespace Gothic.Core.Services.World
             RegisterSection(new ScriptVarsSaveSection().Inject());
             RegisterSection(new SkySaveSection().Inject());
             RegisterSection(new MobStatesSaveSection().Inject());
+            RegisterSection(new AchievementRunSaveSection().Inject());
 
             // All NPCs of the world exist now.
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(() =>
@@ -446,6 +447,19 @@ namespace Gothic.Core.Services.World
             {
                 ReopenRuntimeSaveGame();
                 return false;
+            }
+
+            // Capture() ran before success was known.
+            foreach (var (key, section) in _sections)
+            {
+                try
+                {
+                    section.OnCommitted();
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError($"[SaveGame] Section {key} failed after the save was written: {e}", LogCat.Loading);
+                }
             }
 
             // ZenKit's SaveGame now points to the .tmp folder. Re-open it from the slot, so that worlds which aren't

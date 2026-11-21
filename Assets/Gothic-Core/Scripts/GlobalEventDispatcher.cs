@@ -1,5 +1,6 @@
 ﻿using System;
 using Gothic.Core.Adapters.Npc;
+using Gothic.Core.Models.Achievements;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Doc;
@@ -350,6 +351,78 @@ namespace Gothic.Core
         public static readonly UnityEvent<TradeSession> TradeCommitted = new();
         // Game menu (MenuHandler) got closed completely.
         public static readonly UnityEvent MenuClosed = new();
+
+        // Facts other areas can react to (achievements first). Raised once, where they happen.
+
+        /// <summary>
+        /// Log_SetTopicStatus (StoryService): topic text (as the scripts produce it), new status.
+        /// </summary>
+        public static readonly UnityEvent<string, SaveTopicStatus> LogTopicStatusChanged = new();
+
+        /// <summary>
+        /// Npc_SetTrueGuild on the hero (NpcAiService.ExtSetTrueGuild, also Marvin's guild cheat): the guild.
+        /// </summary>
+        public static readonly UnityEvent<int> HeroTrueGuildChanged = new();
+
+        /// <summary>
+        /// A dialog info was told (DialogService), before its info function runs (DialogInfoFinished comes after).
+        /// int = info symbol index.
+        /// </summary>
+        public static readonly UnityEvent<int> DialogInfoTold = new();
+
+        /// <summary>
+        /// An NPC died (FightService.Kill, once - not for corpses restored from a save).
+        /// NpcContainer - victim
+        /// NpcContainer - killer (the victim itself for falls, drowning, Marvin's kill). A kill by the hero's summon
+        ///                counts as the hero's: killer.GetCreditedAttacker(hero) (NpcContainerExtension).
+        /// </summary>
+        public static readonly UnityEvent<NpcContainer, NpcContainer> NpcKilled = new();
+
+        /// <summary>
+        /// The hero's packed inventory changed (NpcInventoryService: CreateInvItems, RemoveInvItems).
+        /// int = item instance symbol index.
+        /// </summary>
+        public static readonly UnityEvent<int> HeroItemsChanged = new();
+
+        // Script moments that may change story variables (Kapitel, MIS_*): raised after the script returned.
+
+        /// <summary>
+        /// A dialog info's or choice's function returned (DialogService.CallInformation). int = function symbol index.
+        /// </summary>
+        public static readonly UnityEvent<int> DialogInfoFinished = new();
+
+        /// <summary>
+        /// ZS_Dead and ZS_Dead_Loop of a dead NPC returned (NpcDeathDomain.RunZsDead), also for an NPC dead on spawn.
+        /// G2 counts dragons there (MIS_AllDragonsDead, UndeadDragonIsDead, RavenIsDead).
+        /// </summary>
+        public static readonly UnityEvent<NpcInstance> NpcDeathScriptsFinished = new();
+
+        /// <summary>
+        /// An item function (on_state[0], on_equip, on_unequip) returned (ItemUseService.CallItemFunction).
+        /// </summary>
+        public static readonly UnityEvent<ItemInstance> ItemFunctionFinished = new();
+
+        /// <summary>
+        /// A mob's "[onStateFunc]_S1" returned (MobInteractionService, VR dig spots). string = function name.
+        /// </summary>
+        public static readonly UnityEvent<string> MobStateFunctionFinished = new();
+
+        /// <summary>
+        /// An oCTriggerScript's function returned (TriggerScriptHandler). string = function name.
+        /// </summary>
+        public static readonly UnityEvent<string> TriggerScriptFinished = new();
+
+        /// <summary>
+        /// The scripts called IntroduceChapter (StoryService) - the chapter screen shows a moment later.
+        /// string = chapter title.
+        /// </summary>
+        public static readonly UnityEvent<string> ChapterIntroduced = new();
+
+        /// <summary>
+        /// An achievement was earned or upgraded to a better tier. Raised only by AchievementService - the toast and
+        /// the menu page read AchievementService.GetEntries() then.
+        /// </summary>
+        public static readonly UnityEvent<AchievementDefinition, AchievementTier> AchievementUnlocked = new();
 
         // Marvin: the list of recently executed commands changed.
         public static readonly UnityEvent MarvinRecentCommandsChanged = new();

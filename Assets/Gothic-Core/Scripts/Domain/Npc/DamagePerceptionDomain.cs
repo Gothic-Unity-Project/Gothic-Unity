@@ -42,17 +42,11 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
-        /// What the hero's summon does counts as the hero's - a knockout by
-        /// it is the hero's win (ZS_Unconscious checks C_NpcIsHero(other): Buster's admission duel didn't go on after
-        /// the hero's goblins beat him), witnesses see the hero as the attacker. Anyone else: the attacker itself.
+        /// The hero for a hit by the hero's summon, else the attacker (NpcContainerExtension.GetCreditedAttacker).
         /// </summary>
         public NpcContainer GetCreditedAttacker(NpcContainer attacker)
         {
-            if (attacker?.SummonedBy == null)
-                return attacker;
-
-            var hero = _npcService.GetHeroContainer();
-            return hero?.Instance != null && attacker.SummonedBy.Index == hero.Instance.Index ? hero : attacker;
+            return attacker.GetCreditedAttacker(_npcService.GetHeroContainer());
         }
 
         /// <summary>

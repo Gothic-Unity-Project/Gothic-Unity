@@ -17,6 +17,7 @@ namespace Gothic.Core.Services
     {
         [Inject] private readonly SaveGameService _saveGameService;
         [Inject] private readonly ItemUseService _itemUseService;
+        [Inject] private readonly GameStateService _gameStateService;
 
         // G1 world map (WORLD.ZEN) edges in Gothic cm: x = left, y = top, z = right, w = bottom. G1 maps have no
         // Doc_SetLevelCoords - fit by two spots in VR (start, Swamp Camp). All 0 = the world mesh bounds.
@@ -27,6 +28,8 @@ namespace Gothic.Core.Services
 
         // The item GO the document belongs to - only while ShowItemDocument runs the item's on_state[0].
         private GameObject _pendingItemGo;
+        // The item instance name of that document (DocModel.SourceName).
+        private string _pendingItemName;
 
         // Creates the GO a mob's document belongs to - only called if Doc_Show actually fires.
         private Func<GameObject> _pendingTargetFactory;
@@ -50,6 +53,7 @@ namespace Gothic.Core.Services
         public bool ShowItemDocument(NpcInstance npc, ItemInstance item, GameObject itemGo)
         {
             _pendingItemGo = itemGo;
+            _pendingItemName = item == null ? null : _gameStateService.GothicVm?.GetSymbolByIndex(item.Index)?.Name;
             try
             {
                 return _itemUseService.UseItem(npc, item);
@@ -57,6 +61,7 @@ namespace Gothic.Core.Services
             finally
             {
                 _pendingItemGo = null;
+                _pendingItemName = null;
             }
         }
 
@@ -146,8 +151,10 @@ namespace Gothic.Core.Services
                 LogCat.Npc);
             // Shown docs are done - the viewer keeps the DocModel itself.
             _docs.Remove(id);
+            doc.SourceName = _pendingItemName;
             GlobalEventDispatcher.DocShow.Invoke(doc, targetGo);
             _pendingItemGo = null;
+            _pendingItemName = null;
             _pendingTargetFactory = null;
         }
 

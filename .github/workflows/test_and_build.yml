@@ -52,6 +52,19 @@ jobs:
             exit 1
           fi
 
+      # Achievements: official builds seal with the key from the secret. Forks and PR builds have no secret and keep
+      # the committed dev key (they only trust their own files).
+      - name: Write achievements seal key
+        env:
+          ACHIEVEMENTS_SEAL_KEY: ${{ secrets.ACHIEVEMENTS_SEAL_KEY }}
+        run: |
+          if [ -n "$ACHIEVEMENTS_SEAL_KEY" ]; then
+            printf '%s' "$ACHIEVEMENTS_SEAL_KEY" > Assets/Gothic-Core/Resources/Achievements/AchievementsSealKey.txt
+            echo "Achievements seal key written from the secret."
+          else
+            echo "No ACHIEVEMENTS_SEAL_KEY secret - the dev key is kept."
+          fi
+
       ###
       # Build
       ###
