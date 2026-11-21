@@ -25,7 +25,7 @@ namespace Gothic.Tests.EditMode.Achievements
             var json = ReadDefinitionFile("g1.json");
             var errors = new List<string>();
 
-            var definitions = AchievementDefinitionDomain.Parse(json, errors);
+            var definitions = AchievementDefinitionParser.Parse(json, errors);
 
             Assert.IsEmpty(errors, string.Join("\n", errors));
             Assert.AreEqual(((JArray)JObject.Parse(json)["achievements"]).Count, definitions.Count);
@@ -35,7 +35,7 @@ namespace Gothic.Tests.EditMode.Achievements
         [Test]
         public void G1IdsAreUniqueAndPrefixed()
         {
-            var definitions = AchievementDefinitionDomain.Parse(ReadDefinitionFile("g1.json"), new List<string>());
+            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile("g1.json"), new List<string>());
 
             var ids = definitions.Select(i => i.Id).ToList();
             CollectionAssert.AllItemsAreUnique(ids);
@@ -45,7 +45,7 @@ namespace Gothic.Tests.EditMode.Achievements
         [Test]
         public void G1HasEnglishAndGermanTexts()
         {
-            var definitions = AchievementDefinitionDomain.Parse(ReadDefinitionFile("g1.json"), new List<string>());
+            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile("g1.json"), new List<string>());
 
             foreach (var definition in definitions)
             {
@@ -63,7 +63,7 @@ namespace Gothic.Tests.EditMode.Achievements
         {
             var errors = new List<string>();
 
-            AchievementDefinitionDomain.Parse(ReadDefinitionFile("g2.json"), errors);
+            AchievementDefinitionParser.Parse(ReadDefinitionFile("g2.json"), errors);
 
             Assert.IsEmpty(errors, string.Join("\n", errors));
         }
@@ -87,7 +87,7 @@ namespace Gothic.Tests.EditMode.Achievements
                   ] } } ] }";
             var errors = new List<string>();
 
-            var condition = AchievementDefinitionDomain.Parse(json, errors).Single().Condition;
+            var condition = AchievementDefinitionParser.Parse(json, errors).Single().Condition;
 
             Assert.IsEmpty(errors, string.Join("\n", errors));
             var kinds = condition.Children.Select(i => i.Kind).ToList();
@@ -117,7 +117,7 @@ namespace Gothic.Tests.EditMode.Achievements
                   ""condition"": { ""counter"": ""y"" } } ] }";
             var errors = new List<string>();
 
-            var definitions = AchievementDefinitionDomain.Parse(json, errors);
+            var definitions = AchievementDefinitionParser.Parse(json, errors);
 
             Assert.AreEqual(1, definitions.Count);
             Assert.AreEqual(2, errors.Count);
@@ -127,7 +127,7 @@ namespace Gothic.Tests.EditMode.Achievements
         [Test]
         public void OnlyPureVariableDefinitionsGoToTheVariableCheck()
         {
-            var definitions = AchievementDefinitionDomain.Parse(ReadDefinitionFile("g1.json"), new List<string>());
+            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile("g1.json"), new List<string>());
 
             var index = AchievementDefinitionDomain.BuildIndex(definitions);
 
