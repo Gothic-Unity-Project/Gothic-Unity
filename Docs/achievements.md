@@ -223,7 +223,7 @@ loaded at runtime.
 | sail to Irdorath | variable `Kapitel` >= 6 | **Cast Off** - Take a ship to Irdorath. | **Leinen los** - Segle nach Irdorath. |
 | undead dragon | variable `UndeadDragonIsDead` == 1 | **Beliar's Champion Falls** - Defeat the undead dragon. | **Beliars Streiter fällt** - Besiege den untoten Drachen. |
 | enter Jharkendar | variable `ENTERED_ADDONWORLD` == 1 | **Beyond the Portal** - Step through the portal into Jharkendar. | **Jenseits des Portals** - Betritt Jharkendar durch das Portal. |
-| join Greg's pirates | trueGuild `GIL_PIR` | **Greg's Crew** - Join the pirates. | **Gregs Mannschaft** - Heuere bei den Piraten an. |
+| join Greg's pirates | infoTold `DIA_Addon_Greg_JoinPirates` | **Greg's Crew** - Join the pirates. | **Gregs Mannschaft** - Heuere bei den Piraten an. |
 | defeat Raven | variable `RavenIsDead` == 1 | **The Raven Falls** - Stop Raven in his temple. | **Der Rabe fällt** - Halte Raven in seinem Tempel auf. |
 | join the thieves' guild | info `DIA_Cassia_Aufnahme` | **Down in the Sewers** - Find the thieves' guild beneath Khorinis. | **Unter der Stadt** - Finde die Diebesgilde unter Khorinis. |
 | black troll | kill `Troll_Black` by hero | **The Black Giant** - Defeat the black troll. | **Der schwarze Riese** - Besiege den schwarzen Troll. |

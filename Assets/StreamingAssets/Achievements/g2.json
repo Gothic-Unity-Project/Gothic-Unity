@@ -179,9 +179,7 @@
       },
       "hidden": false,
       "condition": {
-        "trueGuild": [
-          "GIL_PIR"
-        ]
+        "infoTold": "DIA_Addon_Greg_JoinPirates"
       }
     },
     {
