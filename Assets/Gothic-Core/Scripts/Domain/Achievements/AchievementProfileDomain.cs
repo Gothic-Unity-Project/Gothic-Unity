@@ -180,12 +180,49 @@ namespace Gothic.Core.Domain.Achievements
             }
             catch (PlatformNotSupportedException)
             {
-                File.Delete(_path);
-                File.Move(tmpPath, _path);
+                ReplaceByMoving(tmpPath);
             }
             catch (Exception e)
             {
                 Logger.LogError($"[Achievements] Writing {_path} failed: {e.Message}", LogCat.Achievements);
+            }
+        }
+
+        /// <summary>
+        /// File.Replace isn't supported (some Android file systems): the old profile is moved aside, the new one moved
+        /// in, and only then the old one deleted. A failed move puts the old profile back.
+        /// </summary>
+        private void ReplaceByMoving(string tmpPath)
+        {
+            var oldPath = _path + ".old";
+            try
+            {
+                if (File.Exists(oldPath))
+                    File.Delete(oldPath);
+                File.Move(_path, oldPath);
+                try
+                {
+                    File.Move(tmpPath, _path);
+                }
+                catch (Exception)
+                {
+                    File.Move(oldPath, _path);
+                    throw;
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"[Achievements] Writing {_path} failed: {e.Message}", LogCat.Achievements);
+                return;
+            }
+
+            try
+            {
+                File.Delete(oldPath);
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning($"[Achievements] Deleting {oldPath} failed: {e.Message}", LogCat.Achievements);
             }
         }
     }
