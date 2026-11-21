@@ -1,4 +1,5 @@
 using System;
+using Gothic.Core;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
@@ -184,7 +185,10 @@ namespace Gothic.VR.Adapters.Vob
         {
             var functionName = _mob.OnStateChangeFunction + _stateOneSuffix;
             if (_vmService.CallAsHero(functionName, LogCat.VR))
+            {
                 Logger.Log($"[VRDigSpot] Called '{functionName}'", LogCat.VR);
+                GlobalEventDispatcher.MobStateFunctionFinished.Invoke(functionName);
+            }
             else
                 Logger.LogWarning($"[VRDigSpot] '{functionName}' not found in the scripts or failed.", LogCat.VR);
         }

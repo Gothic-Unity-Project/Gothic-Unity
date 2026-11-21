@@ -1,5 +1,6 @@
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
+using Gothic.Core.Services.Inventory;
 using Gothic.Core.Services.Npc;
 using Reflex.Attributes;
 using ZenKit.Daedalus;
@@ -14,6 +15,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     public class UseItemEffect : AbstractAnimationAction
     {
         [Inject] private readonly NpcInventoryService _npcInventoryService;
+        [Inject] private readonly ItemUseService _itemUseService;
 
         private int ItemToUse => Action.Int0;
 
@@ -31,29 +33,13 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             _npcInventoryService.ExtRemoveInvItems(NpcInstance, item.Index, 1);
 
-            var vm = GameStateService.GothicVm;
             var useFunction = item.GetOnState(0);
             if (useFunction <= 0)
                 return;
 
-            var oldSelf = vm.GlobalSelf;
-            var oldItem = vm.GlobalItem;
-            vm.GlobalSelf = NpcInstance;
-            vm.GlobalItem = item;
-            try
-            {
-                vm.Call(useFunction);
+            // ItemUseService: the one place item functions run (self/item set and restored, ItemFunctionFinished).
+            if (_itemUseService.CallItemFunction(NpcInstance, item, useFunction))
                 Logger.Log($"[AI_UseItem] {NpcInstance.GetName(NpcNameSlot.Slot0)} used {item.Name}", LogCat.Ai);
-            }
-            catch (System.Exception e)
-            {
-                Logger.LogWarning($"[AI_UseItem] {item.Name} use function failed: {e.Message}", LogCat.Ai);
-            }
-            finally
-            {
-                vm.GlobalSelf = oldSelf;
-                vm.GlobalItem = oldItem;
-            }
         }
     }
 }

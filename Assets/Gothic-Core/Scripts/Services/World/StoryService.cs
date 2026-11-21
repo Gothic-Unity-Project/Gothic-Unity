@@ -84,6 +84,7 @@ namespace Gothic.Core.Services.World
         {
             _isChapterSwitchPending = true;
             _chapterSwitchData = (chapter, text, texture, wav, time);
+            GlobalEventDispatcher.ChapterIntroduced.Invoke(chapter);
         }
 
         public List<SaveLogTopic> GetLogTopics(SaveTopicSection section, SaveTopicStatus status)

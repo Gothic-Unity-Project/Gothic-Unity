@@ -180,6 +180,8 @@ namespace Gothic.Core.Services.Vobs
                 endStateFunction?.Invoke();
             }
 
+            GlobalEventDispatcher.MobStateFunctionFinished.Invoke(functionName);
+
             // Not every _S1 opens a dialog (e.g. a script only prints a message) - then the anchor isn't needed.
             _dialogService.ReleaseUnusedMobDialogAnchor();
 

@@ -632,6 +632,9 @@ namespace Gothic.Core.Manager
                     LogCat.Dialog);
             }
 
+            // After the function: the variables it set (Kapitel, MIS_*) are seen now (DialogInfoTold came before).
+            GlobalEventDispatcher.DialogInfoFinished.Invoke(information);
+
             var animationQueue = npcContainer.Props.AnimationQueue;
 
             // If Daedalus tells us, that the dialog is stopped after this chat (AI_StopProcessInfos), then we're done.
@@ -725,7 +728,7 @@ namespace Gothic.Core.Manager
             if (!isStored)
                 allStates.AddInfoState(infoState);
 
-            // Before the info function runs: variables it sets are seen by the next check.
+            // Before the info function runs: variables it sets are seen at DialogInfoFinished.
             GlobalEventDispatcher.DialogInfoTold.Invoke(informationIndex);
         }
 

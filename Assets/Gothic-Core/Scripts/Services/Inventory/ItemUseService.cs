@@ -126,6 +126,7 @@ namespace Gothic.Core.Services.Inventory
             {
                 vm.GlobalSelf = oldSelf;
                 vm.GlobalItem = oldItem;
+                GlobalEventDispatcher.ItemFunctionFinished.Invoke(item);
             }
         }
     }

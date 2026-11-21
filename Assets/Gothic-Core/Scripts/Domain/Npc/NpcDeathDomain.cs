@@ -145,6 +145,8 @@ namespace Gothic.Core.Domain.Npc
                 vm.GlobalSelf = oldSelf;
                 vm.GlobalOther = oldOther;
             }
+
+            GlobalEventDispatcher.NpcDeathScriptsFinished.Invoke(dead);
         }
     }
 }
