@@ -4,7 +4,8 @@ namespace Gothic.Core.Models.Achievements
 {
     /// <summary>
     /// The definitions a fact can complete, by fact kind and key. A fact checks only this small subset.
-    /// Pure variable definitions have no fact: the minute tick checks VariableDefinitions.
+    /// Pure variable definitions have no fact: AchievementVariableWatchDomain checks VariableDefinitions after the
+    /// script moments that change story variables.
     /// </summary>
     public class AchievementTriggerIndex
     {

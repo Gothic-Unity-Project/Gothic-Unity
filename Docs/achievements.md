@@ -16,12 +16,25 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
    also fires for keys), document shown (`DocShow`, key `DocModel.Identity`: the item instance, or a hash of a mob
    page's textures and text), Marvin mode changed, hero died.
 3. **`AchievementService`** keeps the definitions indexed by the fact that can complete them. A fact only checks
-   that small subset. Global variables have no fact: their ~20 conditions are re-checked on every in-game minute
-   (`GlobalEventDispatcher.GameTimeMinuteChangeCallback`, about 4 s real time) while in a world. This existing tick
-   needs no new `Update` or coroutine, and it stops with the game: `GameTimeService` stops it while loading, and
-   it waits while `Time.timeScale` is 0 (videos). `AchievementService.Init()` subscribes to the facts and the tick
-   and a teardown removes the listeners; facts from per-world services reach the ProjectScope service only through
-   `GlobalEventDispatcher`.
+   that small subset. Global variables have no fact: their ~20 conditions are re-checked right after the script
+   moments that change story variables. No polling, no tick. The moments are facts raised where our code calls the
+   script, after it returned:
+   - `DialogInfoFinished` - a dialog info's or choice's function (`DialogService.CallInformation`),
+   - `NpcDeathScriptsFinished` - `ZS_Dead` + `ZS_Dead_Loop` (`NpcDeathDomain.RunZsDead`; G2's dragon counter sets
+     `MIS_AllDragonsDead`, `UndeadDragonIsDead`, `RavenIsDead` there),
+   - `ItemFunctionFinished` - an item's `on_state[0]`, `on_equip`, `on_unequip` (`ItemUseService.CallItemFunction`,
+     also for `AI_UseItem`),
+   - `MobStateFunctionFinished` - a mob's `[onStateFunc]_S1` (`MobInteractionService`, VR dig spots),
+   - `TriggerScriptFinished` - an `oCTriggerScript`'s function (`TriggerScriptHandler`),
+   - `ChapterIntroduced` - the `IntroduceChapter` external (`StoryService`).
+
+   A moment only marks the variables dirty (`AchievementVariableWatchDomain`); one check runs a frame later
+   (`UnityMonoService` coroutine), however many moments came in that frame, and after the calling script has
+   finished. Nothing is dirty, nothing runs: zero per-frame cost. Fallback checks (`AchievementService.RecheckNow()`)
+   catch a variable set by a script we don't hook: the VR help panel opens (`VRHelpTabs`), the achievements page
+   opens, and right before a save is captured (`CaptureRun`). Flat has no help panel yet.
+   `AchievementService.Init()` subscribes to the facts and moments and a teardown removes the listeners; facts from
+   per-world services reach the ProjectScope service only through `GlobalEventDispatcher`.
 4. **Unlocks** go to the profile `<persistentDataPath>/Achievements/<GameVersion><ModCacheSuffix>.json`, e.g.
    `Gothic1.json`, `Gothic2_mod_DM_E.json`. Same key as `StaticCacheService` (`ContextGameVersionService.Version` +
    `ConfigService.ModCacheSuffix`, the suffix is empty for vanilla), so G1 and G2 never share a file and a mod's
@@ -62,7 +75,7 @@ Condition kinds (one per definition, `all`/`any` combine):
 | Kind | JSON | Checked on |
 |---|---|---|
 | Log topic status | `{ "logTopic": "CH1_JoinOC", "status": "success" }` (topic = script constant name, resolved to its text) | `Log_SetTopicStatus` |
-| Global variable | `{ "variable": "Kapitel", "op": ">=", "value": 3 }` or `"value": "LOG_SUCCESS"` | every in-game minute while in a world, only when the value changed since the world got ready |
+| Global variable | `{ "variable": "Kapitel", "op": ">=", "value": 3 }` or `"value": "LOG_SUCCESS"` | a frame after a script moment (dialog info, death, item, mob, trigger, chapter) and the fallbacks (help panel, achievements page, save), only when the value differs from the snapshot |
 | True guild | `{ "trueGuild": ["GIL_SLD"] }` | `Npc_SetTrueGuild` on the hero |
 | Info told | `{ "infoTold": "DIA_Gilbert_First" }` | dialog info told |
 | Item count | `{ "item": "ItMiNugget", "count": 15000 }` | hero items changed |
@@ -95,8 +108,8 @@ Variables are int script variables only (float and string variables aren't suppo
 or the name of a script constant, resolved through the VM symbol table when the definitions load.
 
 A fact handler reads the variables its definitions reference synchronously, at the moment of the fact: "Hired
-Early" reads `Kapitel` inside the guild fact, so it can't see a later chapter. The minute tick only serves
-definitions that are a pure variable condition.
+Early" reads `Kapitel` inside the guild fact, so it can't see a later chapter. The variable check after script
+moments only serves definitions that are a pure variable condition.
 
 A definition whose script symbols don't exist (renamed variable, missing constant, missing info) loads as
 unavailable and logs one warning (`LogCat.Achievements`) - it never throws.
@@ -253,14 +266,22 @@ loaded at runtime.
   `AchievementService.OnWorldReady()` after the loading screen is hidden. That is after all
   `WorldSceneLoaded` listeners (e.g. `ScriptVarsSaveSection`, `MobStatesSaveSection` restore state there, in
   registration order), the `STARTUP_*` / `INIT_*` scripts and the surroundings build. The gate never opens inside
-  `WorldSceneLoaded`. The variable snapshot is taken at that point, for every world entered (a level change resets
-  it too), so loading a save unlocks nothing by itself - no retroactive unlocks (ADR, decision 8). NPCs built
-  lazily afterwards run their instance scripts on themselves; the hero-only item fact ignores them.
-- **Info told comes before the info runs.** Variables the dialog sets are seen by the next minute tick.
+  `WorldSceneLoaded`. NPCs built lazily afterwards run their instance scripts on themselves; the hero-only item
+  fact ignores them.
+- **Loading a save vs. entering a world.** A new game or a loaded save (`LoadGameStart`, a fresh VM) takes the
+  variable snapshot when its world is ready, so loading unlocks nothing by itself - no retroactive unlocks (ADR,
+  decision 8). A level change within the running game keeps the snapshot from before it; when the new world is
+  ready (after its `STARTUP_*` / `INIT_*` scripts), one check runs against that old snapshot, so values the new
+  world's scripts set count (G2: `Kapitel` 6 set by Irdorath's startup script, `ENTERED_ADDONWORLD` entering
+  Jharkendar). Facts while loading stay ignored; only this one variable comparison happens at world ready.
+- **Info told comes before the info runs.** `DialogInfoTold` fires before the info function, so it can't see the
+  variables the info sets; `DialogInfoFinished` (after the function) is the variable moment.
+- **A script moment we don't hook** (e.g. a perception or daily-routine state setting a story variable) is seen at
+  the next hooked moment or at a fallback check (help panel, achievements page, save) - never lost, maybe late.
 - **Mods.** Base lists are off with a mod; symbol validation catches renamed scripts in a mod's own file.
 - **Cost on Quest 2.** No per-frame work. A fact checks only its indexed definitions; variable reads are a handful
-  of symbol lookups once per in-game minute; the profile file is written only on an unlock, a committed save or
-  a death.
+  of symbol lookups at most once per frame, and only in a frame after a script moment; the profile file is written
+  only on an unlock, a committed save or a death.
 - **Logging.** `LogCat.Achievements`, one-shot only: one warning per unavailable definition, one summary line per
   load for the facts ignored while loading, one warning per broken seal. Nothing per check or per fact.
 - **Not detectable yet** (need an engine fact first): pickpocketing (engine-only in G1), hiding in a barrel,

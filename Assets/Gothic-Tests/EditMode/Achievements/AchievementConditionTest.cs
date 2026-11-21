@@ -23,7 +23,7 @@ namespace Gothic.Tests.EditMode.Achievements
         private AchievementConditionDomain _conditionDomain;
         private FakeReader _reader;
         private AchievementRunState _run;
-        private static readonly AchievementFact _tick = new(AchievementFactKind.VariableTick);
+        private static readonly AchievementFact _variableCheck = new(AchievementFactKind.VariableCheck);
 
 
         private class FakeReader : IAchievementStateReader
@@ -83,7 +83,7 @@ namespace Gothic.Tests.EditMode.Achievements
                 stringKey: "Aufnahme Altes Lager", value: 2)));
             Assert.IsFalse(IsMet(condition, new AchievementFact(AchievementFactKind.LogTopic,
                 stringKey: "Aufnahme Altes Lager", value: 1)));
-            Assert.IsFalse(IsMet(condition, _tick), "No such topic in the log yet.");
+            Assert.IsFalse(IsMet(condition, _variableCheck), "No such topic in the log yet.");
         }
 
         [Test]
@@ -91,9 +91,9 @@ namespace Gothic.Tests.EditMode.Achievements
         {
             _reader.Variables[_kapitel] = 3;
 
-            Assert.IsTrue(IsMet(Variable(_kapitel, AchievementCompareOp.GreaterOrEqual, 3), _tick));
-            Assert.IsFalse(IsMet(Variable(_kapitel, AchievementCompareOp.Equal, 1), _tick));
-            Assert.IsTrue(IsMet(Variable(_kapitel, AchievementCompareOp.NotEqual, 1), _tick));
+            Assert.IsTrue(IsMet(Variable(_kapitel, AchievementCompareOp.GreaterOrEqual, 3), _variableCheck));
+            Assert.IsFalse(IsMet(Variable(_kapitel, AchievementCompareOp.Equal, 1), _variableCheck));
+            Assert.IsTrue(IsMet(Variable(_kapitel, AchievementCompareOp.NotEqual, 1), _variableCheck));
         }
 
         [Test]
@@ -206,8 +206,8 @@ namespace Gothic.Tests.EditMode.Achievements
             var yes = Variable(_kapitel, AchievementCompareOp.Equal, 2);
             var no = Variable(_kapitel, AchievementCompareOp.Equal, 5);
 
-            Assert.IsTrue(IsMet(Group(AchievementConditionKind.Any, no, yes), _tick));
-            Assert.IsFalse(IsMet(Group(AchievementConditionKind.All, no, yes), _tick));
+            Assert.IsTrue(IsMet(Group(AchievementConditionKind.Any, no, yes), _variableCheck));
+            Assert.IsFalse(IsMet(Group(AchievementConditionKind.All, no, yes), _variableCheck));
             Assert.IsTrue(Group(AchievementConditionKind.All, no, yes).IsPureVariable);
         }
     }

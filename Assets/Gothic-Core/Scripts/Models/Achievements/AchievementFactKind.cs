@@ -23,7 +23,8 @@ namespace Gothic.Core.Models.Achievements
         /// <summary>A counter or distinct counter rose. Key = counter id.</summary>
         Counter,
 
-        /// <summary>The in-game minute tick re-checks pure variable conditions.</summary>
-        VariableTick
+        /// <summary>A script moment that may have changed story variables: pure variable conditions are re-checked.
+        /// </summary>
+        VariableCheck
     }
 }

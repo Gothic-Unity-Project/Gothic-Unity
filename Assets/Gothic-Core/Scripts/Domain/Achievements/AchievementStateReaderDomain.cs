@@ -10,7 +10,7 @@ namespace Gothic.Core.Domain.Achievements
 {
     /// <summary>
     /// Reads the game state for conditions from the scripts' VM, the quest log, the told infos and the hero's packed
-    /// inventory. Called only at the moment of a fact or on the minute tick, never per frame.
+    /// inventory. Called only at the moment of a fact or a variable check, never per frame.
     /// </summary>
     public class AchievementStateReaderDomain : IAchievementStateReader
     {

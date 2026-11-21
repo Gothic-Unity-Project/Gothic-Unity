@@ -125,16 +125,16 @@ namespace Gothic.Tests.EditMode.Achievements
         }
 
         [Test]
-        public void OnlyPureVariableDefinitionsGoToTheMinuteTick()
+        public void OnlyPureVariableDefinitionsGoToTheVariableCheck()
         {
             var definitions = AchievementDefinitionDomain.Parse(ReadDefinitionFile("g1.json"), new List<string>());
 
             var index = AchievementDefinitionDomain.BuildIndex(definitions);
 
-            var tickIds = index.VariableDefinitions.Select(i => i.Id).ToList();
-            CollectionAssert.Contains(tickIds, "g1.great_invocation");
-            CollectionAssert.Contains(tickIds, "g1.debts_settled");
-            CollectionAssert.DoesNotContain(tickIds, "g1.hired_early");
+            var variableIds = index.VariableDefinitions.Select(i => i.Id).ToList();
+            CollectionAssert.Contains(variableIds, "g1.great_invocation");
+            CollectionAssert.Contains(variableIds, "g1.debts_settled");
+            CollectionAssert.DoesNotContain(variableIds, "g1.hired_early");
             var guildFact = new AchievementFact(AchievementFactKind.TrueGuild, value: 7);
             CollectionAssert.Contains(index.Get(guildFact).Select(i => i.Id).ToList(), "g1.hired_early");
         }

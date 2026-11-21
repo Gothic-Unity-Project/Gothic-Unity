@@ -73,7 +73,7 @@ namespace Gothic.Core.Models.Achievements
         public bool IsLeaf => Kind is not (AchievementConditionKind.All or AchievementConditionKind.Any);
 
         /// <summary>
-        /// Only variables (also inside All/Any): the in-game minute tick checks it, no fact does.
+        /// Only variables (also inside All/Any): the variable check after script moments checks it, no fact does.
         /// </summary>
         public bool IsPureVariable
         {

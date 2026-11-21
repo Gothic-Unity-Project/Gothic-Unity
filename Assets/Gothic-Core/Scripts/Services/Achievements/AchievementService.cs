@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -19,6 +20,7 @@ using Newtonsoft.Json.Linq;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit;
+using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -26,8 +28,10 @@ namespace Gothic.Core.Services.Achievements
 {
     /// <summary>
     /// Local achievements (Docs/achievements.md). Facts arrive through GlobalEventDispatcher and check only the
-    /// definitions indexed for them; pure variable conditions are re-checked on the in-game minute tick. Facts are
-    /// ignored from LoadGameStart/LoadingSceneLoaded until OnWorldReady(): loading unlocks nothing by itself.
+    /// definitions indexed for them. Pure variable conditions are re-checked a frame after the script moments that
+    /// change story variables (dialog info, death, item, mob, trigger, chapter), and by RecheckNow() (help panel,
+    /// achievements page, save). Facts are ignored from LoadGameStart/LoadingSceneLoaded until OnWorldReady():
+    /// loading unlocks nothing by itself.
     ///
     /// Usage:
     /// * Increment(counterId) / AddDistinct(counterId, key) -> counters of Core and modules (AchievementCounterIds).
@@ -42,6 +46,7 @@ namespace Gothic.Core.Services.Achievements
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly MarvinService _marvinService;
+        [Inject] private readonly UnityMonoService _unityMonoService;
 
         private readonly AchievementDefinitionDomain _definitionDomain = new AchievementDefinitionDomain().Inject();
         private readonly AchievementProfileDomain _profileDomain = new AchievementProfileDomain().Inject();
@@ -51,6 +56,7 @@ namespace Gothic.Core.Services.Achievements
         private readonly AchievementRunDomain _runDomain = new();
         private readonly AchievementSealDomain _sealDomain = new();
         private readonly AchievementReadModelDomain _readModelDomain = new();
+        private readonly AchievementVariableWatchDomain _variableWatch = new();
 
         /// <summary>
         /// GameSettings.json "AchievementsEnabled". Off: nothing is recorded, no events.
@@ -72,7 +78,9 @@ namespace Gothic.Core.Services.Achievements
 
         private bool _isWorldReady;
         private int _ignoredFacts;
-        private readonly Dictionary<int, int> _variableSnapshot = new();
+        private bool _isVariableSnapshotPending = true;
+        private bool _isCheckingVariables;
+        private readonly List<AchievementDefinition> _metVariables = new();
 
 
         public void Init()
@@ -91,7 +99,6 @@ namespace Gothic.Core.Services.Achievements
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(CloseGate);
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
-            GlobalEventDispatcher.GameTimeMinuteChangeCallback.AddListener(OnGameMinute);
             GlobalEventDispatcher.LogTopicStatusChanged.AddListener(OnLogTopicStatusChanged);
             GlobalEventDispatcher.HeroTrueGuildChanged.AddListener(OnHeroTrueGuildChanged);
             GlobalEventDispatcher.DialogInfoTold.AddListener(OnDialogInfoTold);
@@ -101,6 +108,12 @@ namespace Gothic.Core.Services.Achievements
             GlobalEventDispatcher.DocShow.AddListener(OnDocShown);
             GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
             GlobalEventDispatcher.HeroDied.AddListener(OnHeroDied);
+            GlobalEventDispatcher.DialogInfoFinished.AddListener(OnDialogInfoFinished);
+            GlobalEventDispatcher.NpcDeathScriptsFinished.AddListener(OnNpcDeathScriptsFinished);
+            GlobalEventDispatcher.ItemFunctionFinished.AddListener(OnItemFunctionFinished);
+            GlobalEventDispatcher.MobStateFunctionFinished.AddListener(OnScriptFunctionFinished);
+            GlobalEventDispatcher.TriggerScriptFinished.AddListener(OnScriptFunctionFinished);
+            GlobalEventDispatcher.ChapterIntroduced.AddListener(OnScriptFunctionFinished);
         }
 
         /// <summary>
@@ -115,7 +128,6 @@ namespace Gothic.Core.Services.Achievements
             GlobalEventDispatcher.LoadGameStart.RemoveListener(OnLoadGameStart);
             GlobalEventDispatcher.LoadingSceneLoaded.RemoveListener(CloseGate);
             GlobalEventDispatcher.WorldSceneLoaded.RemoveListener(OnWorldSceneLoaded);
-            GlobalEventDispatcher.GameTimeMinuteChangeCallback.RemoveListener(OnGameMinute);
             GlobalEventDispatcher.LogTopicStatusChanged.RemoveListener(OnLogTopicStatusChanged);
             GlobalEventDispatcher.HeroTrueGuildChanged.RemoveListener(OnHeroTrueGuildChanged);
             GlobalEventDispatcher.DialogInfoTold.RemoveListener(OnDialogInfoTold);
@@ -125,6 +137,12 @@ namespace Gothic.Core.Services.Achievements
             GlobalEventDispatcher.DocShow.RemoveListener(OnDocShown);
             GlobalEventDispatcher.MarvinModeChanged.RemoveListener(OnMarvinModeChanged);
             GlobalEventDispatcher.HeroDied.RemoveListener(OnHeroDied);
+            GlobalEventDispatcher.DialogInfoFinished.RemoveListener(OnDialogInfoFinished);
+            GlobalEventDispatcher.NpcDeathScriptsFinished.RemoveListener(OnNpcDeathScriptsFinished);
+            GlobalEventDispatcher.ItemFunctionFinished.RemoveListener(OnItemFunctionFinished);
+            GlobalEventDispatcher.MobStateFunctionFinished.RemoveListener(OnScriptFunctionFinished);
+            GlobalEventDispatcher.TriggerScriptFinished.RemoveListener(OnScriptFunctionFinished);
+            GlobalEventDispatcher.ChapterIntroduced.RemoveListener(OnScriptFunctionFinished);
             IsEnabled = false;
         }
 
@@ -151,16 +169,22 @@ namespace Gothic.Core.Services.Achievements
             return Array.Empty<byte>();
         }
 
+        /// <summary>
+        /// New game or save load (a fresh VM): the variable snapshot is taken anew at OnWorldReady(). A level change
+        /// has no LoadGameStart and keeps the snapshot from before it.
+        /// </summary>
         private void OnLoadGameStart()
         {
             CloseGate();
             _isRunPending = true;
+            _isVariableSnapshotPending = true;
             _run = null;
         }
 
         private void CloseGate()
         {
             _isWorldReady = false;
+            _variableWatch.ClearDirty();
         }
 
         /// <summary>
@@ -183,22 +207,31 @@ namespace Gothic.Core.Services.Achievements
         }
 
         /// <summary>
-        /// Called by WorldScene after the loading screen is hidden: facts count from now on. The variable values of
-        /// this moment are the base line - only a change during play unlocks a variable condition.
+        /// Called by WorldScene after the loading screen is hidden: facts count from now on.
+        /// New game or loaded save: the variable values of this moment are the base line - only a change during play
+        /// unlocks a variable condition (no retroactive unlocks). Level change: the snapshot from before it stays and
+        /// one check runs now, so values the new world's STARTUP_/INIT_ scripts set count (G2: Kapitel 6 at
+        /// Irdorath, ENTERED_ADDONWORLD in Jharkendar).
         /// </summary>
         public void OnWorldReady()
         {
             if (!IsEnabled || _run == null)
                 return;
 
-            _variableSnapshot.Clear();
-            foreach (var definition in _index.VariableDefinitions)
-                SnapshotVariables(definition.Condition);
+            var isLevelChange = !_isVariableSnapshotPending;
+            if (_isVariableSnapshotPending)
+            {
+                _variableWatch.TakeSnapshot(_index.VariableDefinitions, _reader);
+                _isVariableSnapshotPending = false;
+            }
 
             if (_ignoredFacts > 0)
                 Logger.Log($"[Achievements] {_ignoredFacts} fact(s) while loading were ignored.", LogCat.Achievements);
             _ignoredFacts = 0;
             _isWorldReady = true;
+
+            if (isLevelChange)
+                CheckVariables();
         }
 
         /// <summary>
@@ -352,42 +385,76 @@ namespace Gothic.Core.Services.Achievements
             }
         }
 
-        private void OnGameMinute(DateTime time)
+        private void OnDialogInfoFinished(int function) => MarkVariablesDirty();
+
+        private void OnNpcDeathScriptsFinished(NpcInstance dead) => MarkVariablesDirty();
+
+        private void OnItemFunctionFinished(ItemInstance item) => MarkVariablesDirty();
+
+        /// <summary>
+        /// A mob's _S1, a trigger script or IntroduceChapter ran.
+        /// </summary>
+        private void OnScriptFunctionFinished(string name) => MarkVariablesDirty();
+
+        /// <summary>
+        /// A script moment that may have changed story variables. Several in one frame (a dialog and the item it
+        /// gives) end in one check a frame later, when the calling script has finished too. Nothing while loading.
+        /// </summary>
+        private void MarkVariablesDirty()
         {
-            if (!_isWorldReady || _run == null)
+            if (!_isWorldReady || _run == null || _index.VariableDefinitions.Count == 0)
                 return;
 
-            var fact = new AchievementFact(AchievementFactKind.VariableTick);
-            foreach (var definition in _index.VariableDefinitions)
-            {
-                if (!IsEarned(definition) && HasVariableChanged(definition.Condition) &&
-                    _conditionDomain.IsMet(definition.Condition, fact, _reader, _run))
-                    Unlock(definition);
-            }
+            if (_variableWatch.MarkDirty())
+                _unityMonoService.StartCoroutine(CheckVariablesNextFrame());
         }
 
-        private void SnapshotVariables(AchievementCondition condition)
+        private IEnumerator CheckVariablesNextFrame()
         {
-            if (condition.Kind == AchievementConditionKind.Variable)
-                _variableSnapshot[condition.ResolvedIndex] = _reader.GetVariable(condition.ResolvedIndex);
+            yield return null;
 
-            foreach (var child in condition.Children)
-                SnapshotVariables(child);
+            // RecheckNow() or leaving the world in between cleared it.
+            if (_variableWatch.IsDirty)
+                CheckVariables();
         }
 
-        private bool HasVariableChanged(AchievementCondition condition)
+        /// <summary>
+        /// Fallback moments: the help panel or achievements page opens (and right before saving) - a story variable
+        /// changed by a script we don't hook counts here at the latest.
+        /// </summary>
+        public void RecheckNow()
         {
-            if (condition.Kind == AchievementConditionKind.Variable)
-                return !_variableSnapshot.TryGetValue(condition.ResolvedIndex, out var value) ||
-                       _reader.GetVariable(condition.ResolvedIndex) != value;
+            if (IsEnabled)
+                CheckVariables();
+        }
 
-            foreach (var child in condition.Children)
+        private void CheckVariables()
+        {
+            // An unlock's listener (toast, page) may call RecheckNow() inside the loop below.
+            if (_isCheckingVariables)
+                return;
+
+            if (!_isWorldReady || _run == null)
             {
-                if (HasVariableChanged(child))
-                    return true;
+                _variableWatch.ClearDirty();
+                return;
             }
 
-            return false;
+            _isCheckingVariables = true;
+            try
+            {
+                _metVariables.Clear();
+                _variableWatch.Check(_index.VariableDefinitions, _reader, _run, _metVariables);
+                foreach (var definition in _metVariables)
+                {
+                    if (!IsEarned(definition))
+                        Unlock(definition);
+                }
+            }
+            finally
+            {
+                _isCheckingVariables = false;
+            }
         }
 
         /// <summary>
@@ -430,6 +497,9 @@ namespace Gothic.Core.Services.Achievements
             _capturedSaveNo = -1;
             if (!IsEnabled || _run == null)
                 return null;
+
+            // Fallback moment: what the scripts set until now is in the profile before the save is written.
+            RecheckNow();
 
             var currentSaveNo = _run.SaveNo;
             _capturedSaveNo = _runDomain.GetNextSaveNo(_profile, _run);
