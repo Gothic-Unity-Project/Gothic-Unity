@@ -138,5 +138,23 @@ namespace Gothic.Tests.EditMode.Achievements
             var guildFact = new AchievementFact(AchievementFactKind.TrueGuild, value: 7);
             CollectionAssert.Contains(index.Get(guildFact).Select(i => i.Id).ToList(), "g1.hired_early");
         }
+
+        [Test]
+        public void FactGetsKeyedAndWholeKindDefinitions()
+        {
+            var keyed = new AchievementDefinition { Id = "keyed" };
+            var wholeKind = new AchievementDefinition { Id = "wholeKind" };
+            var otherKey = new AchievementDefinition { Id = "otherKey" };
+            var index = new AchievementTriggerIndex();
+            index.Add(AchievementFactKind.TrueGuild, 7, keyed);
+            index.Add(AchievementFactKind.TrueGuild, 8, otherKey);
+            index.Add(AchievementFactKind.TrueGuild, wholeKind);
+
+            var ids = index.Get(new AchievementFact(AchievementFactKind.TrueGuild, 7)).Select(i => i.Id).ToList();
+
+            CollectionAssert.AreEquivalent(new[] { "keyed", "wholeKind" }, ids);
+            var unkeyedIds = index.Get(new AchievementFact(AchievementFactKind.TrueGuild, 9)).Select(i => i.Id);
+            CollectionAssert.AreEquivalent(new[] { "wholeKind" }, unkeyedIds.ToList());
+        }
     }
 }

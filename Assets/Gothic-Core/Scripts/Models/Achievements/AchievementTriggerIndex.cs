@@ -36,15 +36,32 @@ namespace Gothic.Core.Models.Achievements
             AddOnce(_byKind, kind, definition);
         }
 
+        /// <summary>
+        /// The definitions indexed under the fact's key and those indexed for its whole kind. Only when both exist a
+        /// new list is created (rare), else an indexed list is returned as is - don't change it.
+        /// </summary>
         public List<AchievementDefinition> Get(in AchievementFact fact)
         {
+            List<AchievementDefinition> byKey;
             if (fact.StringKey != null)
-                return _byString.TryGetValue((fact.Kind, fact.StringKey), out var byString) ? byString : _none;
+                _byString.TryGetValue((fact.Kind, fact.StringKey), out byKey);
+            else
+                _byInt.TryGetValue((fact.Kind, fact.IntKey), out byKey);
 
-            if (_byInt.TryGetValue((fact.Kind, fact.IntKey), out var byInt))
-                return byInt;
+            _byKind.TryGetValue(fact.Kind, out var byKind);
+            if (byKey == null)
+                return byKind ?? _none;
+            if (byKind == null)
+                return byKey;
 
-            return _byKind.TryGetValue(fact.Kind, out var byKind) ? byKind : _none;
+            var both = new List<AchievementDefinition>(byKey);
+            foreach (var definition in byKind)
+            {
+                if (!both.Contains(definition))
+                    both.Add(definition);
+            }
+
+            return both;
         }
 
         private static void AddOnce<TKey>(Dictionary<TKey, List<AchievementDefinition>> index, TKey key,
