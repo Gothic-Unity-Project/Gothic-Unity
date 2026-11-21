@@ -8,7 +8,9 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
 
 1. **Definitions** are a JSON file per game: `StreamingAssets/Achievements/g1.json`, `g2.json`. With a mod active
    these are off; a mod may ship `Achievements.json` in its folder, or `system/<ini>.achievements.json` next to its
-   ini (same format), and gets its own profile.
+   ini (same format), and gets its own profile. Gothic 2 means Night of the Raven (`GothicGame.ini`). Gothic 2
+   Classic (`g2_classic.ini`) runs as a mod profile, so the base list is off and it has no achievements; several
+   G2 entries exist only in the addon (Jharkendar, Greg's crew, Raven).
 2. **Facts** are announced once, where they happen (`GlobalEventDispatcher`): log topic status set
    (`StoryService`), hero's true guild set (`NpcAiService.ExtSetTrueGuild`), dialog info told (`DialogService`),
    NPC killed (`FightService.Kill`: victim + killer; "by hero" is `GetCreditedAttacker(killer).IsHero`), hero's
