@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using Gothic.Core.Const;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Achievements;
@@ -21,10 +22,6 @@ namespace Gothic.Core.Domain.Achievements
     /// </summary>
     public class AchievementDefinitionDomain
     {
-        private const string _streamingAssetsFolder = "Achievements";
-        private const string _modFileName = "Achievements.json";
-        private const string _modIniFileSuffix = ".achievements.json";
-
         [Inject] private readonly ConfigService _configService;
 
         /// <summary>
@@ -89,8 +86,10 @@ namespace Gothic.Core.Domain.Achievements
         {
             if (!_configService.IsModActive)
             {
-                var fileName = version == GameVersion.Gothic1 ? "g1.json" : "g2.json";
-                var path = Path.Combine(Application.streamingAssetsPath, _streamingAssetsFolder, fileName);
+                var fileName = version == GameVersion.Gothic1
+                    ? Constants.Achievements.G1FileName
+                    : Constants.Achievements.G2FileName;
+                var path = Path.Combine(Application.streamingAssetsPath, Constants.Achievements.FolderName, fileName);
                 var text = ReadStreamingAsset(path);
                 if (text == null)
                     Logger.LogWarning($"[Achievements] {path} is missing or can't be read: no achievements.",
@@ -99,7 +98,9 @@ namespace Gothic.Core.Domain.Achievements
             }
 
             var modPath = _configService.EffectiveModPath;
-            var modFile = string.IsNullOrEmpty(modPath) ? null : PathExtension.FindIgnoringCase(modPath, _modFileName);
+            var modFile = string.IsNullOrEmpty(modPath)
+                ? null
+                : PathExtension.FindIgnoringCase(modPath, Constants.Achievements.ModFileName);
             if (modFile != null)
                 return File.ReadAllText(modFile);
 
@@ -107,12 +108,12 @@ namespace Gothic.Core.Domain.Achievements
             var iniFile = string.IsNullOrEmpty(iniPath)
                 ? null
                 : PathExtension.FindIgnoringCase(Path.GetDirectoryName(iniPath),
-                    Path.GetFileNameWithoutExtension(iniPath) + _modIniFileSuffix);
+                    Path.GetFileNameWithoutExtension(iniPath) + Constants.Achievements.ModIniFileSuffix);
             if (iniFile != null)
                 return File.ReadAllText(iniFile);
 
-            Logger.Log($"[Achievements] The mod has no own list ({_modFileName} or <ini>{_modIniFileSuffix}): no " +
-                       "achievements.", LogCat.Achievements);
+            Logger.Log($"[Achievements] The mod has no own list ({Constants.Achievements.ModFileName} or " +
+                       $"<ini>{Constants.Achievements.ModIniFileSuffix}): no achievements.", LogCat.Achievements);
             return null;
         }
 

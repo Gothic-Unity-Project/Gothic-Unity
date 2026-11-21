@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Domain.Achievements;
 using Gothic.Core.Models.Achievements;
 using Newtonsoft.Json.Linq;
@@ -14,15 +15,19 @@ namespace Gothic.Tests.EditMode.Achievements
     /// </summary>
     public class AchievementDefinitionTest
     {
+        private const string _g1 = Constants.Achievements.G1FileName;
+        private const string _g2 = Constants.Achievements.G2FileName;
+
         private static string ReadDefinitionFile(string fileName)
         {
-            return File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "Achievements", fileName));
+            return File.ReadAllText(Path.Combine(Application.streamingAssetsPath, Constants.Achievements.FolderName,
+                fileName));
         }
 
         [Test]
         public void G1FileParsesCompletely()
         {
-            var json = ReadDefinitionFile("g1.json");
+            var json = ReadDefinitionFile(_g1);
             var errors = new List<string>();
 
             var definitions = AchievementDefinitionParser.Parse(json, errors);
@@ -35,7 +40,7 @@ namespace Gothic.Tests.EditMode.Achievements
         [Test]
         public void G1IdsAreUniqueAndPrefixed()
         {
-            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile("g1.json"), new List<string>());
+            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile(_g1), new List<string>());
 
             var ids = definitions.Select(i => i.Id).ToList();
             CollectionAssert.AllItemsAreUnique(ids);
@@ -45,7 +50,7 @@ namespace Gothic.Tests.EditMode.Achievements
         [Test]
         public void G1HasEnglishAndGermanTexts()
         {
-            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile("g1.json"), new List<string>());
+            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile(_g1), new List<string>());
 
             foreach (var definition in definitions)
             {
@@ -63,7 +68,7 @@ namespace Gothic.Tests.EditMode.Achievements
         {
             var errors = new List<string>();
 
-            AchievementDefinitionParser.Parse(ReadDefinitionFile("g2.json"), errors);
+            AchievementDefinitionParser.Parse(ReadDefinitionFile(_g2), errors);
 
             Assert.IsEmpty(errors, string.Join("\n", errors));
         }
@@ -127,7 +132,7 @@ namespace Gothic.Tests.EditMode.Achievements
         [Test]
         public void OnlyPureVariableDefinitionsGoToTheVariableCheck()
         {
-            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile("g1.json"), new List<string>());
+            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile(_g1), new List<string>());
 
             var index = AchievementDefinitionDomain.BuildIndex(definitions);
 

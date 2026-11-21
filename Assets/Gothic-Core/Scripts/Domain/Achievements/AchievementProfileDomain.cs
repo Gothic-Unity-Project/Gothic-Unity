@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Achievements;
@@ -20,10 +21,7 @@ namespace Gothic.Core.Domain.Achievements
     /// </summary>
     public class AchievementProfileDomain
     {
-        public const string FolderName = "Achievements";
-        private const string _deviceIdFileName = "device.id";
         private const int _deviceIdBytes = 32;
-        private const string _buildKeyResourcePath = "Achievements/AchievementsSealKey";
 
         [Inject] private readonly UnityMonoService _unityMonoService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
@@ -35,7 +33,8 @@ namespace Gothic.Core.Domain.Achievements
         private AchievementProfileData _pendingProfile;
 
 
-        private static string Folder => Path.Combine(Application.persistentDataPath, FolderName);
+        private static string Folder => Path.Combine(Application.persistentDataPath,
+            Constants.Achievements.FolderName);
 
         /// <summary>
         /// The profile file of a game (and mod): &lt;GameVersion&gt;&lt;ModCacheSuffix&gt;.
@@ -56,12 +55,13 @@ namespace Gothic.Core.Domain.Achievements
 
         private byte[] ReadBuildKey()
         {
-            var text = _resourceCacheService.TryGetTextAsset(_buildKeyResourcePath)?.text?.Trim();
+            var path = Constants.Achievements.BuildKeyResourcePath;
+            var text = _resourceCacheService.TryGetTextAsset(path)?.text?.Trim();
             if (!string.IsNullOrEmpty(text))
                 return Encoding.UTF8.GetBytes(text);
 
-            Logger.LogWarning($"[Achievements] Build key Resources/{_buildKeyResourcePath} is missing. Seals use an " +
-                              "empty key.", LogCat.Achievements);
+            Logger.LogWarning($"[Achievements] Build key Resources/{path} is missing. Seals use an empty key.",
+                LogCat.Achievements);
             return Array.Empty<byte>();
         }
 
@@ -71,7 +71,7 @@ namespace Gothic.Core.Domain.Achievements
         /// </summary>
         public static byte[] ReadOrCreateDeviceId(string folder)
         {
-            var path = Path.Combine(folder, _deviceIdFileName);
+            var path = Path.Combine(folder, Constants.Achievements.DeviceIdFileName);
             if (File.Exists(path))
             {
                 var stored = File.ReadAllText(path).Trim();
