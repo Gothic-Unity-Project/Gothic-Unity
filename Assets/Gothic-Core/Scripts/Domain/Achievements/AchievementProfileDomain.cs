@@ -57,13 +57,14 @@ namespace Gothic.Core.Domain.Achievements
 
         /// <summary>
         /// Reads the profile. A missing file is an empty profile, a broken seal keeps every unlock (shown as
-        /// unsealed) and forgets the runs (they play as Adanos).
+        /// unsealed) and forgets the runs (they play as Adanos). A pending change of the previous profile (game or
+        /// mod switched) is written first.
         /// </summary>
         public AchievementProfileData Load(string path, byte[] key)
         {
+            Flush();
             _path = path;
             _key = key;
-            _pendingProfile = null;
             if (!File.Exists(path))
                 return new AchievementProfileData();
 
