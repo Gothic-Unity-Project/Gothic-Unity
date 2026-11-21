@@ -92,9 +92,19 @@ namespace Gothic.Core.Services.Achievements
                 return;
             }
 
-            var folder = Path.Combine(Application.persistentDataPath, AchievementProfileDomain.FolderName);
-            var deviceId = AchievementProfileDomain.ReadOrCreateDeviceId(folder);
-            _key = AchievementSealDomain.CreateKey(ReadBuildKey(), deviceId);
+            try
+            {
+                var folder = Path.Combine(Application.persistentDataPath, AchievementProfileDomain.FolderName);
+                var deviceId = AchievementProfileDomain.ReadOrCreateDeviceId(folder);
+                _key = AchievementSealDomain.CreateKey(ReadBuildKey(), deviceId);
+            }
+            catch (Exception e)
+            {
+                IsEnabled = false;
+                Logger.LogError($"[Achievements] Off: the device id can't be read or written ({e.Message}).",
+                    LogCat.Achievements);
+                return;
+            }
 
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(CloseGate);
@@ -125,6 +135,12 @@ namespace Gothic.Core.Services.Achievements
                 return;
 
             Flush();
+            RemoveListeners();
+            IsEnabled = false;
+        }
+
+        private void RemoveListeners()
+        {
             GlobalEventDispatcher.LoadGameStart.RemoveListener(OnLoadGameStart);
             GlobalEventDispatcher.LoadingSceneLoaded.RemoveListener(CloseGate);
             GlobalEventDispatcher.WorldSceneLoaded.RemoveListener(OnWorldSceneLoaded);
@@ -143,7 +159,19 @@ namespace Gothic.Core.Services.Achievements
             GlobalEventDispatcher.MobStateFunctionFinished.RemoveListener(OnScriptFunctionFinished);
             GlobalEventDispatcher.TriggerScriptFinished.RemoveListener(OnScriptFunctionFinished);
             GlobalEventDispatcher.ChapterIntroduced.RemoveListener(OnScriptFunctionFinished);
+        }
+
+        /// <summary>
+        /// An optional feature must not break game start or world load: a file error turns achievements off for this
+        /// session.
+        /// </summary>
+        private void Disable(string what, Exception e)
+        {
+            Logger.LogError($"[Achievements] Off for this session: {what} failed ({e.Message}).", LogCat.Achievements);
+            RemoveListeners();
             IsEnabled = false;
+            _run = null;
+            _isWorldReady = false;
         }
 
         /// <summary>
@@ -194,7 +222,7 @@ namespace Gothic.Core.Services.Achievements
         private void OnWorldSceneLoaded()
         {
             EnsureLoaded();
-            if (!_isRunPending)
+            if (!IsEnabled || !_isRunPending)
                 return;
 
             _isRunPending = false;
@@ -242,6 +270,18 @@ namespace Gothic.Core.Services.Achievements
             if (_configService.Gothic == null)
                 return; // No game selected yet.
 
+            try
+            {
+                LoadProfileAndDefinitions();
+            }
+            catch (Exception e)
+            {
+                Disable("loading the profile or the definitions", e);
+            }
+        }
+
+        private void LoadProfileAndDefinitions()
+        {
             var profileKey = $"{_contextGameVersionService.Version}{_configService.ModCacheSuffix}";
             if (profileKey != _profileKey)
             {
