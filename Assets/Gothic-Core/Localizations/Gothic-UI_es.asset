@@ -478,10 +478,6 @@ MonoBehaviour:
     m_Localized: "Los logros est\xE1n desactivados."
     m_Metadata:
       m_Items: []
-  - m_Id: 196002124839022595
-    m_Localized: Sin sello
-    m_Metadata:
-      m_Items: []
   - m_Id: 196002124839022596
     m_Localized: No disponible
     m_Metadata:
@@ -491,13 +487,10 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 196080985626931200
-    m_Localized: '{0}: sin trucos, nunca volviste a una partida guardada anterior
+    m_Localized: '{0}: juego normal, guardar y cargar libremente
 
-      {1}:
-      juego normal, guardar y cargar libremente
-
-      {2}: se usaron trucos (modo
-      Marvin)'
+      {1}: se usaron
+      trucos (modo Marvin)'
     m_Metadata:
       m_Items: []
   references:

@@ -78,16 +78,17 @@ namespace Gothic.Core.Domain.Achievements
         }
 
         /// <summary>
-        /// Adds to met every definition whose variables changed since the snapshot and whose condition is met now.
-        /// Clears the dirty mark. Also without a mark (fallback checks: help panel, achievements page, save).
+        /// Adds to met every definition not earned in the run's tier yet whose variables changed since the snapshot and
+        /// whose condition is met now. Clears the dirty mark. Also without a mark (fallback checks: help panel,
+        /// achievements page, save).
         /// </summary>
         public void Check(List<AchievementDefinition> definitions, IAchievementStateReader reader,
-            AchievementRunState run, List<AchievementDefinition> met)
+            AchievementRunState run, AchievementProfileData profile, List<AchievementDefinition> met)
         {
             IsDirty = false;
             foreach (var definition in definitions)
             {
-                if (HasChanged(definition.Condition, reader) &&
+                if (!profile.IsEarned(definition.Id, run.Tier) && HasChanged(definition.Condition, reader) &&
                     _conditionDomain.IsMet(definition.Condition, _variableCheck, reader, run))
                     met.Add(definition);
             }

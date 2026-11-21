@@ -5,8 +5,6 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Achievements;
-using Gothic.Core.Models.Container;
-using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Newtonsoft.Json.Linq;
@@ -33,7 +31,6 @@ namespace Gothic.Core.Services.Achievements
         [Inject] private readonly GameStateService _gameStateService;
         [Inject] private readonly ContextGameVersionService _contextGameVersionService;
         [Inject] private readonly MarvinService _marvinService;
-        [Inject] private readonly ItemIconService _itemIconService;
 
         private readonly AchievementDefinitionDomain _definitionDomain = new AchievementDefinitionDomain().Inject();
         private readonly AchievementProfileDomain _profileDomain = new AchievementProfileDomain().Inject();
@@ -50,14 +47,13 @@ namespace Gothic.Core.Services.Achievements
         public bool IsEnabled { get; private set; }
 
         /// <summary>
-        /// The tier of the running game (Innos/Adanos/Beliar), null outside a game.
+        /// The tier of the running game (Adanos/Beliar), null outside a game.
         /// </summary>
         public AchievementTier? CurrentTier => Run?.Tier;
 
         private AchievementRunState Run => _runDomain.Run;
         private AchievementTriggerIndex Index => _definitionDomain.Index;
 
-        private byte[] _key;
         private string _profileKey;
         private AchievementProfileData _profile = new();
 
@@ -77,23 +73,10 @@ namespace Gothic.Core.Services.Achievements
                 return;
             }
 
-            try
-            {
-                _key = _profileDomain.CreateKey();
-            }
-            catch (Exception e)
-            {
-                IsEnabled = false;
-                Logger.LogError($"[Achievements] Off: the device id can't be read or written ({e.Message}).",
-                    LogCat.Achievements);
-                return;
-            }
-
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(CloseGate);
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(OnWorldSceneLoaded);
             GlobalEventDispatcher.MarvinModeChanged.AddListener(OnMarvinModeChanged);
-            GlobalEventDispatcher.HeroDied.AddListener(OnHeroDied);
             _factDomain.AddListeners(Check, Increment, AddDistinct, MarkVariablesDirty);
         }
 
@@ -116,7 +99,6 @@ namespace Gothic.Core.Services.Achievements
             GlobalEventDispatcher.LoadingSceneLoaded.RemoveListener(CloseGate);
             GlobalEventDispatcher.WorldSceneLoaded.RemoveListener(OnWorldSceneLoaded);
             GlobalEventDispatcher.MarvinModeChanged.RemoveListener(OnMarvinModeChanged);
-            GlobalEventDispatcher.HeroDied.RemoveListener(OnHeroDied);
             _factDomain.RemoveListeners();
         }
 
@@ -167,9 +149,7 @@ namespace Gothic.Core.Services.Achievements
         {
             EnsureLoaded();
             if (IsEnabled)
-                PrewarmItemIcons();
-            if (IsEnabled && _runDomain.StartPendingRun(_profile, _marvinService.IsMarvinMode))
-                _profileDomain.ScheduleWrite(_profile);
+                _runDomain.StartPendingRun(_marvinService.IsMarvinMode);
         }
 
         /// <summary>
@@ -224,29 +204,13 @@ namespace Gothic.Core.Services.Achievements
             if (profileKey != _profileKey)
             {
                 _profileKey = profileKey;
-                _profile = _profileDomain.Load(AchievementProfileDomain.GetProfilePath(profileKey), _key);
+                _profile = _profileDomain.Load(AchievementProfileDomain.GetProfilePath(profileKey));
                 _definitionDomain.Load(_contextGameVersionService.Version);
             }
 
             if (_definitionDomain.EnsureResolved(_gameStateService.GothicVm))
                 Logger.Log($"[Achievements] {_definitionDomain.Definitions.Count} definitions for profile " +
                            $"{_profileKey}.", LogCat.Achievements);
-        }
-
-        /// <summary>
-        /// Item icons are drawn here, behind the loading screen, never when a page or toast shows them. Only the
-        /// first world of a session draws; later ones find them cached.
-        /// </summary>
-        private void PrewarmItemIcons()
-        {
-            var items = new List<string>();
-            foreach (var definition in _definitionDomain.Definitions)
-            {
-                if (!string.IsNullOrEmpty(definition.Icon.Item))
-                    items.Add(definition.Icon.Item);
-            }
-
-            _itemIconService.Prewarm(items);
         }
 
         private bool CanRecord()
@@ -262,15 +226,6 @@ namespace Gothic.Core.Services.Achievements
         {
             if (Run != null)
                 _runDomain.ApplyMarvinMode(Run, isActive);
-        }
-
-        private void OnHeroDied(NpcContainer killer)
-        {
-            if (Run == null)
-                return;
-
-            _runDomain.MarkSpent(_profile, Run);
-            _profileDomain.ScheduleWrite(_profile);
         }
 
         /// <summary>
@@ -349,12 +304,9 @@ namespace Gothic.Core.Services.Achievements
             try
             {
                 _metVariables.Clear();
-                _variableWatch.Check(Index.VariableDefinitions, _reader, Run, _metVariables);
+                _variableWatch.Check(Index.VariableDefinitions, _reader, Run, _profile, _metVariables);
                 foreach (var definition in _metVariables)
-                {
-                    if (!_profile.IsEarned(definition.Id, Run.Tier))
-                        Unlock(definition);
-                }
+                    Unlock(definition);
             }
             finally
             {
@@ -365,7 +317,7 @@ namespace Gothic.Core.Services.Achievements
         private void Unlock(AchievementDefinition definition)
         {
             var tier = Run.Tier;
-            _profile.SetUnlock(definition.Id, Run);
+            _profile.SetUnlock(definition.Id, tier);
             _profileDomain.ScheduleWrite(_profile);
 
             Logger.Log($"[Achievements] Unlocked {definition.Id} ({tier}).", LogCat.Achievements);
@@ -373,26 +325,16 @@ namespace Gothic.Core.Services.Achievements
         }
 
         /// <summary>
-        /// Save section core.achievements: the sealed run state with the number this save gets. It only counts as the
-        /// run's newest once OnSaveCommitted() confirms the save was written. saveIdentity binds it to its save.
+        /// Save section core.achievements: the run's tier and counters.
         /// </summary>
-        public JToken CaptureRun(string saveIdentity)
+        public JToken CaptureRun()
         {
             if (!IsEnabled)
                 return null;
 
             // Fallback moment: what the scripts set until now is in the profile before the save is written.
             RecheckNow();
-            return _runDomain.CaptureRun(_profile, _key, saveIdentity);
-        }
-
-        /// <summary>
-        /// The save captured last was written successfully (save section OnCommitted()).
-        /// </summary>
-        public void OnSaveCommitted()
-        {
-            if (IsEnabled && _runDomain.CommitCapturedSave(_profile))
-                _profileDomain.ScheduleWrite(_profile);
+            return _runDomain.CaptureRun();
         }
 
         /// <summary>
@@ -404,16 +346,16 @@ namespace Gothic.Core.Services.Achievements
         }
 
         /// <summary>
-        /// A loaded save's section. A broken seal plays as Beliar (OnWorldSceneLoaded decides the run).
+        /// A loaded save's section (OnWorldSceneLoaded decides the run). Unreadable: plays like an older save.
         /// </summary>
-        public void RestoreRun(JToken data, string saveIdentity)
+        public void RestoreRun(JToken data)
         {
             if (!IsEnabled || data == null || data.Type == JTokenType.Null)
                 return;
 
-            if (!_runDomain.RestoreRun(_key, data, saveIdentity))
-                Logger.LogWarning("[Achievements] The save's achievement data has a broken seal (edited, copied or " +
-                                  "from another device/build). This game plays as Beliar.", LogCat.Achievements);
+            if (!_runDomain.RestoreRun(data))
+                Logger.LogWarning("[Achievements] The save's achievement data can't be read. This game plays as " +
+                                  "Adanos with new counters.", LogCat.Achievements);
         }
 
         /// <summary>
@@ -430,7 +372,7 @@ namespace Gothic.Core.Services.Achievements
         }
 
         /// <summary>
-        /// Sealed unlocks (unsealed ones don't count) out of all definitions.
+        /// Unlocks out of all definitions.
         /// </summary>
         public void GetCompletion(out int unlocked, out int total)
         {

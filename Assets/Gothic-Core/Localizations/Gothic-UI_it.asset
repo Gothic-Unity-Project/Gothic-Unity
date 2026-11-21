@@ -479,10 +479,6 @@ MonoBehaviour:
     m_Localized: Gli obiettivi sono disattivati.
     m_Metadata:
       m_Items: []
-  - m_Id: 196002124839022595
-    m_Localized: Senza sigillo
-    m_Metadata:
-      m_Items: []
   - m_Id: 196002124839022596
     m_Localized: Non disponibile
     m_Metadata:
@@ -492,9 +488,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 196080985626931200
-    m_Localized: "{0}: niente trucchi, mai tornato a un salvataggio precedente\n{1}:
-      gioco normale, salvi e carichi quando vuoi\n{2}: trucchi (modalit\xE0 Marvin)
-      usati"
+    m_Localized: "{0}: gioco normale, salvi e carichi quando vuoi\n{1}: trucchi (modalit\xE0
+      Marvin) usati"
     m_Metadata:
       m_Items: []
   references:

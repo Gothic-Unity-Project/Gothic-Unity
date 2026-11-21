@@ -43,17 +43,30 @@ namespace Gothic.Core.Adapters.UI.Achievements
         [Inject] private readonly ItemIconService _itemIconService;
 
         private readonly Queue<(AchievementDefinition Definition, AchievementTier Tier)> _queue = new();
+        private AchievementDefinition _shown;
         private float _hideAt;
 
         public void Init()
         {
             GlobalEventDispatcher.AchievementUnlocked.AddListener(OnAchievementUnlocked);
+            GlobalEventDispatcher.ItemIconReady.AddListener(OnItemIconReady);
             gameObject.SetActive(false);
         }
 
         private void OnDestroy()
         {
             GlobalEventDispatcher.AchievementUnlocked.RemoveListener(OnAchievementUnlocked);
+            GlobalEventDispatcher.ItemIconReady.RemoveListener(OnItemIconReady);
+        }
+
+        /// <summary>
+        /// The shown achievement's item was drawn a frame after it was requested: swap it in.
+        /// </summary>
+        private void OnItemIconReady(string itemInstance)
+        {
+            if (gameObject.activeSelf && _shown != null &&
+                string.Equals(_shown.Icon.Item, itemInstance, System.StringComparison.OrdinalIgnoreCase))
+                SetIcon(_shown.Icon);
         }
 
         private void Update()
@@ -81,6 +94,7 @@ namespace Gothic.Core.Adapters.UI.Achievements
         private void ShowNext()
         {
             var (definition, tier) = _queue.Dequeue();
+            _shown = definition;
             var language = _gameStateService.Language;
 
             _tierStripe.color = AchievementTierStyle.GetColor(tier);
@@ -96,8 +110,14 @@ namespace Gothic.Core.Adapters.UI.Achievements
             Logger.Log($"[AchievementToast] Showing >{definition.Id}< ({tier}).", LogCat.Achievements);
         }
 
+        /// <summary>
+        /// An item not drawn yet shows its texture or the placeholder until ItemIconReady.
+        /// </summary>
         private void SetIcon(AchievementIcon icon)
         {
+            if (!string.IsNullOrEmpty(icon.Item) && _itemIconService.TryGetIcon(icon.Item) == null)
+                _itemIconService.Request(icon.Item);
+
             if (!AchievementIconView.Show(_icon, _iconPlaceholder, icon.Item, icon.Texture, _itemIconService,
                     _textureCacheService))
                 Logger.LogWarning($"[AchievementToast] Icon texture >{icon.Texture}< not found.", LogCat.Achievements);

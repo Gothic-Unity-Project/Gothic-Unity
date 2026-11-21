@@ -4,12 +4,11 @@ using UnityEngine;
 namespace Gothic.Core.Adapters.UI.Achievements
 {
     /// <summary>
-    /// How a tier looks in the toast and on the page: the god's name in his colour. Innos gold like light, Adanos
-    /// blue like water, Beliar dark red. Text and colour only, no art.
+    /// How a tier looks in the toast and on the page: the god's name in his colour. Adanos blue like water, Beliar
+    /// dark red. Text and colour only, no art.
     /// </summary>
     public static class AchievementTierStyle
     {
-        private static readonly Color _innosColor = new(1f, 0.82f, 0.35f);
         private static readonly Color _adanosColor = new(0.35f, 0.65f, 1f);
         private static readonly Color _beliarColor = new(0.85f, 0.18f, 0.15f);
 
@@ -17,7 +16,6 @@ namespace Gothic.Core.Adapters.UI.Achievements
         {
             return tier switch
             {
-                AchievementTier.Innos => _innosColor,
                 AchievementTier.Adanos => _adanosColor,
                 _ => _beliarColor
             };
@@ -30,7 +28,6 @@ namespace Gothic.Core.Adapters.UI.Achievements
         {
             return tier switch
             {
-                AchievementTier.Innos => "Innos",
                 AchievementTier.Adanos => "Adanos",
                 _ => "Beliar"
             };

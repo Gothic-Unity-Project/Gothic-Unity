@@ -587,10 +587,6 @@ MonoBehaviour:
     m_Key: achievements.off
     m_Metadata:
       m_Items: []
-  - m_Id: 196002124839022595
-    m_Key: achievements.unsealed
-    m_Metadata:
-      m_Items: []
   - m_Id: 196002124839022596
     m_Key: achievements.unavailable
     m_Metadata:

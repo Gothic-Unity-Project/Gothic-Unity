@@ -10,7 +10,6 @@ namespace Gothic.Core.Models.Achievements
     public class AchievementProfileData
     {
         public List<AchievementUnlock> Unlocks = new();
-        public Dictionary<string, AchievementRunRecord> Runs = new();
 
 
         public AchievementUnlock FindUnlock(string id)
@@ -25,18 +24,18 @@ namespace Gothic.Core.Models.Achievements
         }
 
         /// <summary>
-        /// Earned already in this tier or a better one, with an intact seal.
+        /// Earned already in this tier or a better one.
         /// </summary>
         public bool IsEarned(string id, AchievementTier tier)
         {
             var unlock = FindUnlock(id);
-            return unlock != null && unlock.IsSealed && unlock.Tier >= tier;
+            return unlock != null && unlock.Tier >= tier;
         }
 
         /// <summary>
-        /// Earned now in the run's tier: replaces an older unlock of it (a tier upgrade or an unsealed one).
+        /// Earned now in this tier: replaces an older unlock of a worse tier (a tier upgrade).
         /// </summary>
-        public void SetUnlock(string id, AchievementRunState run)
+        public void SetUnlock(string id, AchievementTier tier)
         {
             var previous = FindUnlock(id);
             if (previous != null)
@@ -45,11 +44,8 @@ namespace Gothic.Core.Models.Achievements
             Unlocks.Add(new AchievementUnlock
             {
                 Id = id,
-                Tier = run.Tier,
-                DateUtc = DateTime.UtcNow.ToString("O"),
-                RunId = run.RunId,
-                SaveNo = run.SaveNo,
-                IsSealed = true
+                Tier = tier,
+                DateUtc = DateTime.UtcNow.ToString("O")
             });
         }
     }

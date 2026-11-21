@@ -22,7 +22,6 @@ namespace Gothic.Core.Domain.Achievements
             foreach (var definition in definitions)
             {
                 var unlock = profile.FindUnlock(definition.Id);
-                var isSealedUnlock = unlock != null && unlock.IsSealed;
                 var entry = new AchievementEntry
                 {
                     Definition = definition,
@@ -34,7 +33,6 @@ namespace Gothic.Core.Domain.Achievements
                     IsUnavailable = definition.IsUnavailable,
                     IsUnlocked = unlock != null,
                     Tier = unlock?.Tier ?? AchievementTier.Beliar,
-                    IsSealed = isSealedUnlock,
                     UnlockedDateUtc = unlock?.DateUtc
                 };
 
@@ -42,7 +40,7 @@ namespace Gothic.Core.Domain.Achievements
                 if (progress != null)
                 {
                     entry.ProgressTarget = progress.Count;
-                    entry.ProgressCurrent = isSealedUnlock
+                    entry.ProgressCurrent = unlock != null
                         ? progress.Count
                         : Math.Min(progress.Count, _conditionDomain.GetProgress(progress, reader, run));
                 }
@@ -54,7 +52,7 @@ namespace Gothic.Core.Domain.Achievements
         }
 
         /// <summary>
-        /// Sealed unlocks (unsealed ones don't count for completion) out of all definitions.
+        /// Unlocks out of all definitions.
         /// </summary>
         public void GetCompletion(List<AchievementDefinition> definitions, AchievementProfileData profile,
             out int unlocked, out int total)
@@ -63,8 +61,7 @@ namespace Gothic.Core.Domain.Achievements
             total = definitions.Count;
             foreach (var definition in definitions)
             {
-                var unlock = profile.FindUnlock(definition.Id);
-                if (unlock != null && unlock.IsSealed)
+                if (profile.FindUnlock(definition.Id) != null)
                     unlocked++;
             }
         }

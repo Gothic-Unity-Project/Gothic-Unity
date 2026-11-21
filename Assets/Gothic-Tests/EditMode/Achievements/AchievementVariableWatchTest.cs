@@ -16,6 +16,7 @@ namespace Gothic.Tests.EditMode.Achievements
 
         private AchievementVariableWatchDomain _watch;
         private FakeReader _reader;
+        private AchievementProfileData _profile;
         private AchievementRunState _run;
         private List<AchievementDefinition> _definitions;
         private List<AchievementDefinition> _met;
@@ -42,7 +43,8 @@ namespace Gothic.Tests.EditMode.Achievements
         {
             _watch = new AchievementVariableWatchDomain();
             _reader = new FakeReader();
-            _run = new AchievementRunState { RunId = "run", Tier = AchievementTier.Innos };
+            _run = new AchievementRunState { Tier = AchievementTier.Adanos };
+            _profile = new AchievementProfileData();
             _met = new List<AchievementDefinition>();
             _definitions = new List<AchievementDefinition>
             {
@@ -66,7 +68,7 @@ namespace Gothic.Tests.EditMode.Achievements
         private List<string> Check()
         {
             _met.Clear();
-            _watch.Check(_definitions, _reader, _run, _met);
+            _watch.Check(_definitions, _reader, _run, _profile, _met);
             return _met.ConvertAll(i => i.Id);
         }
 
@@ -132,6 +134,26 @@ namespace Gothic.Tests.EditMode.Achievements
 
             Assert.IsFalse(_watch.IsDirty);
             CollectionAssert.AreEqual(new[] { "g2.cast_off" }, Check(), "RecheckNow (help panel, page, save).");
+        }
+
+        [Test]
+        public void EarnedInThisTierIsSkipped()
+        {
+            _watch.TakeSnapshot(_definitions, _reader);
+            _profile.SetUnlock("g2.cast_off", AchievementTier.Adanos);
+            _reader.Variables[_kapitel] = 6;
+
+            CollectionAssert.IsEmpty(Check());
+        }
+
+        [Test]
+        public void EarnedInAWorseTierIsCheckedAgain()
+        {
+            _watch.TakeSnapshot(_definitions, _reader);
+            _profile.SetUnlock("g2.cast_off", AchievementTier.Beliar);
+            _reader.Variables[_kapitel] = 6;
+
+            CollectionAssert.AreEqual(new[] { "g2.cast_off" }, Check(), "Upgrade Beliar -> Adanos.");
         }
     }
 }

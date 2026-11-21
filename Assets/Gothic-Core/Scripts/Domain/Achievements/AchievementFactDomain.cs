@@ -117,10 +117,13 @@ namespace Gothic.Core.Domain.Achievements
                 _onCounter(AchievementCounterIds.LockpickSuccess);
         }
 
+        /// <summary>
+        /// Only documents from an item count (a mob's page, e.g. a lectern, has no stable name).
+        /// </summary>
         private void OnDocShown(DocModel doc, GameObject target)
         {
-            if (doc != null)
-                _onDistinct(AchievementCounterIds.DocumentShown, doc.Identity);
+            if (!string.IsNullOrEmpty(doc?.SourceName))
+                _onDistinct(AchievementCounterIds.DocumentShown, doc.SourceName);
         }
 
         private void OnDialogInfoFinished(int function) => _onScriptMoment();

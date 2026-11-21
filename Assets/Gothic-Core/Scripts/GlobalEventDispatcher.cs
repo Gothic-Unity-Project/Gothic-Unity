@@ -424,6 +424,12 @@ namespace Gothic.Core
         /// </summary>
         public static readonly UnityEvent<AchievementDefinition, AchievementTier> AchievementUnlocked = new();
 
+        /// <summary>
+        /// An item's picture was drawn (ItemIconService, one per frame on request). string = item instance name;
+        /// ItemIconService.TryGetIcon() has it now (or null if the item has nothing to draw).
+        /// </summary>
+        public static readonly UnityEvent<string> ItemIconReady = new();
+
         // Marvin: the list of recently executed commands changed.
         public static readonly UnityEvent MarvinRecentCommandsChanged = new();
         // Marvin mode got activated (true) or deactivated (false).

@@ -483,10 +483,6 @@ MonoBehaviour:
     m_Localized: "Les succ\xE8s sont d\xE9sactiv\xE9s."
     m_Metadata:
       m_Items: []
-  - m_Id: 196002124839022595
-    m_Localized: "Non scell\xE9"
-    m_Metadata:
-      m_Items: []
   - m_Id: 196002124839022596
     m_Localized: Indisponible
     m_Metadata:
@@ -496,9 +492,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 196080985626931200
-    m_Localized: "{0} : sans triche, jamais revenu \xE0 une sauvegarde plus ancienne\n{1}
-      : jeu normal, sauvegarder et charger librement\n{2} : triches (mode Marvin)
-      utilis\xE9es"
+    m_Localized: "{0} : jeu normal, sauvegarder et charger librement\n{1} : triches
+      (mode Marvin) utilis\xE9es"
     m_Metadata:
       m_Items: []
   references:

@@ -48,7 +48,7 @@ namespace Gothic.Tests.EditMode.Achievements
         {
             _conditionDomain = new AchievementConditionDomain();
             _reader = new FakeReader();
-            _run = new AchievementRunState { RunId = "run", Tier = AchievementTier.Innos };
+            _run = new AchievementRunState { Tier = AchievementTier.Adanos };
         }
 
         private static AchievementCondition Variable(int index, AchievementCompareOp op, int value)

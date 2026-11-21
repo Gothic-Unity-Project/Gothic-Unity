@@ -3,13 +3,11 @@ using System.Collections.Generic;
 namespace Gothic.Core.Models.Achievements
 {
     /// <summary>
-    /// The running game's achievement data. It goes into the save game (section core.achievements).
-    /// SaveNo is the number of the save this game state comes from (0 = none yet).
+    /// The running game's achievement data: tier and counters. It goes into the save game (section
+    /// core.achievements).
     /// </summary>
     public class AchievementRunState
     {
-        public string RunId;
-        public int SaveNo;
         public AchievementTier Tier;
         public Dictionary<string, int> Counters = new();
         public Dictionary<string, HashSet<string>> Distinct = new();
@@ -47,7 +45,7 @@ namespace Gothic.Core.Models.Achievements
         }
 
         /// <summary>
-        /// Marvin mode, a broken seal or going back lowers it - never raises it.
+        /// Marvin mode lowers it - never raises it.
         /// </summary>
         public void LowerTierTo(AchievementTier tier)
         {

@@ -1,13 +1,12 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
-using System.Security.Cryptography;
-using System.Text;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Achievements;
-using Gothic.Core.Services.Caches;
+using Newtonsoft.Json;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -15,21 +14,15 @@ using Logger = Gothic.Core.Logging.Logger;
 namespace Gothic.Core.Domain.Achievements
 {
     /// <summary>
-    /// The profile file &lt;persistentDataPath&gt;/Achievements/&lt;GameVersion&gt;&lt;ModCacheSuffix&gt;.json and the
-    /// device id next to it. The one writer: a change is written a frame later (not in the hit or death frame),
-    /// through a temp file and a rename. Flush() writes a pending change at once (quit, pause).
+    /// The profile file &lt;persistentDataPath&gt;/Achievements/&lt;GameVersion&gt;&lt;ModCacheSuffix&gt;.json, plain
+    /// readable JSON. The one writer: a change is written a frame later (not in the hit or death frame), through a
+    /// temp file and a rename. Flush() writes a pending change at once (quit, pause).
     /// </summary>
     public class AchievementProfileDomain
     {
-        private const int _deviceIdBytes = 32;
-
         [Inject] private readonly UnityMonoService _unityMonoService;
-        [Inject] private readonly ResourceCacheService _resourceCacheService;
-
-        private readonly AchievementSealDomain _sealDomain = new();
 
         private string _path;
-        private byte[] _key;
         private AchievementProfileData _pendingProfile;
 
 
@@ -45,66 +38,19 @@ namespace Gothic.Core.Domain.Achievements
         }
 
         /// <summary>
-        /// The seal key of this build and installation. Editor and self-made builds use the committed dev key, CI
-        /// builds the key from a GitHub secret. Throws if the device id can't be read or written.
+        /// Reads the profile. A missing file is an empty profile, an unreadable one is kept aside and a new one starts.
+        /// A pending change of the previous profile (game or mod switched) is written first.
         /// </summary>
-        public byte[] CreateKey()
-        {
-            return AchievementSealDomain.CreateKey(ReadBuildKey(), ReadOrCreateDeviceId(Folder));
-        }
-
-        private byte[] ReadBuildKey()
-        {
-            var path = Constants.Achievements.BuildKeyResourcePath;
-            var text = _resourceCacheService.TryGetTextAsset(path)?.text?.Trim();
-            if (!string.IsNullOrEmpty(text))
-                return Encoding.UTF8.GetBytes(text);
-
-            Logger.LogWarning($"[Achievements] Build key Resources/{path} is missing. Seals use an empty key.",
-                LogCat.Achievements);
-            return Array.Empty<byte>();
-        }
-
-        /// <summary>
-        /// A random id generated once per installation. Not SystemInfo.deviceUniqueIdentifier: it can be
-        /// "unsupportedIdentifier" or change after an OS update on Quest/Pico.
-        /// </summary>
-        public static byte[] ReadOrCreateDeviceId(string folder)
-        {
-            var path = Path.Combine(folder, Constants.Achievements.DeviceIdFileName);
-            if (File.Exists(path))
-            {
-                var stored = File.ReadAllText(path).Trim();
-                if (stored.Length > 0)
-                    return Encoding.UTF8.GetBytes(stored);
-            }
-
-            var bytes = new byte[_deviceIdBytes];
-            using (var random = RandomNumberGenerator.Create())
-                random.GetBytes(bytes);
-
-            var id = BitConverter.ToString(bytes).Replace("-", string.Empty);
-            Directory.CreateDirectory(folder);
-            File.WriteAllText(path, id);
-            return Encoding.UTF8.GetBytes(id);
-        }
-
-        /// <summary>
-        /// Reads the profile. A missing file is an empty profile, a broken seal keeps every unlock (shown as
-        /// unsealed) and forgets the runs (they play as Adanos). A pending change of the previous profile (game or
-        /// mod switched) is written first.
-        /// </summary>
-        public AchievementProfileData Load(string path, byte[] key)
+        public AchievementProfileData Load(string path)
         {
             Flush();
             _path = path;
-            _key = key;
             if (!File.Exists(path))
                 return new AchievementProfileData();
 
             try
             {
-                return Open(File.ReadAllText(path), key);
+                return Open(File.ReadAllText(path));
             }
             catch (Exception e)
             {
@@ -118,48 +64,22 @@ namespace Gothic.Core.Domain.Achievements
         }
 
         /// <summary>
-        /// The profile of a file's text with each unlock's seal state. Throws if it isn't a profile.
+        /// The profile of a file's text. Throws if it isn't JSON.
         /// </summary>
-        public AchievementProfileData Open(string text, byte[] key)
+        public static AchievementProfileData Open(string text)
         {
-            var profile = _sealDomain.OpenProfile(key, text, out var isFileSealed);
-            _sealDomain.VerifyChain(key, profile.Unlocks);
-
-            if (!isFileSealed)
-            {
-                Logger.LogWarning("[Achievements] The profile's seal is broken (edited, or from another device or " +
-                                  "build). Its unlocks are shown as unsealed until earned again.", LogCat.Achievements);
-                profile.Runs.Clear();
-            }
-
-            foreach (var unlock in profile.Unlocks)
-            {
-                if (!isFileSealed || !IsPlausible(profile, unlock))
-                    unlock.IsSealed = false;
-            }
-
+            var profile = JsonConvert.DeserializeObject<AchievementProfileData>(text) ?? new AchievementProfileData();
+            profile.Unlocks ??= new List<AchievementUnlock>();
+            profile.Unlocks.RemoveAll(unlock => unlock == null || string.IsNullOrEmpty(unlock.Id));
             return profile;
         }
 
         /// <summary>
-        /// An Innos unlock needs a known run and a save number the run has reached.
+        /// The text Flush() stores.
         /// </summary>
-        private static bool IsPlausible(AchievementProfileData profile, AchievementUnlock unlock)
+        public static string Serialize(AchievementProfileData profile)
         {
-            if (unlock.Tier != AchievementTier.Innos)
-                return true;
-
-            return unlock.RunId != null && profile.Runs.TryGetValue(unlock.RunId, out var record) &&
-                   unlock.SaveNo <= record.NewestSaveNo;
-        }
-
-        /// <summary>
-        /// The text Write() stores: the chain renewed over the sealed unlocks, then sealed.
-        /// </summary>
-        public string Seal(AchievementProfileData profile, byte[] key)
-        {
-            _sealDomain.ChainUnlocks(key, profile.Unlocks);
-            return _sealDomain.SealProfile(key, profile);
+            return JsonConvert.SerializeObject(profile, Formatting.Indented);
         }
 
         /// <summary>
@@ -206,7 +126,7 @@ namespace Gothic.Core.Domain.Achievements
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-                File.WriteAllText(tmpPath, Seal(profile, _key));
+                File.WriteAllText(tmpPath, Serialize(profile));
                 if (File.Exists(_path))
                     File.Replace(tmpPath, _path, null);
                 else

@@ -15,17 +15,17 @@ namespace Gothic.Core.Adapters.UI.Achievements
         [SerializeField] private GameObject _iconPlaceholder;
         [SerializeField] private TMP_Text _titleText;
         [SerializeField] private TMP_Text _descriptionText;
-        [Tooltip("Tier of the unlock, \"unsealed\" or \"unavailable\".")]
+        [Tooltip("Tier of the unlock or \"unavailable\".")]
         [SerializeField] private TMP_Text _stateText;
         [Tooltip("Parent of the progress bar. Hidden when the achievement has no counter.")]
         [SerializeField] private GameObject _progressRoot;
         [Tooltip("Fill of the progress bar. Its right anchor is set to the progress.")]
         [SerializeField] private RectTransform _progressFill;
         [SerializeField] private TMP_Text _progressText;
-        [Tooltip("Greys out the whole line (locked, unsealed or unavailable).")]
+        [Tooltip("Greys out the whole line (locked or unavailable).")]
         [SerializeField] private CanvasGroup _canvasGroup;
 
-        [Tooltip("Alpha of a line that isn't earned (or whose seal is broken).")]
+        [Tooltip("Alpha of a line that isn't earned.")]
         [SerializeField] private float _greyedAlpha = 0.45f;
         [Tooltip("The line's height (LayoutElement); it grows when the title wraps.")]
         [SerializeField] private LayoutElement _layoutElement;

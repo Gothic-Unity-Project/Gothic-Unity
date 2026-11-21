@@ -626,10 +626,6 @@ MonoBehaviour:
     m_Localized: Achievements are switched off.
     m_Metadata:
       m_Items: []
-  - m_Id: 196002124839022595
-    m_Localized: Unsealed
-    m_Metadata:
-      m_Items: []
   - m_Id: 196002124839022596
     m_Localized: Unavailable
     m_Metadata:
@@ -639,13 +635,10 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 196080985626931200
-    m_Localized: '{0}: no cheats, never went back to an older save
+    m_Localized: '{0}: normal play, saving and loading as you like
 
-      {1}: normal
-      play, saving and loading as you like
-
-      {2}: cheats (Marvin mode) were
-      used'
+      {1}: cheats
+      (Marvin mode) were used'
     m_Metadata:
       m_Items: []
   references:

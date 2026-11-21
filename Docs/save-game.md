@@ -99,9 +99,6 @@ public class MyFeatureSaveSection : ISaveStateSection
     // Called while loading, before the first world exists. Apply world related data later
     // (e.g. GlobalEventDispatcher.WorldSceneLoaded).
     public void Restore(JToken data, int savedVersion) => _value = data.Value<int>("Value");
-
-    // Optional (default: nothing): the save was written successfully. Capture() runs before that is known.
-    public void OnCommitted() { }
 }
 
 saveGameService.RegisterSection(new MyFeatureSaveSection());
@@ -110,8 +107,6 @@ saveGameService.RegisterSection(new MyFeatureSaveSection());
 - Register once, before a save game can be loaded. Core's sections live in `Domain/SaveGames/` and are registered in
   `SaveGameService.Init()`. Modules register their own (VR: `ReflexVRSceneInstaller`), Core doesn't know them.
 - `Reset()` runs for every section on a new game and before loading, also if the save has no data for it.
-- `OnCommitted()` runs for every section after a save was written, not after a failed one (e.g. achievements count
-  a save as the run's newest only then).
 - Sections without a registered owner (newer build, other platform, removed mod) are kept when saving again.
 - The header (`UnitySaveHeader`) stores build, game, mod ini and a script signature. Other scripts only log a warning.
 

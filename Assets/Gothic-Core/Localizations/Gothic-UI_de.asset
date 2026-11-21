@@ -615,10 +615,6 @@ MonoBehaviour:
     m_Localized: Errungenschaften sind ausgeschaltet.
     m_Metadata:
       m_Items: []
-  - m_Id: 196002124839022595
-    m_Localized: Unversiegelt
-    m_Metadata:
-      m_Items: []
   - m_Id: 196002124839022596
     m_Localized: "Nicht verf\xFCgbar"
     m_Metadata:
@@ -628,9 +624,10 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 196080985626931200
-    m_Localized: "{0}: ohne Cheats, nie zu einem \xE4lteren Spielstand zur\xFCck\n{1}:
-      normal gespielt, speichern und laden nach Belieben\n{2}: Cheats (Marvin-Modus)
-      benutzt"
+    m_Localized: '{0}: normal gespielt, speichern und laden nach Belieben
+
+      {1}:
+      Cheats (Marvin-Modus) benutzt'
     m_Metadata:
       m_Items: []
   references:

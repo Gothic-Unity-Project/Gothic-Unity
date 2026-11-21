@@ -9,7 +9,7 @@ namespace Gothic.Core.Models.Achievements
         /// <summary>A lock opened with a lock pick (not with its key).</summary>
         public const string LockpickSuccess = "lockpick.success";
 
-        /// <summary>Distinct: a document (book, letter, map) was shown. Key = DocModel.Identity.</summary>
+        /// <summary>Distinct: a document from an item (book, letter, map) was shown. Key = DocModel.SourceName.</summary>
         public const string DocumentShown = "document.shown";
     }
 }

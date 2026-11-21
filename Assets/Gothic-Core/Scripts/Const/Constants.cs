@@ -76,12 +76,8 @@ namespace Gothic.Core.Const
         /// </summary>
         public static class Achievements
         {
-            // One folder name in three places: definition files (StreamingAssets), profiles and device id
-            // (persistentDataPath), build key (Resources).
+            // One folder name in two places: definition files (StreamingAssets), profiles (persistentDataPath).
             public const string FolderName = "Achievements";
-
-            // Resources path of the seal's build key. CI overwrites the committed dev key (.github/workflows).
-            public const string BuildKeyResourcePath = FolderName + "/AchievementsSealKey";
 
             public const string G1FileName = "g1.json";
             public const string G2FileName = "g2.json";
@@ -89,8 +85,6 @@ namespace Gothic.Core.Const
             // A mod's own list: in its folder, or next to its ini as <ini name> + ModIniFileSuffix.
             public const string ModFileName = "Achievements.json";
             public const string ModIniFileSuffix = ".achievements.json";
-
-            public const string DeviceIdFileName = "device.id";
         }
 
         /// <summary>

@@ -33,11 +33,6 @@ namespace Gothic.Core.Models.Achievements
         /// </summary>
         public AchievementTier Tier;
 
-        /// <summary>
-        /// False: the file was edited or copied (broken seal) - greyed out with a broken seal, not counted.
-        /// </summary>
-        public bool IsSealed;
-
         public string UnlockedDateUtc;
 
         /// <summary>

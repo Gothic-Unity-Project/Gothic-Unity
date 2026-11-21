@@ -449,19 +449,6 @@ namespace Gothic.Core.Services.World
                 return false;
             }
 
-            // Capture() ran before success was known.
-            foreach (var (key, section) in _sections)
-            {
-                try
-                {
-                    section.OnCommitted();
-                }
-                catch (Exception e)
-                {
-                    Logger.LogError($"[SaveGame] Section {key} failed after the save was written: {e}", LogCat.Loading);
-                }
-            }
-
             // ZenKit's SaveGame now points to the .tmp folder. Re-open it from the slot, so that worlds which aren't
             // loaded yet are fetched from the new save.
             var savedGame = GetSaveGame(saveGameId);

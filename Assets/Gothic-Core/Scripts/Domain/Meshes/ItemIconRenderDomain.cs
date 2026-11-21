@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Gothic.Core.Services.Vobs;
 using Reflex.Attributes;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Domain.Meshes
@@ -9,7 +10,8 @@ namespace Gothic.Core.Domain.Meshes
     /// <summary>
     /// Draws one item into a small picture: the item's own mesh (VobService.CreateItemMesh, as in a hand or the
     /// favorites ring), far below every world, lit by its own light and seen by a hidden orthographic camera.
-    /// Everything it builds is gone when Render returns. Owned by ItemIconService.
+    /// The picture stays on the GPU (a RenderTexture, no ReadPixels: the CPU never waits for the GPU). Everything
+    /// else it builds is gone when Render returns. Owned by ItemIconService.
     /// </summary>
     public class ItemIconRenderDomain
     {
@@ -25,9 +27,9 @@ namespace Gothic.Core.Domain.Meshes
         private static readonly List<Vector3> _vertexBuffer = new();
 
         /// <summary>
-        /// Null: the item has no mesh or no material to draw.
+        /// Null: the item has no mesh or no material to draw. The caller owns (and releases) the texture.
         /// </summary>
-        public Texture2D Render(string itemInstance)
+        public RenderTexture Render(string itemInstance)
         {
             var stage = new GameObject($"_ItemIcon {itemInstance}");
             stage.transform.position = _stagePosition;
@@ -66,21 +68,20 @@ namespace Gothic.Core.Domain.Meshes
                 camera.backgroundColor = Color.clear;
                 camera.cullingMask = layers;
                 camera.stereoTargetEye = StereoTargetEyeMask.None;
+                var cameraData = camera.GetUniversalAdditionalCameraData();
+                cameraData.renderShadows = false;
+                cameraData.renderPostProcessing = false;
+                cameraData.antialiasing = AntialiasingMode.None;
+                cameraData.requiresColorTexture = false;
+                cameraData.requiresDepthTexture = false;
 
+                // Drawn with a depth buffer, kept without one.
                 target = RenderTexture.GetTemporary(_size, _size, 24, RenderTextureFormat.ARGB32);
                 camera.targetTexture = target;
                 camera.Render();
                 camera.targetTexture = null;
 
-                RenderTexture.active = target;
-                var icon = new Texture2D(_size, _size, TextureFormat.RGBA32, false)
-                {
-                    name = $"ItemIcon {itemInstance}",
-                    wrapMode = TextureWrapMode.Clamp
-                };
-                icon.ReadPixels(new Rect(0, 0, _size, _size), 0, 0);
-                icon.Apply(false, true);
-                return icon;
+                return CopyToIcon(target, itemInstance);
             }
             finally
             {
@@ -90,6 +91,26 @@ namespace Gothic.Core.Domain.Meshes
                 // At once: the next icon uses the same spot.
                 Object.DestroyImmediate(stage);
             }
+        }
+
+        /// <summary>
+        /// A GPU copy into a texture without depth. Like the camera's own target, it is sampled upright.
+        /// </summary>
+        private static RenderTexture CopyToIcon(RenderTexture source, string itemInstance)
+        {
+            var icon = new RenderTexture(_size, _size, 0, RenderTextureFormat.ARGB32)
+            {
+                name = $"ItemIcon {itemInstance}",
+                wrapMode = TextureWrapMode.Clamp,
+                useMipMap = false
+            };
+            icon.Create();
+
+            if (SystemInfo.copyTextureSupport != UnityEngine.Rendering.CopyTextureSupport.None)
+                Graphics.CopyTexture(source, icon);
+            else
+                Graphics.Blit(source, icon);
+            return icon;
         }
 
         /// <summary>
