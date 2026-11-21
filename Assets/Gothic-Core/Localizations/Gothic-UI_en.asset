@@ -606,6 +606,38 @@ MonoBehaviour:
       it off in Immersion: "Favorites ring".'
     m_Metadata:
       m_Items: []
+  - m_Id: 196002124818051072
+    m_Localized: Achievements
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124834828288
+    m_Localized: '{0} / {1} earned'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022592
+    m_Localized: 'This game: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022593
+    m_Localized: No game running
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022594
+    m_Localized: Achievements are switched off.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022595
+    m_Localized: Unsealed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022596
+    m_Localized: Unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022597
+    m_Localized: Achievement earned
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -595,6 +595,38 @@ MonoBehaviour:
       \"Favoriten-Ring\"."
     m_Metadata:
       m_Items: []
+  - m_Id: 196002124818051072
+    m_Localized: Errungenschaften
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124834828288
+    m_Localized: '{0} / {1} errungen'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022592
+    m_Localized: 'Dieses Spiel: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022593
+    m_Localized: "Kein Spiel l\xE4uft"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022594
+    m_Localized: Errungenschaften sind ausgeschaltet.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022595
+    m_Localized: Unversiegelt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022596
+    m_Localized: "Nicht verf\xFCgbar"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022597
+    m_Localized: Errungenschaft erlangt
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
