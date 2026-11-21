@@ -5,7 +5,6 @@ using System.IO;
 using System.Text;
 using Gothic.Core.Const;
 using Gothic.Core.Domain.Achievements;
-using Gothic.Core.Domain.Npc;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
@@ -15,6 +14,7 @@ using Gothic.Core.Models.Doc;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
+using Gothic.Core.Services.Npc;
 using Gothic.Core.Services.World;
 using Newtonsoft.Json.Linq;
 using Reflex.Attributes;
@@ -47,11 +47,11 @@ namespace Gothic.Core.Services.Achievements
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly MarvinService _marvinService;
         [Inject] private readonly UnityMonoService _unityMonoService;
+        [Inject] private readonly NpcService _npcService;
 
         private readonly AchievementDefinitionDomain _definitionDomain = new AchievementDefinitionDomain().Inject();
         private readonly AchievementProfileDomain _profileDomain = new AchievementProfileDomain().Inject();
         private readonly AchievementStateReaderDomain _reader = new AchievementStateReaderDomain().Inject();
-        private readonly DamagePerceptionDomain _damagePerceptionDomain = new DamagePerceptionDomain().Inject();
         private readonly AchievementConditionDomain _conditionDomain = new();
         private readonly AchievementRunDomain _runDomain = new();
         private readonly AchievementSealDomain _sealDomain = new();
@@ -350,7 +350,7 @@ namespace Gothic.Core.Services.Achievements
             if (victim?.Instance == null)
                 return;
 
-            var creditedKiller = _damagePerceptionDomain.GetCreditedAttacker(killer);
+            var creditedKiller = killer.GetCreditedAttacker(_npcService.GetHeroContainer());
             var isByHero = creditedKiller != victim && creditedKiller?.Instance != null &&
                            creditedKiller.Instance.IsHero(_gameStateService.GothicVm);
             Check(new AchievementFact(AchievementFactKind.Kill, victim.Instance.Index, isByHero: isByHero));

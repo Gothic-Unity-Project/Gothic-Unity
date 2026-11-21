@@ -374,7 +374,7 @@ namespace Gothic.Core
         /// An NPC died (FightService.Kill, once - not for corpses restored from a save).
         /// NpcContainer - victim
         /// NpcContainer - killer (the victim itself for falls, drowning, Marvin's kill). A kill by the hero's summon
-        ///                counts as the hero's: DamagePerceptionDomain.GetCreditedAttacker(killer).
+        ///                counts as the hero's: killer.GetCreditedAttacker(hero) (NpcContainerExtension).
         /// </summary>
         public static readonly UnityEvent<NpcContainer, NpcContainer> NpcKilled = new();
 
