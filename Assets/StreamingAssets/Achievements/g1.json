@@ -14,7 +14,6 @@
       "icon": {
         "texture": "MAP_OLDCAMP.TGA"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "CH1_JoinOC",
         "status": "success"
@@ -33,7 +32,6 @@
       "icon": {
         "texture": "MAP_PSICAMP.TGA"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "CH1_JoinPsi",
         "status": "success"
@@ -52,7 +50,6 @@
       "icon": {
         "texture": "MAP_NEWCAMP.TGA"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "CH1_JoinNC",
         "status": "success"
@@ -71,7 +68,6 @@
       "icon": {
         "item": "SLD_ARMOR_L"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -100,7 +96,6 @@
       "icon": {
         "item": "ORG_ARMOR_L"
       },
-      "hidden": false,
       "condition": {
         "variable": "Lares_vorbeigemogelt",
         "op": "==",
@@ -120,7 +115,6 @@
       "icon": {
         "item": "ItMi_Stuff_Idol_Sleeper_01"
       },
-      "hidden": false,
       "condition": {
         "variable": "Kapitel",
         "op": ">=",
@@ -140,7 +134,6 @@
       "icon": {
         "texture": "LOADING_ORCGRAVEYARD.TGA"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "CH3_OrcGraveyard",
         "status": "success"
@@ -159,7 +152,6 @@
       "icon": {
         "item": "Focus_1"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "CH3_BringFoci",
         "status": "success"
@@ -178,7 +170,6 @@
       "icon": {
         "item": "ItAt_StoneGolem_01"
       },
-      "hidden": false,
       "condition": {
         "item": "ItArRuneTeleport3"
       }
@@ -196,7 +187,6 @@
       "icon": {
         "item": "UluMulu"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "CH4_UluMulu",
         "status": "success"
@@ -215,7 +205,6 @@
       "icon": {
         "item": "Mythrilklinge02"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "CH5_Uriziel",
         "status": "success"
@@ -234,7 +223,6 @@
       "icon": {
         "item": "ItFoWine"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "Baloros_Waffe",
         "status": "success"
@@ -253,7 +241,6 @@
       "icon": {
         "texture": "CHAPTER2.TGA"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -288,7 +275,6 @@
       "icon": {
         "item": "ORE_ARMOR_H"
       },
-      "hidden": false,
       "condition": {
         "infoTold": "DIA_GRD_219_Stone4"
       }
@@ -306,7 +292,6 @@
       "icon": {
         "item": "ItMiNugget"
       },
-      "hidden": false,
       "condition": {
         "variable": "Jesse_PayForMe",
         "op": "==",
@@ -326,7 +311,6 @@
       "icon": {
         "texture": "CHAPTER1.TGA"
       },
-      "hidden": false,
       "condition": {
         "infoTold": "DIA_Gilbert_First"
       }
@@ -344,7 +328,6 @@
       "icon": {
         "item": "VLK_ARMOR_L"
       },
-      "hidden": false,
       "condition": {
         "infoTold": "DIA_Mud_Nerve_19"
       }
@@ -362,7 +345,6 @@
       "icon": {
         "texture": "MOWORICEPLANT01.TGA"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "CH1_HoratiosTeachings",
         "status": "success"
@@ -381,7 +363,6 @@
       "icon": {
         "texture": "ERZ.TGA"
       },
-      "hidden": false,
       "condition": {
         "item": "ItMiNugget",
         "count": 15000
@@ -400,7 +381,6 @@
       "icon": {
         "item": "ItMi_Stuff_Pipe_01"
       },
-      "hidden": false,
       "condition": {
         "item": "ItMi_Stuff_Pipe_01"
       }
@@ -418,7 +398,6 @@
       "icon": {
         "item": "ItAt_Crawlerqueen"
       },
-      "hidden": false,
       "condition": {
         "killed": [
           "MinecrawlerQueen"
@@ -438,7 +417,6 @@
       "icon": {
         "texture": "BQM_MEATBUG.TGA"
       },
-      "hidden": false,
       "condition": {
         "killed": [
           "Meatbug"
@@ -460,7 +438,6 @@
       "icon": {
         "item": "ItKeLockpick"
       },
-      "hidden": false,
       "condition": {
         "counter": "lockpick.success",
         "count": 20
@@ -479,7 +456,6 @@
       "icon": {
         "item": "ItWr_Book_Circle_01"
       },
-      "hidden": false,
       "condition": {
         "distinct": "document.shown",
         "count": 10
@@ -498,7 +474,6 @@
       "icon": {
         "texture": "CHAPTER6.TGA"
       },
-      "hidden": false,
       "condition": {
         "variable": "EnteredTemple",
         "op": "==",
@@ -518,7 +493,6 @@
       "icon": {
         "item": "theriddle1"
       },
-      "hidden": false,
       "condition": {
         "logTopic": "theriddle_log",
         "status": "success"
@@ -537,7 +511,6 @@
       "icon": {
         "item": "UrizielRune"
       },
-      "hidden": false,
       "condition": {
         "item": "UrizielRune"
       }
@@ -555,7 +528,6 @@
       "icon": {
         "item": "EBR_ARMOR_H"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -614,7 +586,6 @@
       "icon": {
         "item": "STT_ARMOR_M"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -642,7 +613,6 @@
       "icon": {
         "item": "ORG_ARMOR_M"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -670,7 +640,6 @@
       "icon": {
         "item": "GUR_ARMOR_M"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -708,7 +677,6 @@
       "icon": {
         "item": "ItAt_Crawler_01"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -734,7 +702,6 @@
       "icon": {
         "item": "ItAt_Wolf_01"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {

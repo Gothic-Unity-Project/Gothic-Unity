@@ -14,7 +14,7 @@ namespace Gothic.Core.Domain.Achievements
     public static class AchievementDefinitionParser
     {
         /// <summary>
-        /// Format: { "achievements": [ { "id", "title", "description", "icon", "hidden", "condition" } ] }.
+        /// Format: { "achievements": [ { "id", "title", "description", "icon", "condition" } ] }.
         /// A definition that doesn't parse is skipped and named in errors. Ids must be unique.
         /// </summary>
         public static List<AchievementDefinition> Parse(string json, List<string> errors)
@@ -67,7 +67,6 @@ namespace Gothic.Core.Domain.Achievements
             var definition = new AchievementDefinition
             {
                 Id = entry.Value<string>("id"),
-                IsHidden = entry.Value<bool?>("hidden") ?? false,
                 Condition = ParseCondition(entry["condition"] as JObject)
             };
 

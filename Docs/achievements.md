@@ -70,7 +70,6 @@ Example (texts and icon are placeholders):
   "title": { "en": "In service to the Ore Barons", "de": "Im Dienste der Erzbarone" },
   "description": { "en": "Join the Old Camp", "de": "Tritt dem Alten Lager bei" },
   "icon": { "item": "ItMw_1H_Sword_Old_01" },
-  "hidden": false,
   "condition": { "logTopic": "CH1_JoinOC", "status": "success" }
 }
 ```

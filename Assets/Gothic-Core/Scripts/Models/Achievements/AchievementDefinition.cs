@@ -9,7 +9,6 @@ namespace Gothic.Core.Models.Achievements
         public readonly AchievementText Title = new();
         public readonly AchievementText Description = new();
         public readonly AchievementIcon Icon = new();
-        public bool IsHidden;
         public AchievementCondition Condition;
 
         /// <summary>

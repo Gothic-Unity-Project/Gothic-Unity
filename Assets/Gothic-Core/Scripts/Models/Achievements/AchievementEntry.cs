@@ -22,11 +22,6 @@ namespace Gothic.Core.Models.Achievements
         public string IconItem;
 
         /// <summary>
-        /// Show "?" instead of title and description while it's locked.
-        /// </summary>
-        public bool IsHidden;
-
-        /// <summary>
         /// A script symbol it needs is missing (mod, renamed script) - it can't be earned.
         /// </summary>
         public bool IsUnavailable;

@@ -14,7 +14,6 @@
       "icon": {
         "item": "ITAR_MIL_L"
       },
-      "hidden": false,
       "condition": {
         "trueGuild": [
           "GIL_MIL"
@@ -34,7 +33,6 @@
       "icon": {
         "item": "ITAR_NOV_L"
       },
-      "hidden": false,
       "condition": {
         "trueGuild": [
           "GIL_NOV"
@@ -54,7 +52,6 @@
       "icon": {
         "item": "ITAR_SLD_M"
       },
-      "hidden": false,
       "condition": {
         "trueGuild": [
           "GIL_SLD"
@@ -74,7 +71,6 @@
       "icon": {
         "texture": "MAP_OLDWORLD.TGA"
       },
-      "hidden": false,
       "condition": {
         "infoTold": "DIA_Garond_Success"
       }
@@ -92,7 +88,6 @@
       "icon": {
         "item": "ItMi_InnosEye_Broken_Mis"
       },
-      "hidden": false,
       "condition": {
         "item": "ItMi_InnosEye_Broken_MIS"
       }
@@ -110,7 +105,6 @@
       "icon": {
         "item": "ItMi_InnosEye_MIS"
       },
-      "hidden": false,
       "condition": {
         "variable": "MIS_RitualInnosEyeRepair",
         "op": "==",
@@ -130,7 +124,6 @@
       "icon": {
         "texture": "DRAGON.TGA"
       },
-      "hidden": false,
       "condition": {
         "variable": "MIS_AllDragonsDead",
         "op": "==",
@@ -150,7 +143,6 @@
       "icon": {
         "texture": "LOADING_DRAGONISLAND.TGA"
       },
-      "hidden": false,
       "condition": {
         "variable": "Kapitel",
         "op": ">=",
@@ -170,7 +162,6 @@
       "icon": {
         "texture": "ZOMBIEDRAGON.TGA"
       },
-      "hidden": false,
       "condition": {
         "variable": "UndeadDragonIsDead",
         "op": "==",
@@ -190,7 +181,6 @@
       "icon": {
         "texture": "LOADING_ADDONWORLD.TGA"
       },
-      "hidden": false,
       "condition": {
         "variable": "ENTERED_ADDONWORLD",
         "op": "==",
@@ -210,7 +200,6 @@
       "icon": {
         "texture": "NW_SEQ_OBJ_PIRATEFLAG_01.TGA"
       },
-      "hidden": false,
       "condition": {
         "infoTold": "DIA_Addon_Greg_JoinPirates"
       }
@@ -229,7 +218,6 @@
         "item": "ITAR_Raven_Addon",
         "texture": "ARMOR_RAVEN.TGA"
       },
-      "hidden": false,
       "condition": {
         "variable": "RavenIsDead",
         "op": "==",
@@ -249,7 +237,6 @@
       "icon": {
         "texture": "MAP_NEWWORLD_CITY.TGA"
       },
-      "hidden": false,
       "condition": {
         "infoTold": "DIA_Cassia_Aufnahme"
       }
@@ -267,7 +254,6 @@
       "icon": {
         "texture": "TRO_BODY_DEMON_V0.TGA"
       },
-      "hidden": false,
       "condition": {
         "killed": [
           "Troll_Black"
@@ -289,7 +275,6 @@
       "icon": {
         "item": "ItMi_Gold"
       },
-      "hidden": false,
       "condition": {
         "item": "ItMi_Gold",
         "count": 20000
@@ -308,7 +293,6 @@
       "icon": {
         "item": "ItFo_Sausage"
       },
-      "hidden": false,
       "condition": {
         "variable": "Wurst_Gegeben",
         "op": ">=",
@@ -328,7 +312,6 @@
       "icon": {
         "item": "ItKe_Lockpick"
       },
-      "hidden": false,
       "condition": {
         "counter": "lockpick.success",
         "count": 50
@@ -347,7 +330,6 @@
       "icon": {
         "item": "ItWr_Seamap_Irdorath"
       },
-      "hidden": false,
       "condition": {
         "variable": "MIS_SCKnowsWayToIrdorath",
         "op": "==",
@@ -367,7 +349,6 @@
       "icon": {
         "item": "ITAR_BDT_M"
       },
-      "hidden": false,
       "condition": {
         "variable": "Player_HasTalkedToBanditCamp",
         "op": "==",
@@ -387,7 +368,6 @@
       "icon": {
         "texture": "MAP_OLDCAMP.TGA"
       },
-      "hidden": false,
       "condition": {
         "infoTold": "DIA_Addon_ThiefOW_Nostalgie"
       }
@@ -405,7 +385,6 @@
       "icon": {
         "item": "ITKE_OC_MAINGATE_MIS"
       },
-      "hidden": false,
       "condition": {
         "variable": "MIS_OCGateOpen",
         "op": "==",
@@ -425,7 +404,6 @@
       "icon": {
         "item": "ItMi_OldCoin"
       },
-      "hidden": false,
       "condition": {
         "variable": "OldCoinCounter",
         "op": ">=",
@@ -445,7 +423,6 @@
       "icon": {
         "item": "ItRu_TeleportSeaport"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -477,7 +454,6 @@
       "icon": {
         "item": "ITAR_DJG_Crawler"
       },
-      "hidden": false,
       "condition": {
         "variable": "Player_GotCrawlerArmor",
         "op": "==",
@@ -497,7 +473,6 @@
       "icon": {
         "item": "ItMi_BloodCup_MIS"
       },
-      "hidden": false,
       "condition": {
         "variable": "MIS_CassiaKelche",
         "op": "==",
@@ -517,7 +492,6 @@
       "icon": {
         "item": "ItFo_Booze"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -546,7 +520,6 @@
       "icon": {
         "item": "ItRi_OrcEliteRing"
       },
-      "hidden": false,
       "condition": {
         "killed": [
           "OrcElite_AntiPaladin",
@@ -571,7 +544,6 @@
       "icon": {
         "item": "ItAt_DragonEgg_MIS"
       },
-      "hidden": false,
       "condition": {
         "variable": "DragonEggCounter",
         "op": ">=",
@@ -591,7 +563,6 @@
       "icon": {
         "item": "ITAR_Dementor"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -650,7 +621,6 @@
       "icon": {
         "texture": "NW_MISC_OILLAMP_02.TGA"
       },
-      "hidden": false,
       "condition": {
         "variable": "Nadja_Nacht",
         "op": ">=",
@@ -670,7 +640,6 @@
       "icon": {
         "texture": "OTREGITTER01.TGA"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -719,7 +688,6 @@
       "icon": {
         "item": "ItMw_1H_Common_01"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -756,7 +724,6 @@
       "icon": {
         "item": "ItAt_SheepFur"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -799,7 +766,6 @@
       "icon": {
         "item": "ItPl_Mushroom_01"
       },
-      "hidden": false,
       "condition": {
         "variable": "Constantino_DunkelpilzCounter",
         "op": ">=",
@@ -819,7 +785,6 @@
       "icon": {
         "item": "ItMi_Hammer"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -863,7 +828,6 @@
       "icon": {
         "texture": "MAP_OLDWORLD_OREMINES.TGA"
       },
-      "hidden": false,
       "condition": {
         "variable": "MIS_RescueBilgot",
         "op": "==",
@@ -883,7 +847,6 @@
       "icon": {
         "item": "ItKe_ThiefGuildKey_MIS"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -910,7 +873,6 @@
       "icon": {
         "item": "ItMi_GoldChalice"
       },
-      "hidden": false,
       "condition": {
         "variable": "MIS_DiegosResidence",
         "op": "==",
@@ -930,7 +892,6 @@
       "icon": {
         "item": "ItMi_GoldNugget_Addon"
       },
-      "hidden": false,
       "condition": {
         "variable": "Hero_HackChance",
         "op": ">=",
@@ -950,7 +911,6 @@
       "icon": {
         "item": "ItMi_Addon_Stone_01"
       },
-      "hidden": false,
       "condition": {
         "variable": "MIS_Saturas_LookingForHousesOfRulers",
         "op": "==",
@@ -970,7 +930,6 @@
       "icon": {
         "item": "ITAR_PIR_L_Addon"
       },
-      "hidden": false,
       "condition": {
         "all": [
           {
@@ -1006,7 +965,6 @@
       "icon": {
         "item": "ItMi_InnosEye_Discharged_Mis"
       },
-      "hidden": false,
       "condition": {
         "variable": "SC_InnosEyeVergessen_DI",
         "op": "==",
@@ -1026,7 +984,6 @@
       "icon": {
         "item": "ItMw_2H_OrcAxe_01"
       },
-      "hidden": false,
       "condition": {
         "killed": [
           "OrcElite_Roam",
@@ -1071,7 +1028,6 @@
       "icon": {
         "item": "ItMi_Pocket"
       },
-      "hidden": false,
       "condition": {
         "variable": "VictimCount",
         "op": ">=",

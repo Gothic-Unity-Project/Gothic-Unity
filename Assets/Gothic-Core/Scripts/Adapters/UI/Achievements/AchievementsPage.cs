@@ -29,7 +29,6 @@ namespace Gothic.Core.Adapters.UI.Achievements
         private const string _offKey = "achievements.off";
         private const string _unsealedKey = "achievements.unsealed";
         private const string _unavailableKey = "achievements.unavailable";
-        private const string _hiddenText = "?";
 
         [SerializeField] private TMP_Text _headlineText;
         [Tooltip("Completion (x / y) and the running game's tier.")]
@@ -146,10 +145,6 @@ namespace Gothic.Core.Adapters.UI.Achievements
 
         private void ShowEntry(AchievementsPageEntry line, AchievementEntry entry)
         {
-            var isMasked = entry.IsHidden && !entry.IsUnlocked;
-            var title = isMasked ? _hiddenText : entry.Title;
-            var description = isMasked ? _hiddenText : entry.Description;
-
             string state;
             if (entry.IsUnavailable)
                 state = _localizationService.GetText(_unavailableKey);
@@ -161,22 +156,17 @@ namespace Gothic.Core.Adapters.UI.Achievements
                 state = string.Empty;
 
             var isGreyed = !entry.IsUnlocked || !entry.IsSealed || entry.IsUnavailable;
-            line.Show(title, description, state, isGreyed);
-            ShowIcon(line, entry, isMasked);
+            line.Show(entry.Title, entry.Description, state, isGreyed);
+            ShowIcon(line, entry);
             line.SetProgress(entry.IsUnavailable ? 0 : entry.ProgressCurrent,
                 entry.IsUnavailable ? 0 : entry.ProgressTarget);
             line.gameObject.SetActive(true);
         }
 
-        /// <summary>
-        /// A masked (hidden, locked) line shows the placeholder.
-        /// </summary>
-        private void ShowIcon(AchievementsPageEntry line, AchievementEntry entry, bool isMasked)
+        private void ShowIcon(AchievementsPageEntry line, AchievementEntry entry)
         {
-            var item = isMasked ? null : entry.IconItem;
-            var texture = isMasked ? null : entry.IconTexture;
-            if (!line.ShowIcon(item, texture, _itemIconService, _textureCacheService))
-                Logger.LogWarning($"[AchievementsPage] Icon texture >{texture}< of >{entry.Id}< not found.",
+            if (!line.ShowIcon(entry.IconItem, entry.IconTexture, _itemIconService, _textureCacheService))
+                Logger.LogWarning($"[AchievementsPage] Icon texture >{entry.IconTexture}< of >{entry.Id}< not found.",
                     LogCat.Achievements);
         }
     }
