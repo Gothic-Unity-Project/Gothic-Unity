@@ -32,5 +32,12 @@ namespace Gothic.Core.Services.World
         /// keep the data and apply it later (e.g. on GlobalEventDispatcher.WorldSceneLoaded).
         /// </summary>
         void Restore(JToken data, int savedVersion);
+
+        /// <summary>
+        /// Called after a save game was written successfully (Capture() runs before success is known). Most sections
+        /// need nothing here.
+        /// </summary>
+        void OnCommitted()
+        { }
     }
 }

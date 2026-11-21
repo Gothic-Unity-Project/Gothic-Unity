@@ -15,7 +15,6 @@ using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
 using Gothic.Core.Services.Npc;
-using Gothic.Core.Services.World;
 using Newtonsoft.Json.Linq;
 using Reflex.Attributes;
 using UnityEngine;
@@ -72,6 +71,7 @@ namespace Gothic.Core.Services.Achievements
 
         private AchievementRunState _run;
         private bool _isRunPending;
+        private bool _isNewGame = true;
         private AchievementRunState _restoredRun;
         private bool _isRestoredSealed = true;
         private int _capturedSaveNo = -1;
@@ -226,8 +226,7 @@ namespace Gothic.Core.Services.Achievements
                 return;
 
             _isRunPending = false;
-            var saveGameService = ReflexProjectInstaller.DIContainer.Resolve<SaveGameService>();
-            _run = saveGameService.IsNewGame
+            _run = _isNewGame
                 ? _runDomain.StartNewGame(_profile, _marvinService.IsMarvinMode)
                 : _runDomain.StartLoadedGame(_profile, _restoredRun, _isRestoredSealed, _marvinService.IsMarvinMode);
             _restoredRun = null;
@@ -532,7 +531,7 @@ namespace Gothic.Core.Services.Achievements
         /// Save section core.achievements: the sealed run state with the number this save gets. It only counts as the
         /// run's newest once OnSaveCommitted() confirms the save was written.
         /// </summary>
-        public JToken CaptureRun()
+        public JToken CaptureRun(string saveIdentity)
         {
             _capturedSaveNo = -1;
             if (!IsEnabled || _run == null)
@@ -546,7 +545,7 @@ namespace Gothic.Core.Services.Achievements
             _run.SaveNo = _capturedSaveNo;
             try
             {
-                return _sealDomain.SealSection(_key, _run, GetSaveIdentity());
+                return _sealDomain.SealSection(_key, _run, saveIdentity);
             }
             finally
             {
@@ -555,7 +554,7 @@ namespace Gothic.Core.Services.Achievements
         }
 
         /// <summary>
-        /// SaveGameService.SaveCurrentGame(): the save captured last was written successfully.
+        /// The save captured last was written successfully (save section OnCommitted()).
         /// </summary>
         public void OnSaveCommitted()
         {
@@ -567,8 +566,12 @@ namespace Gothic.Core.Services.Achievements
             _profileDomain.ScheduleWrite(_profile);
         }
 
-        public void ResetRun()
+        /// <summary>
+        /// A new game starts or a save loads (RestoreRun() follows if it has achievement data).
+        /// </summary>
+        public void ResetRun(bool isNewGame)
         {
+            _isNewGame = isNewGame;
             _restoredRun = null;
             _isRestoredSealed = true;
             _capturedSaveNo = -1;
@@ -577,27 +580,15 @@ namespace Gothic.Core.Services.Achievements
         /// <summary>
         /// A loaded save's section. A broken seal plays as Beliar (OnWorldSceneLoaded decides the run).
         /// </summary>
-        public void RestoreRun(JToken data)
+        public void RestoreRun(JToken data, string saveIdentity)
         {
             if (!IsEnabled || data == null || data.Type == JTokenType.Null)
                 return;
 
-            _isRestoredSealed = _sealDomain.TryOpenSection(_key, data, GetSaveIdentity(), out _restoredRun);
+            _isRestoredSealed = _sealDomain.TryOpenSection(_key, data, saveIdentity, out _restoredRun);
             if (!_isRestoredSealed)
                 Logger.LogWarning("[Achievements] The save's achievement data has a broken seal (edited, copied or " +
                                   "from another device/build). This game plays as Beliar.", LogCat.Achievements);
-        }
-
-        /// <summary>
-        /// Gothic's SAVEINFO of the save being written or loaded (date + play time): binds a section to its save.
-        /// </summary>
-        private static string GetSaveIdentity()
-        {
-            var metadata = ReflexProjectInstaller.DIContainer.Resolve<SaveGameService>().Save?.Metadata;
-            if (metadata == null)
-                return string.Empty;
-
-            return $"{metadata.SaveDate.Trim()}|{(int)metadata.PlayTime.TotalSeconds}";
         }
 
         /// <summary>

@@ -10,7 +10,6 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Proxy;
 using Gothic.Core.Models.SaveGames;
-using Gothic.Core.Services.Achievements;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -450,8 +449,18 @@ namespace Gothic.Core.Services.World
                 return false;
             }
 
-            // Only now the save counts as the run's newest (Capture() ran before success was known).
-            ReflexProjectInstaller.DIContainer.Resolve<AchievementService>().OnSaveCommitted();
+            // Capture() ran before success was known.
+            foreach (var (key, section) in _sections)
+            {
+                try
+                {
+                    section.OnCommitted();
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError($"[SaveGame] Section {key} failed after the save was written: {e}", LogCat.Loading);
+                }
+            }
 
             // ZenKit's SaveGame now points to the .tmp folder. Re-open it from the slot, so that worlds which aren't
             // loaded yet are fetched from the new save.

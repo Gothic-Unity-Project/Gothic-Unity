@@ -46,9 +46,12 @@ Classic) for reference: wiki page "Achievements". We don't use their titles, tex
    `core.achievements` (`AchievementRunSaveSection`). The section only captures and restores; `AchievementService`
    owns the run state and decides the run on the first `WorldSceneLoaded` after `LoadGameStart` (new game, the
    restored section, or none). It is registered in `SaveGameService.Init()` like Core's other sections, so
-   `Reset()` runs on a new game and before every load.
-6. **Save committed:** `SaveGameService.SaveCurrentGame()` calls `AchievementService.OnSaveCommitted()` after the
-   slot folder was replaced successfully; the service commits the run id and save number its `Capture()` wrote.
+   `Reset()` runs on a new game and before every load. The section is the save side's only voice: it tells the
+   service whether a new game starts (`ResetRun(isNewGame)`) and the save's identity (`CaptureRun(identity)`,
+   `RestoreRun(data, identity)`); `AchievementService` doesn't know `SaveGameService`.
+6. **Save committed:** `SaveGameService.SaveCurrentGame()` calls `ISaveStateSection.OnCommitted()` on every section
+   after the slot folder was replaced successfully; the achievement section passes it on to
+   `AchievementService.OnSaveCommitted()`, which commits the run id and save number its `Capture()` wrote.
    `Capture()` runs before success is known, so a failed save never counts as the run's newest.
 7. **Unlock event:** `GlobalEventDispatcher.AchievementUnlocked(definition, tier)`, raised only by
    `AchievementService`, also when a tier is upgraded. The toast and the menu page listen to it and read the shared
