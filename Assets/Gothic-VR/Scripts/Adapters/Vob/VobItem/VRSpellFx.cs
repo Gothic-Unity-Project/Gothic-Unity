@@ -519,7 +519,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             stationaryLight.Range = _lightRange;
             stationaryLight.Intensity = _lightIntensity;
             stationaryLight.Index = _stationaryLightsService.HeroLightIndex;
-            _stationaryLightsService.ClaimHeroLight(lightGo);
+            // Its Unity light casts the Light spell's shadow (Shadows option).
+            _stationaryLightsService.ClaimHeroLight(lightGo, stationaryLight.GetComponent<Light>());
             stationaryLight.Init();
 
             _meshService.CreateVobPfx("MFX_LIGHT_INIT", parent: lightGo);

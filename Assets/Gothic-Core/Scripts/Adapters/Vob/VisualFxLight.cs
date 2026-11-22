@@ -51,6 +51,7 @@ namespace Gothic.Core.Adapters.Vob
             _light.Color = preset.Color;
             _light.Range = Mathf.Max(0.01f, _baseRange);
             _light.RuntimeLinearColor = preset.Color.linear;
+            _light.IsSpellLight = true;
             _light.Init();
             _gatheredAt = transform.position;
             Apply();

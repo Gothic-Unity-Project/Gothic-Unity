@@ -146,6 +146,11 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public bool IsOutdoor { get; set; }
 
+        /// <summary>
+        /// A spell's light (VisualFxLight): it casts a shadow before the lamps (StationaryLightsService).
+        /// </summary>
+        public bool IsSpellLight { get; set; }
+
         public int AffectedRendererCount => _affectedRenderers.Count;
 
         public IReadOnlyList<MeshRenderer> AffectedRenderers => _affectedRenderers;

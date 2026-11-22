@@ -11,6 +11,7 @@ using Gothic.Core.Services.Meshes;
 using Gothic.Core.Services.Npc;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Services;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using ZenKit.Daedalus;
@@ -30,6 +31,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [Inject] private readonly MeshService _meshService;
         [Inject] private readonly VmCacheService _vmCacheService;
         [Inject] private readonly MultiTypeCacheService _multiTypeCacheService;
+        [Inject] private readonly StationaryLightsService _stationaryLightsService;
 
         private readonly ParticleEffectEmitKeyInstance _castKey;
         private readonly string _mfxName;
@@ -197,6 +199,9 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             light.range = 3f;
             light.intensity = 2f;
             light.color = GetSpellLightColor(mfxName);
+            // A flying fireball lights the walls it passes and throws shadows (Shadows option) - gone with the
+            // projectile (the service drops destroyed lights).
+            _stationaryLightsService.AddDynamicShadowLight(light);
 
             var homingTarget = lockedTarget?.Go != null
                 ? lockedTarget

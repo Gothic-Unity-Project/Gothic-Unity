@@ -94,7 +94,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _light.Range = visual.LightRange;
             _light.Intensity = 1f;
             _light.Index = _stationaryLightsService.HeroLightIndex;
-            _stationaryLightsService.ClaimHeroLight(this);
+            // Its Unity light casts the torch's shadow (Shadows option).
+            _stationaryLightsService.ClaimHeroLight(this, _light.GetComponent<Light>());
             _light.Init();
             StartCoroutine(DriveLight(visual));
 

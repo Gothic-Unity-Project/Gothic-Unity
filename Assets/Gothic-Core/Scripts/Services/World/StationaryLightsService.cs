@@ -101,6 +101,8 @@ namespace Gothic.Core.Services.World
         private readonly Stack<int> _freeRuntimeSlots = new();
         // Who drives the hero light now - the last ClaimHeroLight wins, only it may update or release the slot.
         private object _heroLightOwner;
+        // The hero light's Unity light (torch, Light spell) - a dynamic shadow light while the option is on.
+        private Light _heroUnityLight;
         private readonly HashSet<StationaryLight> _pooledLights = new();
         // Pooled lights in reach with their reach (distance to the camera minus range), sorted closest first.
         private readonly List<(float Reach, StationaryLight Light)> _pooledSorted = new();
@@ -548,6 +550,9 @@ namespace Gothic.Core.Services.World
             _pooledLights.Clear();
             _shadowLights.Clear();
             _shadowUnityLights.Clear();
+            _dynamicShadowLights.Clear();
+            _dynamicShadowNearPlanes.Clear();
+            _heroUnityLight = null;
             _poolPeak = 0;
             _isPoolDirty = true;
 
@@ -561,8 +566,14 @@ namespace Gothic.Core.Services.World
         /// The owner (a burning torch, a Light spell) takes the hero light - there's one slot, so the previous owner's
         /// light goes dark (its updates are ignored from now on, IsHeroLightOwner tells it).
         /// </summary>
-        public void ClaimHeroLight(object owner)
+        public void ClaimHeroLight(object owner, Light unityLight = null)
         {
+            if (_heroUnityLight != null && _heroUnityLight != unityLight)
+                RemoveDynamicShadowLight(_heroUnityLight);
+            _heroUnityLight = unityLight;
+            // The torch's own stick and the hand would hide the flame - geometry closer than this casts nothing.
+            if (unityLight != null)
+                AddDynamicShadowLight(unityLight, _heroShadowNearPlane);
             if (_heroLightOwner != null && !ReferenceEquals(_heroLightOwner, owner))
                 Logger.Log($"[StationaryLights] Hero light taken over by {owner} from {_heroLightOwner}", LogCat.Vob);
             _heroLightOwner = owner;
@@ -582,8 +593,11 @@ namespace Gothic.Core.Services.World
             if (HeroLightIndex < 0 || _lightPositionsAndAttenuation == null)
                 return true; // world not loaded yet
 
+            // w < 0: a shadow casting light, the shaders light it through URP (GothicShadowedLights).
+            var attenuation = 1f / (rangeMeters * rangeMeters);
+            var isShadowed = _heroUnityLight != null && _shadowUnityLights.Contains(_heroUnityLight);
             _lightPositionsAndAttenuation[HeroLightIndex] = new Vector4(
-                worldPosition.x, worldPosition.y, worldPosition.z, 1f / (rangeMeters * rangeMeters));
+                worldPosition.x, worldPosition.y, worldPosition.z, isShadowed ? -attenuation : attenuation);
             _lightColors[HeroLightIndex] = linearColor;
             UploadGlobalLightArrays();
             return true;
@@ -598,6 +612,9 @@ namespace Gothic.Core.Services.World
             if (!IsHeroLightOwner(owner))
                 return;
             _heroLightOwner = null;
+            if (_heroUnityLight != null)
+                RemoveDynamicShadowLight(_heroUnityLight);
+            _heroUnityLight = null;
             if (HeroLightIndex < 0 || _lightPositionsAndAttenuation == null)
                 return;
 
@@ -857,6 +874,8 @@ namespace Gothic.Core.Services.World
         /// </summary>
         private void UpdateShadowLights(Vector3 cameraPosition)
         {
+            _shadowUnityLights.RemoveWhere(light => light == null);
+            _dynamicShadowLights.RemoveAll(light => light == null);
             _shadowCandidates.Clear();
             _wantedShadowLights.Clear();
             if (_configService.Gothic.GetInt(Constants.IniNames.Shadows, Constants.IniNames.ShadowsDefaultValue) > 0)
@@ -867,8 +886,10 @@ namespace Gothic.Core.Services.World
                         !light.isActiveAndEnabled)
                         continue;
                     var distance = Vector3.Distance(light.CachedPosition, cameraPosition);
-                    if (distance - light.CachedRange <= _shadowLightMaxDistance)
-                        _shadowCandidates.Add((distance, light));
+                    if (distance - light.CachedRange > _shadowLightMaxDistance)
+                        continue;
+                    // Spell effects (summoning, fire rain) before lamps - they're short and right next to the hero.
+                    _shadowCandidates.Add((light.IsSpellLight ? distance - _shadowLightMaxDistance : distance, light));
                 }
                 _shadowCandidates.Sort((a, b) => a.Distance.CompareTo(b.Distance));
                 for (var i = 0; i < _shadowCandidates.Count && i < _maxShadowLights; i++)
@@ -896,6 +917,7 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public void RefreshShadowLights()
         {
+            RefreshDynamicShadowLights();
             var cam = Camera.main;
             if (cam == null || _lightPositionsAndAttenuation == null)
                 return;
@@ -903,6 +925,70 @@ namespace Gothic.Core.Services.World
                 if (light != null)
                     SetLightShadow(light, true);
             UpdateShadowLights(cam.transform.position);
+        }
+
+        /// <summary>
+        /// Moving lights that cast shadows: the hero's torch / Light spell (ClaimHeroLight) and spell projectiles
+        /// (VRSpellThrow). URP renders their cube shadow every frame; the shaders light the world with them through
+        /// URP (GothicShadowLightsFeature) - before, a projectile's light only reached NPCs and objects.
+        /// Up to _maxDynamicShadowLights at once, more stay plain lights.
+        /// </summary>
+        private const int _maxDynamicShadowLights = 4;
+        private const float _heroShadowNearPlane = 0.2f;
+        private const float _dynamicShadowNearPlane = 0.15f;
+        private readonly List<Light> _dynamicShadowLights = new();
+        private readonly Dictionary<Light, float> _dynamicShadowNearPlanes = new();
+
+        public void AddDynamicShadowLight(Light light, float nearPlane = _dynamicShadowNearPlane)
+        {
+            if (light == null || _dynamicShadowLights.Contains(light))
+                return;
+            _dynamicShadowLights.RemoveAll(other => other == null);
+            if (_dynamicShadowLights.Count >= _maxDynamicShadowLights)
+                return;
+
+            _dynamicShadowLights.Add(light);
+            _dynamicShadowNearPlanes[light] = nearPlane;
+            ApplyDynamicShadow(light);
+        }
+
+        public void RemoveDynamicShadowLight(Light light)
+        {
+            if (light == null || !_dynamicShadowLights.Remove(light))
+                return;
+            _dynamicShadowNearPlanes.Remove(light);
+            _shadowUnityLights.Remove(light);
+            light.shadows = LightShadows.None;
+            light.renderMode = LightRenderMode.Auto;
+        }
+
+        private void RefreshDynamicShadowLights()
+        {
+            _dynamicShadowLights.RemoveAll(light => light == null);
+            foreach (var light in _dynamicShadowLights)
+                ApplyDynamicShadow(light);
+        }
+
+        private void ApplyDynamicShadow(Light light)
+        {
+            var option = _configService.Gothic.GetInt(Constants.IniNames.Shadows,
+                Constants.IniNames.ShadowsDefaultValue);
+            var isOn = option > 0;
+            light.shadows = !isOn ? LightShadows.None : option == 1 ? LightShadows.Hard : LightShadows.Soft;
+            light.renderMode = isOn ? LightRenderMode.ForcePixel : LightRenderMode.Auto;
+            light.shadowNearPlane = _dynamicShadowNearPlanes.TryGetValue(light, out var nearPlane)
+                ? nearPlane
+                : _dynamicShadowNearPlane;
+            if (isOn)
+            {
+                light.GetUniversalAdditionalLightData().softShadowQuality =
+                    option == 2 ? SoftShadowQuality.Low : SoftShadowQuality.High;
+                _shadowUnityLights.Add(light);
+            }
+            else
+            {
+                _shadowUnityLights.Remove(light);
+            }
         }
 
         private void SetLightShadow(StationaryLight light, bool isOn)
