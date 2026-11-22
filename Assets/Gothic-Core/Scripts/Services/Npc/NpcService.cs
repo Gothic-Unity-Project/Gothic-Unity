@@ -82,6 +82,8 @@ namespace Gothic.Core.Services.Npc
             
             GlobalEventDispatcher.NpcMeshCullingChanged.AddListener(EventNpcMeshCullingChanged);
             GlobalEventDispatcher.CreateNpc.AddListener(CreateVobNpc);
+            // An armor change of an already built NPC swaps its body mesh (G2 Greg in the farmer clothes).
+            GlobalEventDispatcher.NpcVisualBodyChanged.AddListener(_initializerDomain.RebuildBody);
         }
 
         public void ClearQueues()

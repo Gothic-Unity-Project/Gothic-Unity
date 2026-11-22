@@ -473,6 +473,33 @@ namespace Gothic.Core.Domain.Npc
             _npcLookService.Apply(npcData);
         }
 
+        /// <summary>
+        /// The NPC's visual body changed (NpcVisualBodyChanged: an armor (un)equipped, Mdl_SetVisualBody) after its mesh
+        /// was built: the body is swapped on the existing skeleton, like the engine (G2 Greg putting on the farmer
+        /// clothes). Not built yet (lazy loading): InitNpc builds it from props.MdmName later. The hero is skipped - his
+        /// GameObject is the player rig, the VR hero body rebuilds itself.
+        /// </summary>
+        public void RebuildBody(NpcContainer npc)
+        {
+            if (npc?.Go == null || npc.Vob == null || npc.Vob.Player)
+                return;
+
+            var props = npc.Props;
+            if (string.IsNullOrEmpty(props.MdmName))
+                return;
+
+            var mdhName = string.IsNullOrEmpty(props.MdhNameOverlay)
+                ? props.MdhNameBase
+                : props.MdhNameOverlay;
+            if (!_meshService.RebuildNpcBody(npc.Go, props.MdmName, mdhName, props.BodyData))
+                return;
+
+            // Fatness and ghosts are set on the body's materials - the new ones need them too.
+            _npcLookService.Apply(npc);
+            Logger.Log($"[ArmorVisual] {npc.Instance.GetName(NpcNameSlot.Slot0)}: body rebuilt as '{props.MdmName}'",
+                LogCat.Npc);
+        }
+
         [CanBeNull]
         private WayNetPoint GetSpawnPoint(NpcContainer npc, string fallbackSpawnPoint)
         {
