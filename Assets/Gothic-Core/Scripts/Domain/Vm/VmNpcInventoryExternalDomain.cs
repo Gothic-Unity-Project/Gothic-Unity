@@ -106,6 +106,7 @@ namespace Gothic.Core.Domain.Vm
         public void Npc_RemoveInvItem(NpcInstance npc, int itemId)
         {
             _npcInventoryService.ExtRemoveInvItems(npc, itemId, 1);
+            _npcInventoryService.UnequipIfLastOneRemoved(npc, itemId);
             GlobalEventDispatcher.ScriptRemovedInvItems.Invoke(npc.GetUserData(), itemId, 1);
             _support.LogInstantExternal(nameof(Npc_RemoveInvItem), npc, itemId);
         }
@@ -113,6 +114,7 @@ namespace Gothic.Core.Domain.Vm
         public void Npc_RemoveInvItems(NpcInstance npc, int itemId, int amount)
         {
             _npcInventoryService.ExtRemoveInvItems(npc, itemId, amount);
+            _npcInventoryService.UnequipIfLastOneRemoved(npc, itemId);
             GlobalEventDispatcher.ScriptRemovedInvItems.Invoke(npc.GetUserData(), itemId, amount);
             _support.LogInstantExternal(nameof(Npc_RemoveInvItems), npc, itemId, amount);
         }
