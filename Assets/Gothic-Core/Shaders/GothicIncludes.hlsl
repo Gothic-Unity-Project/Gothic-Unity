@@ -84,6 +84,13 @@ half3 SunAndAmbientDiffuse(float3 normal, half3 vertexShadowmap)
     return saturate(diffuseDot * _SunColor * vertexShadowmap + _AmbientColor);
 }
 
+// The sun's part of SunAndAmbientDiffuse - per vertex; the fragment adds the ambient after the sun's shadow
+// (GothicSunAndAmbient in GothicShadows.hlsl).
+half3 SunDiffuse(float3 normal, half3 vertexShadowmap)
+{
+    return saturate(dot(normal, -_SunDirection)) * _SunColor * vertexShadowmap;
+}
+
 // Apply underwater color tinting when flag is enabled
 half3 ApplyUnderWaterEffect(half3 diffuse)
 {

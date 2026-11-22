@@ -25,6 +25,9 @@ Shader "Lit/AlphaToCoverage"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma multi_compile_local _ _WIND
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -45,6 +48,8 @@ Shader "Lit/AlphaToCoverage"
                 float4 uv : TEXCOORD0;
                 float distance : TEXCOORD1;
                 float3 worldPos : TEXCOORD2;
+                // The sun's part (shadowed per pixel); diffuse: fires/torches.
+                half3 sunDiffuse : TEXCOORD3;
                 half3 diffuse : COLOR;
 
                 UNITY_VERTEX_OUTPUT_STEREO
@@ -66,10 +71,12 @@ Shader "Lit/AlphaToCoverage"
             #include "GothicIncludes.hlsl"
             #include "StationaryLighting.hlsl"
             #include "GothicWind.hlsl"
+            #include "GothicShadows.hlsl"
 
-            half3 DiffuseLighting(half3 normal, float3 worldPos, half3 color)
+            // Fires/torches - the sun and the ambient come per pixel (SunAndAmbientShadowed).
+            half3 DiffuseLighting(half3 normal, float3 worldPos)
             {
-                half3 diffuse = SunAndAmbientDiffuse(normal, color);
+                half3 diffuse = 0;
 
                 //for (int j = 0; j < min(MAX_VISIBLE_LIGHTS, unity_LightData.y); j++)
                 //{
@@ -103,7 +110,9 @@ Shader "Lit/AlphaToCoverage"
                 float3 toCamera = o.worldPos - _WorldSpaceCameraPos;
                 o.distance = length(toCamera);
                 o.uv = float4(v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy, v.uv.zw);
-                o.diffuse = DiffuseLighting(TransformObjectToWorldNormal(v.normal), o.worldPos, v.color);
+                half3 normalWS = TransformObjectToWorldNormal(v.normal);
+                o.sunDiffuse = SunDiffuse(normalWS, v.color);
+                o.diffuse = DiffuseLighting(normalWS, o.worldPos);
 
                 return o;
             }
@@ -120,7 +129,9 @@ Shader "Lit/AlphaToCoverage"
                 albedo.a = lerp((albedo.a - _Cutoff) / max(fwidth(albedo.a), 0.0001) + 0.5, albedo.a,
                                                       saturate(max(i.distance, 0.0001) / _DistanceFade));
 
-                half3 diffuse = albedo.rgb * i.diffuse;
+                GothicOcclusion occlusion = GothicGetOcclusion(i.vertex);
+                half3 light = GothicSunAndAmbient(i.sunDiffuse, i.worldPos, occlusion) + i.diffuse * occlusion.direct;
+                half3 diffuse = albedo.rgb * light;
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
                 
@@ -129,6 +140,120 @@ Shader "Lit/AlphaToCoverage"
 #endif
                 return half4(diffuse, albedo.a);
             }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            AlphaToMask Off
+            // Gothic's polygons are one-sided: a wall facing away from the light still casts its shadow.
+            Cull Off
+
+            HLSLPROGRAM
+            #pragma vertex GothicShadowVert
+            #pragma fragment GothicShadowFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            TEXTURE2D_ARRAY(_MainTex);
+            SAMPLER(sampler_MainTex);
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_TexelSize;
+                half _Cutoff;
+                half _MipScale;
+                float _DistanceFade;
+                int _StationaryLightCount;
+                float4x4 _StationaryLightIndices;
+                float _WindStrength;
+            CBUFFER_END
+
+            #define GOTHIC_SHADOW_ALPHA_CLIP
+            #include "GothicIncludes.hlsl"
+            #include "GothicWind.hlsl"
+            #include "GothicShadowCaster.hlsl"
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+            ZWrite On
+            ZTest LEqual
+            ColorMask R
+            AlphaToMask Off
+
+            HLSLPROGRAM
+            #pragma vertex GothicDepthVert
+            #pragma fragment GothicDepthFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            TEXTURE2D_ARRAY(_MainTex);
+            SAMPLER(sampler_MainTex);
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_TexelSize;
+                half _Cutoff;
+                half _MipScale;
+                float _DistanceFade;
+                int _StationaryLightCount;
+                float4x4 _StationaryLightIndices;
+                float _WindStrength;
+            CBUFFER_END
+
+            #define GOTHIC_SHADOW_ALPHA_CLIP
+            #include "GothicIncludes.hlsl"
+            #include "GothicWind.hlsl"
+            #include "GothicDepthPasses.hlsl"
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+            ZWrite On
+            ZTest LEqual
+            AlphaToMask Off
+
+            HLSLPROGRAM
+            #pragma vertex GothicDepthVert
+            #pragma fragment GothicDepthNormalsFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            TEXTURE2D_ARRAY(_MainTex);
+            SAMPLER(sampler_MainTex);
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_TexelSize;
+                half _Cutoff;
+                half _MipScale;
+                float _DistanceFade;
+                int _StationaryLightCount;
+                float4x4 _StationaryLightIndices;
+                float _WindStrength;
+            CBUFFER_END
+
+            #define GOTHIC_SHADOW_ALPHA_CLIP
+            #include "GothicIncludes.hlsl"
+            #include "GothicWind.hlsl"
+            #include "GothicDepthPasses.hlsl"
             ENDHLSL
         }
     }

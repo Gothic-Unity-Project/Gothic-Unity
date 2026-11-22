@@ -253,7 +253,8 @@ namespace Gothic.Core.Models.Config
 
         [Range(0, 1)]
         public float SunLightIntensity = 1;
-        public GameTimeService.GameTimeInterval SunUpdateInterval = GameTimeService.GameTimeInterval.EveryGameMinute;
+        [Tooltip("How often the sun (and its shadows) moves. Every game second is smooth; every game minute jumps.")]
+        public GameTimeService.GameTimeInterval SunUpdateInterval = GameTimeService.GameTimeInterval.EveryGameSecond;
         public Color AmbientLightColor = new(0.1f, 0.1f, 0.1f, 1);
 
         [Tooltip("Light mapped world polygons (caves, mines, houses) show Gothic's lightmaps like the engine - " +

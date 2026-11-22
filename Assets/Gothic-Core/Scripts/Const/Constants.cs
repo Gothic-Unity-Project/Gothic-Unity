@@ -15,6 +15,10 @@ namespace Gothic.Core.Const
         {
             // Choice 0 Low / 1 Medium / 2 High: how often moving lights (torch, Light spell) update the world shader.
             public const string LightRefresh = "lightRefresh";
+            // Choice 0 Off / 1 Hard / 2 Medium / 3 Soft (default): the dynamic shadows of the sun, moon and lights.
+            // Only where the quality level draws shadows at all (PC; Quest has none).
+            public const string Shadows = "shadows";
+            public const int ShadowsDefaultValue = 3;
             // 1 = "-X HP" numbers over NPC heads and next to the hero's bar, 0 = off (default).
             public const string HitNumbers = "hitNumbers";
             // 1 = "HP/MAX" on health bars (and "MANA/MAX" on the hero's mana bar), 0 = off (default).

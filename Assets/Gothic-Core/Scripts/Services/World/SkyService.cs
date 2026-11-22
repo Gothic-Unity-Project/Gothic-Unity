@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Models.Sky;
@@ -11,6 +12,7 @@ using Gothic.Core.Extensions;
 using Reflex.Attributes;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using Logger = Gothic.Core.Logging.Logger;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
@@ -29,7 +31,23 @@ namespace Gothic.Core.Services.World
         // The light of indoor worlds (no sun, no fog) - like the night.
         private static readonly Color _indoorLight = new(0.25f, 0.25f, 0.3f);
 
-        private Vector3 _sunDirection;
+        // The sun's path is tilted by this much towards the south: at noon it's 60 degrees high, shadows never vanish
+        // under the objects. Gothic's own sun stands still - its shadows are baked into the vertex light.
+        private const float _sunPathTilt = 30f;
+        // Degrees above the horizon over which the shadows fade in (sunrise/sunset, moonrise/moonset).
+        private const float _sunHorizonFadeDegrees = 8f;
+        // How dark the sun's/moon's shadow is: GD3D11 leaves 40% of the sun light in the shadow; the moon is weaker.
+        private const float _sunShadowStrength = 0.6f;
+        private const float _moonShadowStrength = 0.35f;
+
+        // The direction the light travels (from the sun - at night the moon - to the ground): the shaders' _SunDirection
+        // and the "Sun" light's forward.
+        private Vector3 _sunDirection = Vector3.down;
+        // URP's main light, only for its shadow map (dynamic sun/moon shadows, GothicShadows.hlsl) and URP-lit
+        // materials. Gothic's shaders take the sun's color from _SunColor. Per world (lives in the world scene).
+        private Light _sunLight;
+        // 0 at the horizon, 1 a few degrees above: the light switches between sun and moon unseen.
+        private float _sunShadowFade;
         private bool _isRaining;
         public bool IsRaining => _isRaining;
 
@@ -114,10 +132,12 @@ namespace Gothic.Core.Services.World
             // Remove old world events if necessary.
             GlobalEventDispatcher.GameTimeSecondChangeCallback.RemoveListener(Interpolate);
             GlobalEventDispatcher.GameTimeHourChangeCallback.RemoveListener(UpdateRainTime);
+            GlobalEventDispatcher.PlayerPrefUpdated.RemoveListener(OnPlayerPrefUpdated);
 
             // And now re-add the events.
             GlobalEventDispatcher.GameTimeSecondChangeCallback.AddListener(Interpolate);
             GlobalEventDispatcher.GameTimeHourChangeCallback.AddListener(UpdateRainTime);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnPlayerPrefUpdated);
 
             _isIndoorWorld = _saveGameService.CurrentWorldData?.BspTree?.Type == ZenKit.BspTreeType.Indoor;
             Logger.Log($"[Sky] Indoor world: {_isIndoorWorld} - day/night light is " +
@@ -140,6 +160,12 @@ namespace Gothic.Core.Services.World
         private void InitSky()
         {
             RotateSun(_gameTimeService.GetCurrentDateTime());
+            // Once per world: a second world load added a second listener.
+            GlobalEventDispatcher.GameTimeSecondChangeCallback.RemoveListener(RotateSun);
+            GlobalEventDispatcher.GameTimeMinuteChangeCallback.RemoveListener(RotateSun);
+            GlobalEventDispatcher.GameTimeHourChangeCallback.RemoveListener(RotateSun);
+            // Every game second (14 times a second, a 240th of a degree) the sun's shadows move smoothly; once per game
+            // minute they jumped.
             switch (_configService.Dev.SunUpdateInterval)
             {
                 case GameTimeService.GameTimeInterval.EveryGameSecond:
@@ -359,6 +385,8 @@ namespace Gothic.Core.Services.World
             Shader.SetGlobalColor(_sunColorShaderId,
                 _isIndoorWorld ? Color.black : _configService.Dev.SunLightColor * dayLight);
             Shader.SetGlobalColor(_ambientShaderId, _configService.Dev.AmbientLightColor * dayLight);
+            if (_sunLight != null)
+                _sunLight.color = _configService.Dev.SunLightColor * dayLight;
         }
 
         private void SetShaderProperties()
@@ -497,10 +525,85 @@ namespace Gothic.Core.Services.World
         /// Calculation: 270f is the starting midnight value
         /// Calculation: One full DateTime == 360°. --> e.g. 15° * 24h + 0min + 0sec == 360°
         /// </summary>
+        /// <summary>
+        /// The sun rises at 6:00, stands highest at 12:00 and sets at 18:00 (one turn per day); at night the moon takes
+        /// the opposite place on the same path. _SunDirection was these angles themselves (not a direction) - the
+        /// shaders' N·L was a switch on the normal's x then.
+        /// </summary>
         private void RotateSun(DateTime time)
         {
-            var xRotation = 270f + 15f * (time.Hour + time.Minute / 60f + time.Second / 3600f);
-            _sunDirection = new Vector3(xRotation % 360, 0, 0);
+            var hours = time.Hour + time.Minute / 60f + time.Second / 3600f;
+            var sunDirection = GetSunPathDirection(270f + 15f * hours);
+            var isDay = sunDirection.y < 0f;
+            _sunDirection = isDay ? sunDirection : -sunDirection;
+
+            var elevation = Mathf.Asin(Mathf.Clamp(-_sunDirection.y, -1f, 1f)) * Mathf.Rad2Deg;
+            _sunShadowFade = Mathf.Clamp01(elevation / _sunHorizonFadeDegrees);
+
+            UpdateSunLight(isDay);
+        }
+
+        private void OnPlayerPrefUpdated(string key, object value)
+        {
+            if (key == Constants.IniNames.Shadows)
+                ApplyShadowOption();
+        }
+
+        /// <summary>
+        /// Option "Shadows": off, hard (cheapest), medium or soft (wider filter, default) - the sun's/moon's shadow.
+        /// </summary>
+        private void ApplyShadowOption()
+        {
+            if (_sunLight == null)
+                return;
+
+            var option = _configService.Gothic.GetInt(Constants.IniNames.Shadows, Constants.IniNames.ShadowsDefaultValue);
+            _sunLight.shadows = option switch
+            {
+                0 => LightShadows.None,
+                1 => LightShadows.Hard,
+                _ => LightShadows.Soft
+            };
+            var lightData = _sunLight.GetUniversalAdditionalLightData();
+            lightData.softShadowQuality = option == 2 ? SoftShadowQuality.Low : SoftShadowQuality.High;
+            Logger.Log($"[Sky] Shadows option {option}: sun {_sunLight.shadows}, soft quality " +
+                       $"{lightData.softShadowQuality}.", LogCat.Loading);
+        }
+
+        /// <summary>
+        /// Light direction for the angle on the sun's path (0 = sunrise, 90 = noon, from above), tilted by _sunPathTilt.
+        /// </summary>
+        private static Vector3 GetSunPathDirection(float pathAngle)
+        {
+            return Quaternion.AngleAxis(_sunPathTilt, Vector3.forward) * Quaternion.Euler(pathAngle, 0f, 0f) *
+                   Vector3.forward;
+        }
+
+        /// <summary>
+        /// The "Sun": a directional light along _sunDirection, URP's main light. Its shadow map gives the dynamic
+        /// shadows; its strength fades out at the horizon and is weaker under the moon. Indoor worlds have none.
+        /// The URP asset decides whether shadows are drawn at all (PC: on, Quest: off).
+        /// </summary>
+        private void UpdateSunLight(bool isDay)
+        {
+            if (_sunLight == null)
+            {
+                var sunGo = new GameObject("Sun");
+                _sunLight = sunGo.AddComponent<Light>();
+                _sunLight.type = LightType.Directional;
+                _sunLight.shadows = LightShadows.Soft;
+                _sunLight.intensity = 1f;
+                RenderSettings.sun = _sunLight;
+                Logger.Log("[Sky] Sun light created - dynamic sun/moon shadows where the quality level has them.",
+                    LogCat.Loading);
+                ApplyShadowOption();
+            }
+
+            _sunLight.enabled = !_isIndoorWorld;
+            _sunLight.transform.rotation = Quaternion.LookRotation(_sunDirection);
+            Shader.SetGlobalVector(_sunDirectionShaderId, _sunDirection);
+            _sunLight.shadowStrength = (isDay ? _sunShadowStrength : _moonShadowStrength) * _sunShadowFade;
+            _sunLight.color = _configService.Dev.SunLightColor * _polyColor;
         }
     }
 }

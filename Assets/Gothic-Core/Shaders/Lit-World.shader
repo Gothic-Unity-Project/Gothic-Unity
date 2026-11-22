@@ -27,6 +27,10 @@ Shader "Lit/World"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma multi_compile_local _ _WIND
+            // Dynamic sun/moon shadows (GothicShadows.hlsl) - only where the URP asset has main light shadows.
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -53,7 +57,8 @@ Shader "Lit/World"
                 float4 uv : TEXCOORD0;
                 float3 worldPos : TEXCOORD1;
                 float4 lightmapUv : TEXCOORD2;
-                half3 normal : TEXCOORD3;
+                // w = 1 where the sun reaches: outdoor (vertex lit) polygons and VOBs outside of light mapped areas.
+                half4 normal : TEXCOORD3;
                 half3 baseLight : COLOR;
 
                 UNITY_VERTEX_OUTPUT_STEREO
@@ -80,6 +85,7 @@ Shader "Lit/World"
             #include "GothicIncludes.hlsl"
             #include "StationaryLighting.hlsl"
             #include "GothicWind.hlsl"
+            #include "GothicShadows.hlsl"
 
             // Per pixel: per vertex a torch in the middle of a big cave wall lit nothing (its corners are far away).
             half3 StationaryLighting(half3 normal, float3 worldPos)
@@ -117,7 +123,7 @@ Shader "Lit/World"
 #endif
                 o.uv = float4(v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy, v.uv.zw);
                 o.lightmapUv = v.lightmapUv;
-                o.normal = TransformObjectToWorldNormal(v.normal.xyz);
+                o.normal = half4(TransformObjectToWorldNormal(v.normal.xyz), v.normal.w * (1 - _VobLightTint.a));
                 // Gothic's baked vertex light; outdoor polygons follow the time of day.
                 o.baseLight = v.color * lerp(half3(1, 1, 1), _DayLightColor, v.normal.w);
                 // A VOB standing in a cave/house takes the light of the floor below it, like the engine's VOB lighting.
@@ -139,7 +145,16 @@ Shader "Lit/World"
                                                        i.lightmapUv.z).rgb * _WorldLightmapBrightness;
                 }
 
-                half3 light = baseLight + StationaryLighting(normalize(i.normal), i.worldPos);
+                half3 normal = normalize(i.normal.xyz);
+                // The sun's shadow darkens Gothic's baked (sun) light outdoors - not lightmaps, not the fires.
+                if (i.normal.w > 0.5)
+                {
+                    baseLight = GothicApplySunShadow(baseLight, normal, i.worldPos);
+                }
+
+                GothicOcclusion occlusion = GothicGetOcclusion(i.vertex);
+                half3 light = baseLight * occlusion.indirect +
+                    StationaryLighting(normal, i.worldPos) * occlusion.direct;
                 half3 diffuse = albedo.rgb * light * _FocusBrightness;
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
@@ -149,6 +164,102 @@ Shader "Lit/World"
 #endif
                 return half4(diffuse, 1);
             }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            // Gothic's polygons are one-sided: a wall facing away from the sun still casts its shadow.
+            Cull Off
+
+            HLSLPROGRAM
+            #pragma vertex GothicShadowVert
+            #pragma fragment GothicShadowFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_TexelSize;
+                int _StationaryLightCount;
+                float4x4 _StationaryLightIndices;
+                float4x4 _StationaryLightIndices2;
+                float _WindStrength;
+                float4 _VobLightTint;
+            CBUFFER_END
+
+            #include "GothicIncludes.hlsl"
+            #include "GothicWind.hlsl"
+            #include "GothicShadowCaster.hlsl"
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+            ZWrite On
+            ZTest LEqual
+            ColorMask R
+
+            HLSLPROGRAM
+            #pragma vertex GothicDepthVert
+            #pragma fragment GothicDepthFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_TexelSize;
+                int _StationaryLightCount;
+                float4x4 _StationaryLightIndices;
+                float4x4 _StationaryLightIndices2;
+                float _WindStrength;
+                float4 _VobLightTint;
+            CBUFFER_END
+
+            #include "GothicIncludes.hlsl"
+            #include "GothicWind.hlsl"
+            #include "GothicDepthPasses.hlsl"
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+            ZWrite On
+            ZTest LEqual
+
+            HLSLPROGRAM
+            #pragma vertex GothicDepthVert
+            #pragma fragment GothicDepthNormalsFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_TexelSize;
+                int _StationaryLightCount;
+                float4x4 _StationaryLightIndices;
+                float4x4 _StationaryLightIndices2;
+                float _WindStrength;
+                float4 _VobLightTint;
+            CBUFFER_END
+
+            #include "GothicIncludes.hlsl"
+            #include "GothicWind.hlsl"
+            #include "GothicDepthPasses.hlsl"
             ENDHLSL
         }
     }

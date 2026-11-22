@@ -140,7 +140,8 @@ namespace Gothic.VR.Services.Context
                     CreateToggleChoice(gameMenu, "HEALTH_NUMBERS", Constants.IniNames.HealthNumbers)),
                 (CreateToggleLabel(gameMenu, "DIALOG_FREE_MOVEMENT", "dialogFreeMovement"),
                     CreateToggleChoice(gameMenu, "DIALOG_FREE_MOVEMENT", Constants.IniNames.DialogFreeMovement)),
-                (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "lightRefresh"), CreateLightRefreshChoice(gameMenu))
+                (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "lightRefresh"), CreateLightRefreshChoice(gameMenu)),
+                (CreateToggleLabel(gameMenu, "SHADOWS", "shadows"), CreateShadowsChoice(gameMenu))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
@@ -271,6 +272,17 @@ namespace Gothic.VR.Services.Context
         {
             var item = CreateToggleChoice(gameMenu, "LIGHT_REFRESH", Constants.IniNames.LightRefresh);
             item.SetText(0, _localizationService.GetText("menuitem.lightRefresh.value"));
+            return item;
+        }
+
+        /// <summary>
+        /// Dynamic shadows (Core, SkyService): off, hard, medium, soft - slower PCs pick hard or off.
+        /// </summary>
+        private MutableMenuItemInstance CreateShadowsChoice(AbstractMenuInstance gameMenu)
+        {
+            var item = CreateToggleChoice(gameMenu, "SHADOWS", Constants.IniNames.Shadows,
+                Constants.IniNames.ShadowsDefaultValue);
+            item.SetText(0, _localizationService.GetText("menuitem.shadows.value"));
             return item;
         }
 

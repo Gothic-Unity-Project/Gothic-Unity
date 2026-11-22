@@ -69,7 +69,7 @@ MonoBehaviour:
   EnableGameSounds: 1
   SunLightColor: {r: 0.69, g: 0.69, b: 0.69, a: 1}
   SunLightIntensity: 1
-  SunUpdateInterval: 1
+  SunUpdateInterval: 0
   AmbientLightColor: {r: 0.1, g: 0.1, b: 0.1, a: 1}
   EnableWorldLightmaps: 1
   StartTimeHour: 8
