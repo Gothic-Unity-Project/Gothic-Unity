@@ -110,7 +110,7 @@ namespace Gothic.VR.Adapters.Player
         private readonly List<Transform> _footBones = new();
         // Crouched and standing still for this long: the hero kneels (the camera goes down to the kneel pose's eyes,
         // e.g. at a chest), moving takes him back to the sneak pose. Short stops while walking don't bob the camera.
-        private const float _kneelDelay = 0.3f;
+        private const float _kneelDelay = 1f;
         private float _lastCrouchMoveTime = float.NegativeInfinity;
         private bool _isKneeling;
 
