@@ -39,6 +39,9 @@ namespace Gothic.Core.Services.Meshes
             npcBuilder.SetMdm(mdmName);
             npcBuilder.SetBodyData(bodyData);
             npcBuilder.SetHitboxExpected(isHitboxExpected);
+            // Color-only armor parts (e.g. Greg's captain hat, material KOPFTUCH) are drawn in their color like in the
+            // engine. Skipping them hid the part and shifted all following materials by one sub mesh.
+            npcBuilder.SetAllowUntextured(true);
 
             var npcGo = npcBuilder.Build();
 
@@ -51,6 +54,22 @@ namespace Gothic.Core.Services.Meshes
             npcHeadBuilder.Build();
 
             return npcGo;
+        }
+
+        /// <summary>
+        /// Swaps the body/armor mesh of an already built NPC (runtime armor change) on its existing skeleton.
+        /// </summary>
+        public bool RebuildNpcBody(GameObject npcRoot, string mdmName, string mdhName, ExtSetVisualBodyData bodyData)
+        {
+            var npcBuilder = new NpcMeshBuilder().Inject();
+            npcBuilder.SetGameObject(npcRoot);
+            npcBuilder.SetMeshName(mdmName);
+            npcBuilder.SetMdh(mdhName);
+            npcBuilder.SetMdm(mdmName);
+            npcBuilder.SetBodyData(bodyData);
+            npcBuilder.SetAllowUntextured(true);
+
+            return npcBuilder.RebuildBody();
         }
 
         public GameObject CreateNpcWeapon(GameObject npcGo, ItemInstance itemData,
