@@ -653,10 +653,9 @@ namespace Gothic.Core.Domain.Vobs
 
             // A static light is in the world's lightmaps (EnableWorldLightmaps) - it lights VOBs and NPCs only.
             lightComp.IsBakedIntoWorld = vob.LightStatic && _stationaryLightsService.HasWorldLightmaps;
-            // Street lamps and camp fires dim by day (StationaryLightsService.SetDaylight) - not the fireplaces in
-            // houses and caves (light mapped polygons around).
-            lightComp.IsOutdoor = !_stationaryLightsService.IsNearLightMappedPolygons(worldPosition,
-                Constants.Fires.IndoorRadius);
+            // Street lamps and camp fires dim by day (StationaryLightsService.SetDaylight) - not the lights under a
+            // light mapped ceiling (houses, caves, Khorinis' sewers below the market).
+            lightComp.IsOutdoor = !_stationaryLightsService.HasLightMappedCeiling(worldPosition);
 
             // All world lights share the shader slots - the ones closest to the camera get them.
             lightComp.RuntimeLinearColor = lightComp.Color.linear;

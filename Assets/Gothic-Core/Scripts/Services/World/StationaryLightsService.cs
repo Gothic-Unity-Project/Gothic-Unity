@@ -626,6 +626,21 @@ namespace Gothic.Core.Services.World
         /// Gothic bakes a static light into the world's vertex light outdoors (we render that already) and into
         /// lightmaps indoors (caves, houses - we don't). Only lights next to light mapped polygons are worth a slot.
         /// </summary>
+        /// <summary>
+        /// Light mapped polygons in the 2 m column right above (2 to 8 m up): a roof or a ceiling - the position is
+        /// indoors (house, cave, sewer). Walls next to it don't count (Khorinis' street lamps stand next to light mapped
+        /// walls, the sewers' lamps below the open market).
+        /// </summary>
+        public bool HasLightMappedCeiling(Vector3 position)
+        {
+            for (var up = 1; up <= 4; up++)
+            {
+                if (_lightMappedCells.Contains(ToCell(position + Vector3.up * (up * _cellSize))))
+                    return true;
+            }
+            return false;
+        }
+
         public bool IsNearLightMappedPolygons(Vector3 position, float rangeMeters)
         {
             if (_lightMappedCells.Count == 0)
