@@ -357,5 +357,8 @@ namespace Gothic.Core
         public static readonly UnityEvent<bool> MarvinModeChanged = new();
         // The Gothic-Unity logo in the menu got clicked. VR uses the event data to vibrate the clicking hand.
         public static readonly UnityEvent<PointerEventData> MarvinLogoPoked = new();
+        // The Gothic logo in the menu got clicked (not the click completing the Marvin pokes). GameObject is the
+        // logo - the VR help panels switch on their own logo only.
+        public static readonly UnityEvent<GameObject> GothicLogoClicked = new();
     }
 }

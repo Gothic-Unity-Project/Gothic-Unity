@@ -34,6 +34,12 @@ namespace Gothic.Core.Adapters.UI.Menus
         // Cached MainMenu tree hierarchy of submenus (load, save, settings) and their children (sub-settings, settings fields)
         public AbstractMenuInstance MainMenuHierarchy { get; private set; }
 
+        /// <summary>
+        /// The open (sub)menu, null while none is open.
+        /// </summary>
+        public GameObject CurrentMenu =>
+            _currentMenu.IsNullOrEmpty() ? null : _menuList.GetValueOrDefault(_currentMenu);
+
         private void Awake()
         {
             InitializeMenus();

@@ -119,11 +119,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &64750182 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 1879303798920566507, guid: a0af29d97abd24d4c8382b6da4017660, type: 3}
-  m_PrefabInstance: {fileID: 2140893076}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &64750183 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2283093842980008316, guid: a0af29d97abd24d4c8382b6da4017660, type: 3}
@@ -233,15 +228,16 @@ PrefabInstance:
       propertyPath: m_Name
       value: Gothic-logo
       objectReference: {fileID: 0}
-    - target: {fileID: 6793405629452684711, guid: d905c6fd3294c82478f4edf887cac0a9, type: 3}
-      propertyPath: _tutorialHandler
-      value: 
-      objectReference: {fileID: 64750182}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: d905c6fd3294c82478f4edf887cac0a9, type: 3}
+--- !u!1 &197676827 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5443751599501581721, guid: d905c6fd3294c82478f4edf887cac0a9, type: 3}
+  m_PrefabInstance: {fileID: 197676826}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &505140342 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7389606469834037353, guid: 962bda2b335a56f48a6f7159a9e824d8, type: 3}
@@ -831,6 +827,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4906976065703679581, guid: a0af29d97abd24d4c8382b6da4017660, type: 3}
+      propertyPath: _logo
+      value: 
+      objectReference: {fileID: 197676827}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
