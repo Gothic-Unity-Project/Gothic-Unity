@@ -142,7 +142,8 @@ namespace Gothic.VR.Adapters.Player
             if (rig != null && !rig.IsGrounded && velocity.y < -1f && !_swimPose.IsInWater &&
                 _animator.HasAnimation(_fallAnimation))
                 return _fallAnimation;
-            if (isCrouching && !isMoving)
+            // Kneeling holds the pose through a short push (VRHeroBody ends it once the player really moves).
+            if (isCrouching && (isKneeling || !isMoving))
                 return isKneeling && _animator.HasAnimation(KneelAnimation) ? KneelAnimation : SneakAnimation;
             if (isCrouching)
                 return isBackwards ? "S_SNEAKBL" : "S_SNEAKL";

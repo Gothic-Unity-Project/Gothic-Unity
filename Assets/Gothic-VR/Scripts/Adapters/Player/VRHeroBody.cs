@@ -111,7 +111,11 @@ namespace Gothic.VR.Adapters.Player
         // Crouched and standing still for this long: the hero kneels (the camera goes down to the kneel pose's eyes,
         // e.g. at a chest), moving takes him back to the sneak pose. Short stops while walking don't bob the camera.
         private const float _kneelDelay = 1f;
+        // Kneeling ends after moving this long without a break: the thumbstick does that at once, a push of the body
+        // capsule (the head leant into the chest) doesn't take the camera up 30 cm at the lock.
+        private const float _standUpDelay = 0.15f;
         private float _lastCrouchMoveTime = float.NegativeInfinity;
+        private float _movingSince = -1f;
         private bool _isKneeling;
 
         private SkinnedMeshRenderer _bodyRenderer;
@@ -268,11 +272,24 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// Crouched without moving for _kneelDelay: the hero kneels (VrHeroLocomotion.KneelAnimation).
+        /// Crouched without moving for _kneelDelay: the hero kneels (VrHeroLocomotion.KneelAnimation). Head movement
+        /// doesn't count (the body capsule follows the head without moving), only the thumbstick/teleport, and while
+        /// kneeling only after _standUpDelay of it.
         /// </summary>
         private void UpdateKneeling(bool isCrouching)
         {
-            if (!isCrouching || _locomotion.IsMoving)
+            if (_locomotion.IsMoving)
+            {
+                if (_movingSince < 0f)
+                    _movingSince = Time.time;
+            }
+            else
+            {
+                _movingSince = -1f;
+            }
+
+            var isStandingUp = _movingSince >= 0f && (!_isKneeling || Time.time - _movingSince >= _standUpDelay);
+            if (!isCrouching || isStandingUp)
                 _lastCrouchMoveTime = Time.time;
 
             var isKneeling = Time.time - _lastCrouchMoveTime >= _kneelDelay;
