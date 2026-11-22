@@ -51,10 +51,71 @@ GothicOcclusion GothicGetOcclusion(float4 positionCS)
     return occlusion;
 }
 
+// Gothic's light is 0...1 per channel (8 bit vertex light): a lamp's pool next to another's and the baked light
+// burnt the colors out (bright orange) - the sum stops at 1, like in the engine.
+half3 GothicClampLight(half3 light)
+{
+    return min(light, 1.0);
+}
+
 // Objects and plants: sun (shadowed) + ambient, both occluded - SunAndAmbientDiffuse per pixel.
 half3 GothicSunAndAmbient(half3 sunDiffuse, float3 worldPos, GothicOcclusion occlusion)
 {
     return saturate(sunDiffuse * GothicSunShadow(worldPos) * occlusion.direct + _AmbientColor * occlusion.indirect);
+}
+
+// The few closest lamps, fires and torches are shadow casting URP lights (StationaryLightsService). True for such a
+// light of the object's per-object lights.
+bool GothicIsShadowedLight(int lightIndex)
+{
+#if defined(_ADDITIONAL_LIGHT_SHADOWS)
+    return GetAdditionalLightShadowParams(lightIndex).w >= 0;
+#else
+    return false;
+#endif
+}
+
+// This frame's shadow casting lights: their index among URP's additional lights (GothicShadowLightsFeature) - not
+// the object's per-object list (8 lights, a big world chunk near candles didn't get the lamp).
+float4 _GothicShadowLightIndices[2];
+float _GothicShadowLightCount;
+
+// The shadow casting lights, per pixel with their cube shadow. World and plants (isStationaryFalloff): like a
+// stationary light (StationaryLightFalloff, no N·L, StationaryLighting.hlsl - which skips them). Objects and NPCs: like their
+// other lights (AdditionalUnityLightDiffuse).
+half3 GothicShadowedLights(float3 worldPos, half3 normalWS, bool isStationaryFalloff)
+{
+    half3 diffuse = 0;
+#if defined(_ADDITIONAL_LIGHT_SHADOWS)
+    int count = min(8, (int)_GothicShadowLightCount);
+    for (int k = 0; k < count; k++)
+    {
+        int lightIndex = (int)_GothicShadowLightIndices[k / 4][k % 4];
+
+    #if USE_STRUCTURED_BUFFER_FOR_LIGHT_DATA
+        float4 lightPositionWS = _AdditionalLightsBuffer[lightIndex].position;
+        half3 color = _AdditionalLightsBuffer[lightIndex].color.rgb;
+        half4 distanceAndSpotAttenuation = _AdditionalLightsBuffer[lightIndex].attenuation;
+    #else
+        float4 lightPositionWS = _AdditionalLightsPosition[lightIndex];
+        half3 color = _AdditionalLightsColor[lightIndex].rgb;
+        half4 distanceAndSpotAttenuation = _AdditionalLightsAttenuation[lightIndex];
+    #endif
+        float3 lightVector = lightPositionWS.xyz - worldPos * lightPositionWS.w;
+        float distanceSqr = max(dot(lightVector, lightVector), HALF_MIN);
+        half3 lightDirection = half3(lightVector * rsqrt(distanceSqr));
+        half attenuation = isStationaryFalloff
+            ? StationaryLightFalloff(distanceSqr, distanceAndSpotAttenuation.x)
+            : CustomDistanceAttenuation(distanceSqr, distanceAndSpotAttenuation.x) *
+              saturate(dot(lightDirection, normalWS));
+        if (attenuation <= 0)
+            continue;
+
+        half shadow = AdditionalLightRealtimeShadow(lightIndex, worldPos, lightDirection);
+        diffuse += color * attenuation * shadow * _PointLightIntensity;
+    }
+#endif
+    return diffuse;
 }
 
 // The baked light of a sun-facing surface, darkened by the shadow at worldPos.

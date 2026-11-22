@@ -25,6 +25,7 @@ Shader "Lit/SingleMesh"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+            #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -46,6 +47,7 @@ Shader "Lit/SingleMesh"
                 float3 worldPos : TEXCOORD1;
                 // The sun's part (shadowed per pixel); diffuse: lights.
                 half3 sunDiffuse : TEXCOORD2;
+                half3 normalWS : TEXCOORD3;
                 half3 diffuse : COLOR;
 
                 UNITY_VERTEX_OUTPUT_STEREO
@@ -72,6 +74,9 @@ Shader "Lit/SingleMesh"
                 for (int j = 0; j < min(MAX_VISIBLE_LIGHTS, unity_LightData.y); j++)
                 {
                     int lightIndex = GetPerObjectLightIndex(j);
+                    // Shadow casting lights come per pixel (GothicShadowedLights).
+                    if (GothicIsShadowedLight(lightIndex))
+                        continue;
                     Light light = CustomGetAdditionalPerObjectLight(lightIndex, worldPos);
                     diffuse += AdditionalUnityLightDiffuse(light, normal);
                 }
@@ -93,6 +98,7 @@ Shader "Lit/SingleMesh"
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 half3 normalWS = TransformObjectToWorldNormal(v.normal);
                 o.sunDiffuse = SunDiffuse(normalWS, v.color);
+                o.normalWS = normalWS;
                 o.diffuse = DiffuseLighting(normalWS, o.worldPos);
                 return o;
             }
@@ -101,8 +107,9 @@ Shader "Lit/SingleMesh"
             {
                 half4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
                 GothicOcclusion occlusion = GothicGetOcclusion(i.vertex);
-                half3 light = GothicSunAndAmbient(i.sunDiffuse, i.worldPos, occlusion) + i.diffuse * occlusion.direct;
-                half3 diffuse = albedo.rgb * light;
+                half3 light = GothicSunAndAmbient(i.sunDiffuse, i.worldPos, occlusion) +
+                    (i.diffuse + GothicShadowedLights(i.worldPos, normalize(i.normalWS), false)) * occlusion.direct;
+                half3 diffuse = albedo.rgb * GothicClampLight(light);
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
 

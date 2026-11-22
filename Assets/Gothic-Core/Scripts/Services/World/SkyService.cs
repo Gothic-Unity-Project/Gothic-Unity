@@ -28,8 +28,9 @@ namespace Gothic.Core.Services.World
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly SaveGameService _saveGameService;
 
-        // The light of indoor worlds (no sun, no fog) - like the night.
-        private static readonly Color _indoorLight = new(0.25f, 0.25f, 0.3f);
+        // The light of indoor worlds (no sun, no fog): dark - mines are lit by their lamps (lightmaps), fires and the
+        // hero's torch/Light spell, not by a sky (0.25 lit the Old Mine's rock like a cloudy day).
+        private static readonly Color _indoorLight = new(0.12f, 0.12f, 0.15f);
 
         // The sun's path is tilted by this much towards the south: at noon it's 60 degrees high, shadows never vanish
         // under the objects. Gothic's own sun stands still - its shadows are baked into the vertex light.
@@ -39,6 +40,15 @@ namespace Gothic.Core.Services.World
         // How dark the sun's/moon's shadow is: GD3D11 leaves 40% of the sun light in the shadow; the moon is weaker.
         private const float _sunShadowStrength = 0.6f;
         private const float _moonShadowStrength = 0.35f;
+
+        // Darker nights, so lamps and fires stand out (GD3D11-like): the sky's polyColor (Gothic's day light) at night
+        // (brightness ~0.43) lights the world at _nightLightFactor of it; day and dusk (from ~0.85) stay as they are.
+        private const float _nightLightFactor = 0.5f;
+        private const float _nightBrightness = 0.45f;
+        private const float _duskBrightness = 0.85f;
+        // Rain and thunderstorms: the world's light at full rain (clouds), and the sun's shadow weaker under them.
+        private const float _rainLightFactor = 0.7f;
+        private const float _rainShadowFactor = 0.35f;
 
         // The direction the light travels (from the sun - at night the moon - to the ground): the shaders' _SunDirection
         // and the "Sun" light's forward.
@@ -379,7 +389,11 @@ namespace Gothic.Core.Services.World
             _polyColor = polyColor;
             // Indoor worlds (e.g. G1's Old Mine, Orc Temple) have no day/night - like in Gothic.
             // Indoors no sun - the engine's indoor sky lit the mines like the night.
-            var dayLight = _isIndoorWorld ? _indoorLight : polyColor;
+            var nightFactor = Mathf.Lerp(_nightLightFactor, 1f,
+                Mathf.InverseLerp(_nightBrightness, _duskBrightness, polyColor.grayscale));
+            var rainFactor = Mathf.Lerp(1f, _rainLightFactor, _rainWeightAndVolume);
+            var dayLight = _isIndoorWorld ? _indoorLight : polyColor * (nightFactor * rainFactor);
+            dayLight.a = 1f;
 
             Shader.SetGlobalColor(_dayLightColorShaderId, dayLight);
             Shader.SetGlobalColor(_sunColorShaderId,
@@ -602,7 +616,8 @@ namespace Gothic.Core.Services.World
             _sunLight.enabled = !_isIndoorWorld;
             _sunLight.transform.rotation = Quaternion.LookRotation(_sunDirection);
             Shader.SetGlobalVector(_sunDirectionShaderId, _sunDirection);
-            _sunLight.shadowStrength = (isDay ? _sunShadowStrength : _moonShadowStrength) * _sunShadowFade;
+            _sunLight.shadowStrength = (isDay ? _sunShadowStrength : _moonShadowStrength) * _sunShadowFade *
+                                       Mathf.Lerp(1f, _rainShadowFactor, _rainWeightAndVolume);
             _sunLight.color = _configService.Dev.SunLightColor * _polyColor;
         }
     }

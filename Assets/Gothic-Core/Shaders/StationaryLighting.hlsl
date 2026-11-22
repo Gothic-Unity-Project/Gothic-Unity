@@ -13,14 +13,22 @@
 float4 _GlobalStationaryLightPositionsAndAttenuation[MAX_TOTAL_STATIONARY_LIGHTS];
 real3 _GlobalStationaryLightColors[MAX_TOTAL_STATIONARY_LIGHTS];
 
+// A pooled light with w < 0 casts a shadow (StationaryLightsService): the shaders light it through its URP light with
+// the cube shadow (GothicShadowedLights) and skip it here - URP reaches every object in its range, the pool only the
+// renderers the light gathered.
+bool IsStationaryLightShadowed(uint lightIndex)
+{
+    return _GlobalStationaryLightPositionsAndAttenuation[lightIndex].w < 0;
+}
+
 half3 AdditionalStationaryDiffuse(uint lightIndex, real3 worldPos, real3 normal)
 {
     float4 lightPosAndAttenuation = _GlobalStationaryLightPositionsAndAttenuation[lightIndex];
     float3 lightVector = lightPosAndAttenuation.xyz - worldPos;
     float distanceSqr = max(dot(lightVector, lightVector), HALF_MIN);
 
-    // Linear distance falloff (1 - d/R)
-    float attenuation = saturate(1.0 - sqrt(distanceSqr * lightPosAndAttenuation.w));
+    // w = 1/R², negative for a shadow casting light.
+    float attenuation = StationaryLightFalloff(distanceSqr, abs(lightPosAndAttenuation.w));
 
     return _GlobalStationaryLightColors[lightIndex] * attenuation * _PointLightIntensity;
 }

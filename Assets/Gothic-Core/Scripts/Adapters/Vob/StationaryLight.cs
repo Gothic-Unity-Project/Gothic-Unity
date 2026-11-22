@@ -143,6 +143,20 @@ namespace Gothic.Core.Adapters.Vob
 
         public int AffectedRendererCount => _affectedRenderers.Count;
 
+        public IReadOnlyList<MeshRenderer> AffectedRenderers => _affectedRenderers;
+
+        /// <summary>
+        /// The Unity light (objects/NPCs, shadows) - off for lights far from the camera (StationaryLightsService).
+        /// The pool's slot lights the world either way.
+        /// </summary>
+        public void SetUnityLightEnabled(bool isEnabled)
+        {
+            if (!_unityLight)
+                _unityLight = GetComponent<Light>();
+            if (_unityLight.enabled != isEnabled)
+                _unityLight.enabled = isEnabled;
+        }
+
         /// <summary>
         /// Color the pool writes into the shader slot it hands out (linear space).
         /// </summary>

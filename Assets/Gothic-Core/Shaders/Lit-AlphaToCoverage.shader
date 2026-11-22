@@ -28,6 +28,7 @@ Shader "Lit/AlphaToCoverage"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+            #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -87,7 +88,10 @@ Shader "Lit/AlphaToCoverage"
 
                 for (uint k = 0; k < min(_StationaryLightCount, MAX_AFFECTING_STATIONARY_LIGHTS); k++)
                 {
-                    diffuse += AdditionalStationaryDiffuse(_StationaryLightIndices[k / 4][k % 4], worldPos, normal);
+                    uint lightIndex = _StationaryLightIndices[k / 4][k % 4];
+                    // Shadow casting lights come per pixel through URP (GothicShadowedLights).
+                    if (!IsStationaryLightShadowed(lightIndex))
+                        diffuse += AdditionalStationaryDiffuse(lightIndex, worldPos, normal);
                 }
 
                 return diffuse;
@@ -130,8 +134,9 @@ Shader "Lit/AlphaToCoverage"
                                                       saturate(max(i.distance, 0.0001) / _DistanceFade));
 
                 GothicOcclusion occlusion = GothicGetOcclusion(i.vertex);
-                half3 light = GothicSunAndAmbient(i.sunDiffuse, i.worldPos, occlusion) + i.diffuse * occlusion.direct;
-                half3 diffuse = albedo.rgb * light;
+                half3 light = GothicSunAndAmbient(i.sunDiffuse, i.worldPos, occlusion) +
+                    (i.diffuse + GothicShadowedLights(i.worldPos, half3(0, 1, 0), true)) * occlusion.direct;
+                half3 diffuse = albedo.rgb * GothicClampLight(light);
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
                 

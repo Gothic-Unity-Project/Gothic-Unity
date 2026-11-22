@@ -31,6 +31,7 @@ Shader "Lit/World"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+            #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -93,15 +94,18 @@ Shader "Lit/World"
                 half3 diffuse = 0;
                 for (uint k = 0; k < min(_StationaryLightCount, MAX_AFFECTING_STATIONARY_LIGHTS); k++)
                 {
-                    diffuse += AdditionalStationaryDiffuse(_StationaryLightIndices[k / 4][k % 4], worldPos, normal);
+                    uint lightIndex = _StationaryLightIndices[k / 4][k % 4];
+                    if (!IsStationaryLightShadowed(lightIndex))
+                        diffuse += AdditionalStationaryDiffuse(lightIndex, worldPos, normal);
                 }
                 if (_StationaryLightCount >= MAX_AFFECTING_STATIONARY_LIGHTS)
                 {
                     for (uint l = 0; l < min(_StationaryLightCount - MAX_AFFECTING_STATIONARY_LIGHTS,
                             MAX_AFFECTING_STATIONARY_LIGHTS); l++)
                     {
-                        diffuse += AdditionalStationaryDiffuse(_StationaryLightIndices2[l / 4][l % 4], worldPos,
-                                                                           normal);
+                        uint lightIndex2 = _StationaryLightIndices2[l / 4][l % 4];
+                        if (!IsStationaryLightShadowed(lightIndex2))
+                            diffuse += AdditionalStationaryDiffuse(lightIndex2, worldPos, normal);
                     }
                 }
                 return diffuse;
@@ -154,8 +158,9 @@ Shader "Lit/World"
 
                 GothicOcclusion occlusion = GothicGetOcclusion(i.vertex);
                 half3 light = baseLight * occlusion.indirect +
-                    StationaryLighting(normal, i.worldPos) * occlusion.direct;
-                half3 diffuse = albedo.rgb * light * _FocusBrightness;
+                    (StationaryLighting(normal, i.worldPos) + GothicShadowedLights(i.worldPos, normal, true)) *
+                    occlusion.direct;
+                half3 diffuse = albedo.rgb * GothicClampLight(light) * _FocusBrightness;
 
                 diffuse = ApplyUnderWaterEffect(diffuse);
 
