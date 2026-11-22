@@ -716,10 +716,21 @@ namespace Gothic.Core.Services.Vobs
             // Movers, triggers and chests are asked by name (Wld_SendTrigger, Mob_HasItems); ignores other types.
             _gameStateService.RegisterNamedVob(container);
 
-            switch (container.Vob.Type)
+            var type = container.Vob.Type;
+
+            // Beds that are oCMobDoor vobs (G2's Old Camp BEDHIGH_2_OC, also built as beds by VobInitializerDomain) are
+            // AI_UseMob mobs like the engine: NPCs never found them for ZS_Sleep and slept standing next to them.
+            if (type == VirtualObjectType.oCMobDoor && container.Vob.IsBed())
+            {
+                Logger.Log($"[VobService] '{container.Vob.Visual?.Name}' is an oCMobDoor bed - usable by NPCs.",
+                    LogCat.Vob);
+                type = VirtualObjectType.oCMobBed;
+            }
+
+            switch (type)
             {
                 // case VirtualObjectType.oCMOB: // FIXME - Needed? e.g. IMovableObject
-                // oCMobDoor excluded: doors use VR hinge physics for interaction, not AI_UseMob.
+                // oCMobDoor excluded: doors use VR hinge physics for interaction, not AI_UseMob (beds: above).
                 case VirtualObjectType.oCMobFire:
                 case VirtualObjectType.oCMobInter:
                 case VirtualObjectType.oCMobBed:
