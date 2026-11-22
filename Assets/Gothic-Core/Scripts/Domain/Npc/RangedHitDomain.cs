@@ -29,8 +29,8 @@ namespace Gothic.Core.Domain.Npc
         }
 
         /// <summary>
-        /// The hit chance roll is skipped - a VR projectile that physically hit, hit.
-        /// FIXME - G1 crit (TALENT_BOW/CROSSBOW value % chance) together with the melee talent formula.
+        /// The hit chance roll is skipped - a VR projectile that physically hit, hit. G1's critical hit (bow/crossbow
+        /// talent value as chance) is rolled by the game version (G1RangedCombatService.GetRangedDamage).
         /// </summary>
         public void OnRangedHit(NpcContainer shooter, NpcContainer target, Vector3 pos,
             (ItemInstance weapon, float damageScale) shot)
