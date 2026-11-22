@@ -646,6 +646,8 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public void RegisterPooledLight(StationaryLight light)
         {
+            if (light.IsOutdoor)
+                light.Intensity = _outdoorLightFactor;
             if (_pooledLights.Add(light))
                 _isPoolDirty = true;
         }
@@ -665,7 +667,7 @@ namespace Gothic.Core.Services.World
             }
 
             _lightPositionsAndAttenuation[light.Index] = GetSlotPositionAndAttenuation(light);
-            _lightColors[light.Index] = light.RuntimeLinearColor;
+            _lightColors[light.Index] = GetSlotColor(light);
             _isUploadDirty = true;
         }
 
@@ -740,7 +742,7 @@ namespace Gothic.Core.Services.World
                 var slot = _freeRuntimeSlots.Pop();
                 light.AttachSlot(slot);
                 _lightPositionsAndAttenuation[slot] = GetSlotPositionAndAttenuation(light);
-                _lightColors[slot] = light.RuntimeLinearColor;
+                _lightColors[slot] = GetSlotColor(light);
                 _isUploadDirty = true;
             }
 
@@ -781,6 +783,46 @@ namespace Gothic.Core.Services.World
                              _unityLightMaxDistance;
                 light.SetUnityLightEnabled(isNear);
             }
+        }
+
+        /// <summary>
+        /// Outdoor lamps and fires by day: Gothic's lights burn all day, but its bright vertex light hid them. Ours are
+        /// stronger (StationaryLightFalloff) and the sun's shadow leaves 40% - lamps glowed red on shaded walls at noon.
+        /// Night (sky brightness up to _lampFullBrightness) full, noon _lampDayFactor.
+        /// </summary>
+        private const float _lampDayFactor = 0.2f;
+        private const float _lampFullBrightness = 0.35f;
+        private float _outdoorLightFactor = 1f;
+
+        /// <summary>
+        /// SkyService: the world's day light changed (its brightness 0..1, indoor worlds dark). Outdoor lights follow.
+        /// </summary>
+        public void SetDaylight(float brightness)
+        {
+            var factor = Mathf.Lerp(1f, _lampDayFactor, Mathf.InverseLerp(_lampFullBrightness, 1f, brightness));
+            if (Mathf.Abs(factor - _outdoorLightFactor) < 0.02f)
+                return;
+
+            _outdoorLightFactor = factor;
+            if (_lightColors == null)
+                return;
+            foreach (var light in _pooledLights)
+            {
+                if (light == null || !light.IsOutdoor)
+                    continue;
+                // The Unity light lights objects/NPCs and the shadow casting lamps' pools.
+                light.Intensity = factor;
+                if (light.Index > HeroLightIndex && light.Index < _lightColors.Length)
+                {
+                    _lightColors[light.Index] = GetSlotColor(light);
+                    _isUploadDirty = true;
+                }
+            }
+        }
+
+        private Color GetSlotColor(StationaryLight light)
+        {
+            return light.IsOutdoor ? light.RuntimeLinearColor * _outdoorLightFactor : light.RuntimeLinearColor;
         }
 
         /// <summary>

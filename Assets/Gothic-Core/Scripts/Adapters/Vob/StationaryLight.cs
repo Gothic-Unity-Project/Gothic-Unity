@@ -141,6 +141,11 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public bool IsBakedIntoWorld { get; set; }
 
+        /// <summary>
+        /// Not in a house or cave (no light mapped polygons around): its light dims by day (StationaryLightsService).
+        /// </summary>
+        public bool IsOutdoor { get; set; }
+
         public int AffectedRendererCount => _affectedRenderers.Count;
 
         public IReadOnlyList<MeshRenderer> AffectedRenderers => _affectedRenderers;

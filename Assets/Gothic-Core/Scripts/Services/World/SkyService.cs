@@ -27,6 +27,7 @@ namespace Gothic.Core.Services.World
         [Inject] private readonly TextureCacheService _textureCacheService;
         [Inject] private readonly TextureService _textureService;
         [Inject] private readonly SaveGameService _saveGameService;
+        [Inject] private readonly StationaryLightsService _stationaryLightsService;
 
         // The light of indoor worlds (no sun, no fog): dark - mines are lit by their lamps (lightmaps), fires and the
         // hero's torch/Light spell, not by a sky (0.25 lit the Old Mine's rock like a cloudy day).
@@ -394,6 +395,8 @@ namespace Gothic.Core.Services.World
             var rainFactor = Mathf.Lerp(1f, _rainLightFactor, _rainWeightAndVolume);
             var dayLight = _isIndoorWorld ? _indoorLight : polyColor * (nightFactor * rainFactor);
             dayLight.a = 1f;
+            // Outdoor lamps and fires dim by day.
+            _stationaryLightsService.SetDaylight(dayLight.grayscale);
 
             Shader.SetGlobalColor(_dayLightColorShaderId, dayLight);
             Shader.SetGlobalColor(_sunColorShaderId,
