@@ -58,3 +58,24 @@ Core code is in `Assets/Gothic-Core/Scripts/`.
 | Rule | Lives in |
 |------|----------|
 | A world whose BSP tree is indoor (mines, temples) has no sun and no fog, the time of day doesn't darken it | `Services/World/SkyService.cs` |
+
+## Shadows and darkness
+
+Why: Docs/adr/2026-11-22-pcvr-shadows-lighting.md. PC only - the Quest quality level (URP-Performant) draws no shadows
+and no SSAO, the shaders compile those parts away there.
+
+| Rule | Lives in |
+|------|----------|
+| The "Sun" directional light is URP's main light (shadow map only, Gothic's shaders take `_SunColor`): rises 6:00, highest 12:00 (60°, path tilted), sets 18:00; at night the moon on the same path with a weaker shadow, faded out at the horizon. Moves every game second | `Services/World/SkyService.cs` (`RotateSun`, `UpdateSunLight`), `DeveloperConfig.SunUpdateInterval` |
+| `_SunDirection` is the light's direction (sun/moon to the ground) - it used to be Euler angles | `SkyService`, `Shaders/GothicIncludes.hlsl` |
+| Gothic's lit shaders cast shadows with the main pass' wind, alpha cut (plants) and fatness (NPCs); depth/normals passes feed SSAO | `Shaders/GothicShadowCaster.hlsl`, `Shaders/GothicDepthPasses.hlsl` |
+| The sun's shadow darkens only the sun's part: baked light of sun-facing outdoor polygons and VOBs (not light mapped ones), the sun term of objects/NPCs | `Shaders/GothicShadows.hlsl`, `Lit-World`, `Lit-AlphaToCoverage`, `Lit-SingleMesh` |
+| SSAO (HighFidelity renderer): darkens baked/ambient light, less the sun and lights | `GothicShadows.hlsl` (`GothicGetOcclusion`) |
+| The 6 pooled lights closest to the camera within 30 m (not baked into lightmaps) cast cube shadows; the pool marks them (slot w < 0) and skips them, the shaders light them through URP | `Services/World/StationaryLightsService.cs` (`UpdateShadowLights`), `StationaryLighting.hlsl`, `GothicShadowedLights` |
+| Their index among URP's additional lights, every frame - URP's 8 per-object lights cut a lamp off at a world chunk's edge | `Adapters/Rendering/GothicShadowLightsFeature.cs` (on `URP-HighFidelity-Renderer`) |
+| Only Unity lights within 40 m stay enabled: URP takes 256 visible lights, the city has ~770 | `StationaryLightsService.UpdateUnityLights` |
+| Renderers list their lights shadow casting first, then closest | `StationaryLightsService.UpdateRenderer` |
+| Lamps/fires: falloff 1 - (d/R)², strength 1.4; the light sum stops at 1 like Gothic's 8 bit vertex light | `GothicIncludes.hlsl` (`StationaryLightFalloff`), `GothicShadows.hlsl` (`GothicClampLight`) |
+| Nights: the world gets 50% of the night sky's light; rain 70% and a 35% sun shadow; indoor worlds (mines) 0.12 | `SkyService` (`SetDayLight`) |
+| Outdoor lamps/fires (no light mapped ceiling 2-8 m above) dim by day: 100% at night, 20% at noon | `StationaryLightsService.SetDaylight`, `HasLightMappedCeiling`, `VobInitializerDomain.CreateLight` |
+| Option "Shadows" (Immersion, Gothic.ini `shadows`): 0 off, 1 hard, 2 medium, 3 soft (default) - sun and point lights | `Constants.IniNames.Shadows`, `VRContextMenuService.CreateShadowsChoice` |
