@@ -132,6 +132,12 @@ namespace Gothic.Core.Adapters.Npc
         /// </summary>
         private void Update()
         {
+            // A video pauses the world (VRCinema: timeScale 0), like the engine, where it blocks the game. The AI waits
+            // too: the line after PlayVideo (G2 Xardas, DIA_Addon_Xardas_AddonIntro) started during the video and its
+            // subtitle covered the screen the whole video, as the paused world never ended the line.
+            if (Time.timeScale == 0f)
+                return;
+
             // If NPC/Monster is dead, only play out the already queued animations (e.g. the dying animation
             // enqueued by FightService), then stop any further process logic.
             if (Properties.IsDead)
