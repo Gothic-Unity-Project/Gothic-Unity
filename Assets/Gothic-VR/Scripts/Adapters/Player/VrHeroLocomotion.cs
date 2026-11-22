@@ -39,6 +39,11 @@ namespace Gothic.VR.Adapters.Player
         private readonly Dictionary<(string, string), string> _missingAnimationFallbacks = new();
 
         /// <summary>
+        /// The player moved (walk/run/sneak loop, not idle) in the last Update.
+        /// </summary>
+        public bool IsMoving { get; private set; }
+
+        /// <summary>
         /// The animator of a newly built body.
         /// </summary>
         public void Bind(VRHeroBodyAnimator animator)
@@ -70,6 +75,7 @@ namespace Gothic.VR.Adapters.Player
 
             var bodyState = _swimPose.GetBodyState(rig, hero.Props.BodyState);
             var isMoving = speed >= _idleSpeed;
+            IsMoving = isMoving;
             var isBackwards = local.z < -_backwardsShare * speed;
             var isTurning = Mathf.Abs(_bodyYawSpeed) >= _turnAnimationSpeed;
 

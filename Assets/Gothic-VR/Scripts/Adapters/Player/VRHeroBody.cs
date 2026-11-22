@@ -107,6 +107,13 @@ namespace Gothic.VR.Adapters.Player
         // Feet and toes - the floor under the sneak pose (the arms can reach lower).
         private readonly List<Transform> _footBones = new();
         private const string _sneakAnimation = "S_SNEAK";
+        // Crouched and standing still for this long: the camera goes down to the rig's own crouch height (kneeling at
+        // a chest), moving takes it back up to the sneak pose's eyes. Short stops while walking don't bob the camera.
+        private const float _crouchStillDelay = 0.3f;
+        // The smallest body while crouched lower than the sneak pose (its feet stay on the floor).
+        private const float _minCrouchScale = 0.3f;
+        private float _lastCrouchMoveTime = float.NegativeInfinity;
+        private bool _isCrouchedStill;
 
         private SkinnedMeshRenderer _bodyRenderer;
 
@@ -240,14 +247,15 @@ namespace Gothic.VR.Adapters.Player
                 var headHeight = head.position.y - feetY + Mathf.Max(0f, rig.StandingCameraHeight - rig.CameraHeight);
                 _standingScale = Mathf.Clamp(headHeight / _modelHeadHeight, _minScale, _maxScale);
             }
-            var scale = _standingScale;
+            UpdateCrouchedStill(isCrouching);
+            var scale = GetCrouchScale(isCrouching, head.position.y - feetY);
             _body.transform.localScale = Vector3.one * scale;
             _body.transform.SetPositionAndRotation(
                 new Vector3(head.position.x, feetY, head.position.z) - forward * (_torsoBackOffset * scale),
                 Quaternion.LookRotation(forward));
 
             _locomotion.Update(hero, _body.transform, rig, scale, isCrouching);
-            UpdateCrouchHeight(rig, scale);
+            UpdateCrouchHeight(rig, _standingScale);
 
             // The neck right under the goggles (and a bit behind them), whatever the model's root/bone layout or
             // animation pose is - sneaking leans the torso forward, it must not come into the view.
@@ -261,9 +269,41 @@ namespace Gothic.VR.Adapters.Player
         }
 
         /// <summary>
-        /// The crouch button takes the camera to the eyes of the sneak pose (S_SNEAK): lower, the neck under the
-        /// goggles pushed the body's feet into the floor. Measured from the body's own root once the pose is fully
-        /// blended in - whatever the camera does meanwhile. The first crouch of a body starts at the rig's own height.
+        /// Crouched without moving for _crouchStillDelay - the camera goes down to the rig's crouch height then.
+        /// </summary>
+        private void UpdateCrouchedStill(bool isCrouching)
+        {
+            if (!isCrouching || _locomotion.IsMoving)
+                _lastCrouchMoveTime = Time.time;
+
+            var isCrouchedStill = Time.time - _lastCrouchMoveTime >= _crouchStillDelay;
+            if (isCrouchedStill == _isCrouchedStill)
+                return;
+
+            _isCrouchedStill = isCrouchedStill;
+            Logger.Log(isCrouchedStill
+                ? "[VRHeroBody] Crouched and still - camera down to the rig's crouch height."
+                : "[VRHeroBody] Crouch ended or moving - camera at the sneak pose's eyes.", LogCat.VR);
+        }
+
+        /// <summary>
+        /// Crouched lower than the sneak pose's eyes (standing still at the rig's crouch height, or the player's own
+        /// head held low): the body gets smaller, so its feet stay on the floor with the neck under the goggles.
+        /// </summary>
+        private float GetCrouchScale(bool isCrouching, float eyesAboveFeet)
+        {
+            if (!isCrouching || _sneakEyeHeight <= 0f)
+                return _standingScale;
+
+            return Mathf.Clamp(eyesAboveFeet / _sneakEyeHeight, Mathf.Min(_minCrouchScale, _standingScale),
+                _standingScale);
+        }
+
+        /// <summary>
+        /// The crouch button takes the camera to the eyes of the sneak pose (S_SNEAK) while moving: lower, the neck
+        /// under the goggles pushed the body's feet into the floor. Standing still, it goes down to the rig's own
+        /// crouch height (kneeling at a chest), the body shrinks to it (GetCrouchScale). Measured from the body's own
+        /// root once the pose is fully blended in - whatever the camera does meanwhile. scale: the standing scale.
         /// </summary>
         private void UpdateCrouchHeight(IVrRig rig, float scale)
         {
@@ -285,6 +325,13 @@ namespace Gothic.VR.Adapters.Player
             }
             if (_sneakEyeHeight < 0f)
                 return;
+
+            if (_isCrouchedStill)
+            {
+                if (rig.CrouchHeightOverride.HasValue)
+                    rig.CrouchHeightOverride = null;
+                return;
+            }
 
             var height = _sneakEyeHeight * scale;
             if (!rig.CrouchHeightOverride.HasValue || Mathf.Abs(rig.CrouchHeightOverride.Value - height) > 0.01f)
