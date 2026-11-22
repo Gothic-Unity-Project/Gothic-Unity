@@ -48,13 +48,14 @@ namespace Gothic.Tests.EditMode.Achievements
         }
 
         [Test]
-        public void G1HasEnglishAndGermanTexts()
+        public void EveryShippedAchievementHasEnglishGermanAndPolishTexts()
         {
-            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile(_g1), new List<string>());
+            var definitions = new[] { _g1, _g2 }
+                .SelectMany(i => AchievementDefinitionParser.Parse(ReadDefinitionFile(i), new List<string>()));
 
             foreach (var definition in definitions)
             {
-                foreach (var language in new[] { "en", "de" })
+                foreach (var language in new[] { "en", "de", "pl" })
                 {
                     Assert.IsTrue(definition.Title.Translations.ContainsKey(language), $"{definition.Id} {language}");
                     Assert.IsTrue(definition.Description.Translations.ContainsKey(language),

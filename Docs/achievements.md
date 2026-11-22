@@ -148,7 +148,7 @@ Every run has a tier, every unlock remembers the tier it was earned in. A later 
 
 ## Our list (proposal, to be curated)
 
-Own titles and wording in English and German, never the official ones (see the ADR, decision 1). The moments are
+Own titles and wording in English, German and Polish, never the official ones (see the ADR, decision 1). The moments are
 inspired by the Classic console lists (wiki "Achievements"); the names speak like the colony speaks.
 For quest achievements the description may instead be the quest log topic text from the player's own installation,
 loaded at runtime.

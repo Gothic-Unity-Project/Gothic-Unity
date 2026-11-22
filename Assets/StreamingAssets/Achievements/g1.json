@@ -5,11 +5,13 @@
       "id": "g1.gomez_shadow",
       "title": {
         "en": "Gomez' Shadow",
-        "de": "Gomez' Schatten"
+        "de": "Gomez' Schatten",
+        "pl": "Cień Gomeza"
       },
       "description": {
         "en": "Become a Shadow of the Old Camp.",
-        "de": "Werde ein Schatten im Alten Lager."
+        "de": "Werde ein Schatten im Alten Lager.",
+        "pl": "Zostań Cieniem w Starym Obozie."
       },
       "icon": {
         "texture": "MAP_OLDCAMP.TGA"
@@ -23,11 +25,13 @@
       "id": "g1.disciple_of_the_sleeper",
       "title": {
         "en": "Disciple of the Sleeper",
-        "de": "Jünger des Schläfers"
+        "de": "Jünger des Schläfers",
+        "pl": "Uczeń Śniącego"
       },
       "description": {
         "en": "Become a novice of the Brotherhood in the swamp.",
-        "de": "Werde Novize der Bruderschaft im Sumpf."
+        "de": "Werde Novize der Bruderschaft im Sumpf.",
+        "pl": "Zostań nowicjuszem Bractwa na bagnie."
       },
       "icon": {
         "texture": "MAP_PSICAMP.TGA"
@@ -41,11 +45,13 @@
       "id": "g1.lares_crew",
       "title": {
         "en": "Lares' Crew",
-        "de": "Lares' Leute"
+        "de": "Lares' Leute",
+        "pl": "Ludzie Laresa"
       },
       "description": {
         "en": "Become a rogue of the New Camp.",
-        "de": "Werde Bandit im Neuen Lager."
+        "de": "Werde Bandit im Neuen Lager.",
+        "pl": "Zostań Szkodnikiem w Nowym Obozie."
       },
       "icon": {
         "texture": "MAP_NEWCAMP.TGA"
@@ -59,11 +65,13 @@
       "id": "g1.hired_early",
       "title": {
         "en": "Hired Early",
-        "de": "Früh angeheuert"
+        "de": "Früh angeheuert",
+        "pl": "Wczesny najemnik"
       },
       "description": {
         "en": "Join Lee's mercenaries before the first chapter ends.",
-        "de": "Werde noch im ersten Kapitel Söldner bei Lee."
+        "de": "Werde noch im ersten Kapitel Söldner bei Lee.",
+        "pl": "Dołącz do najemników Lee, zanim skończy się pierwszy rozdział."
       },
       "icon": {
         "item": "SLD_ARMOR_L"
@@ -87,11 +95,13 @@
       "id": "g1.past_the_gatekeepers",
       "title": {
         "en": "Past the Gatekeepers",
-        "de": "Vorbeigemogelt"
+        "de": "Vorbeigemogelt",
+        "pl": "Prześlizgnąłeś się"
       },
       "description": {
         "en": "Get to Lares without being let in.",
-        "de": "Schaffe es zu Lares, ohne dass man dich vorlässt."
+        "de": "Schaffe es zu Lares, ohne dass man dich vorlässt.",
+        "pl": "Dotrzyj do Laresa, choć nikt cię do niego nie wpuścił."
       },
       "icon": {
         "item": "ORG_ARMOR_L"
@@ -106,11 +116,13 @@
       "id": "g1.great_invocation",
       "title": {
         "en": "The Great Invocation",
-        "de": "Die große Anrufung"
+        "de": "Die große Anrufung",
+        "pl": "Wielka inwokacja"
       },
       "description": {
         "en": "Be there when the Brotherhood calls the Sleeper.",
-        "de": "Sei dabei, wenn die Bruderschaft den Schläfer ruft."
+        "de": "Sei dabei, wenn die Bruderschaft den Schläfer ruft.",
+        "pl": "Bądź przy tym, gdy Bractwo wzywa Śniącego."
       },
       "icon": {
         "item": "ItMi_Stuff_Idol_Sleeper_01"
@@ -125,11 +137,13 @@
       "id": "g1.bones_and_silence",
       "title": {
         "en": "Bones and Silence",
-        "de": "Knochen und Stille"
+        "de": "Knochen und Stille",
+        "pl": "Kości i cisza"
       },
       "description": {
         "en": "Lead Baal Lukor through the orc graveyard and come back alive.",
-        "de": "Führe Baal Lukor durch den Orkfriedhof und kehre lebend zurück."
+        "de": "Führe Baal Lukor durch den Orkfriedhof und kehre lebend zurück.",
+        "pl": "Przeprowadź Baala Lukora przez cmentarzysko orków i wróć żywy."
       },
       "icon": {
         "texture": "LOADING_ORCGRAVEYARD.TGA"
@@ -143,11 +157,13 @@
       "id": "g1.five_stones",
       "title": {
         "en": "Five Stones for the Barrier",
-        "de": "Fünf Steine für die Barriere"
+        "de": "Fünf Steine für die Barriere",
+        "pl": "Pięć kamieni dla Bariery"
       },
       "description": {
         "en": "Bring every focus stone to the Water Mages.",
-        "de": "Bringe alle Fokussteine zu den Wassermagiern."
+        "de": "Bringe alle Fokussteine zu den Wassermagiern.",
+        "pl": "Przynieś Magom Wody wszystkie kamienie ogniskujące."
       },
       "icon": {
         "item": "Focus_1"
@@ -161,11 +177,13 @@
       "id": "g1.hearts_of_stone",
       "title": {
         "en": "Hearts of Stone",
-        "de": "Herzen aus Stein"
+        "de": "Herzen aus Stein",
+        "pl": "Kamienne serca"
       },
       "description": {
         "en": "Take the golems' hearts and earn the way to Xardas.",
-        "de": "Nimm den Golems die Herzen und verdiene dir den Weg zu Xardas."
+        "de": "Nimm den Golems die Herzen und verdiene dir den Weg zu Xardas.",
+        "pl": "Odbierz golemom serca i zasłuż na drogę do Xardasa."
       },
       "icon": {
         "item": "ItAt_StoneGolem_01"
@@ -178,11 +196,13 @@
       "id": "g1.friend_of_the_orcs",
       "title": {
         "en": "Friend of the Orcs",
-        "de": "Freund der Orks"
+        "de": "Freund der Orks",
+        "pl": "Przyjaciel orków"
       },
       "description": {
         "en": "Carry the orcs' sign of friendship.",
-        "de": "Trage das Freundschaftszeichen der Orks."
+        "de": "Trage das Freundschaftszeichen der Orks.",
+        "pl": "Noś orkowy znak przyjaźni."
       },
       "icon": {
         "item": "UluMulu"
@@ -196,11 +216,13 @@
       "id": "g1.blade_awakens",
       "title": {
         "en": "The Blade Awakens",
-        "de": "Die Klinge erwacht"
+        "de": "Die Klinge erwacht",
+        "pl": "Ostrze się budzi"
       },
       "description": {
         "en": "Give Uriziel back its power.",
-        "de": "Gib Uriziel seine Kraft zurück."
+        "de": "Gib Uriziel seine Kraft zurück.",
+        "pl": "Przywróć Urizielowi jego moc."
       },
       "icon": {
         "item": "Mythrilklinge02"
@@ -214,11 +236,13 @@
       "id": "g1.fed_up",
       "title": {
         "en": "Fed Up",
-        "de": "Bedient"
+        "de": "Bedient",
+        "pl": "Najadłem się"
       },
       "description": {
         "en": "Find out what Baloro's wonder weapon really is.",
-        "de": "Finde heraus, was Baloros Wunderwaffe wirklich ist."
+        "de": "Finde heraus, was Baloros Wunderwaffe wirklich ist.",
+        "pl": "Dowiedz się, czym naprawdę jest cudowna broń Baloro."
       },
       "icon": {
         "item": "ItFoWine"
@@ -232,11 +256,13 @@
       "id": "g1.pride_of_the_arena",
       "title": {
         "en": "Pride of the Arena",
-        "de": "Stolz der Arena"
+        "de": "Stolz der Arena",
+        "pl": "Duma areny"
       },
       "description": {
         "en": "Beat Kirgo and Kharim in Scatty's arena.",
-        "de": "Besiege Kirgo und Kharim in Scattys Arena."
+        "de": "Besiege Kirgo und Kharim in Scattys Arena.",
+        "pl": "Pokonaj Kirgo i Kharima na arenie Scatty'ego."
       },
       "icon": {
         "texture": "CHAPTER2.TGA"
@@ -266,11 +292,13 @@
       "id": "g1.forged_anew",
       "title": {
         "en": "Forged Anew",
-        "de": "Neu geschmiedet"
+        "de": "Neu geschmiedet",
+        "pl": "Wykuta na nowo"
       },
       "description": {
         "en": "Have Stone strengthen your ore armor.",
-        "de": "Lass Stone deine Erzrüstung verstärken."
+        "de": "Lass Stone deine Erzrüstung verstärken.",
+        "pl": "Poproś Stone'a, by wzmocnił twoją zbroję z magicznej rudy."
       },
       "icon": {
         "item": "ORE_ARMOR_H"
@@ -283,11 +311,13 @@
       "id": "g1.debts_settled",
       "title": {
         "en": "Debts Settled",
-        "de": "Schulden beglichen"
+        "de": "Schulden beglichen",
+        "pl": "Długi spłacone"
       },
       "description": {
         "en": "Pay what Jesse owes.",
-        "de": "Begleiche Jesses Schulden."
+        "de": "Begleiche Jesses Schulden.",
+        "pl": "Spłać dług Jessego."
       },
       "icon": {
         "item": "ItMiNugget"
@@ -302,11 +332,13 @@
       "id": "g1.hidden_from_gomez",
       "title": {
         "en": "Hidden from Gomez",
-        "de": "Versteckt vor Gomez"
+        "de": "Versteckt vor Gomez",
+        "pl": "Ukryty przed Gomezem"
       },
       "description": {
         "en": "Find the man who has hidden from Gomez for years.",
-        "de": "Finde den Mann, der sich seit Jahren vor Gomez versteckt."
+        "de": "Finde den Mann, der sich seit Jahren vor Gomez versteckt.",
+        "pl": "Znajdź człowieka, który od lat ukrywa się przed Gomezem."
       },
       "icon": {
         "texture": "CHAPTER1.TGA"
@@ -319,11 +351,13 @@
       "id": "g1.patience_of_a_saint",
       "title": {
         "en": "Patience of a Saint",
-        "de": "Engelsgeduld"
+        "de": "Engelsgeduld",
+        "pl": "Anielska cierpliwość"
       },
       "description": {
         "en": "Let Mud talk until he has nothing new to say.",
-        "de": "Lass Mud reden, bis ihm nichts Neues mehr einfällt."
+        "de": "Lass Mud reden, bis ihm nichts Neues mehr einfällt.",
+        "pl": "Pozwól Wrzodowi gadać, aż nie będzie miał już nic nowego do powiedzenia."
       },
       "icon": {
         "item": "VLK_ARMOR_L"
@@ -336,11 +370,13 @@
       "id": "g1.gentle_strength",
       "title": {
         "en": "Gentle Strength",
-        "de": "Sanfte Kraft"
+        "de": "Sanfte Kraft",
+        "pl": "Łagodna siła"
       },
       "description": {
         "en": "Convince Horatio, who swore off fighting, to train you.",
-        "de": "Überrede Horatio, der dem Kämpfen abgeschworen hat, dich zu trainieren."
+        "de": "Überrede Horatio, der dem Kämpfen abgeschworen hat, dich zu trainieren.",
+        "pl": "Przekonaj Horacego, który wyrzekł się walki, by cię trenował."
       },
       "icon": {
         "texture": "MOWORICEPLANT01.TGA"
@@ -354,11 +390,13 @@
       "id": "g1.worth_your_weight_in_ore",
       "title": {
         "en": "Worth Your Weight in Ore",
-        "de": "Erz wie Heu"
+        "de": "Erz wie Heu",
+        "pl": "Rudy jak lodu"
       },
       "description": {
         "en": "Own 15,000 nuggets of ore.",
-        "de": "Besitze 15.000 Erzbrocken."
+        "de": "Besitze 15.000 Erzbrocken.",
+        "pl": "Posiadaj 15 000 bryłek rudy."
       },
       "icon": {
         "texture": "ERZ.TGA"
@@ -372,11 +410,13 @@
       "id": "g1.someone_smoked_here",
       "title": {
         "en": "Someone Smoked Here",
-        "de": "Hier hat jemand geraucht"
+        "de": "Hier hat jemand geraucht",
+        "pl": "Ktoś tu palił"
       },
       "description": {
         "en": "Find the lost smoking pipe.",
-        "de": "Finde die verlorene Pfeife."
+        "de": "Finde die verlorene Pfeife.",
+        "pl": "Znajdź zgubioną fajkę."
       },
       "icon": {
         "item": "ItMi_Stuff_Pipe_01"
@@ -389,11 +429,13 @@
       "id": "g1.into_the_nest",
       "title": {
         "en": "Into the Nest",
-        "de": "Ins Nest"
+        "de": "Ins Nest",
+        "pl": "Do gniazda"
       },
       "description": {
         "en": "Kill the minecrawler queen.",
-        "de": "Töte die Minecrawler-Königin."
+        "de": "Töte die Minecrawler-Königin.",
+        "pl": "Zabij królową pełzaczy."
       },
       "icon": {
         "item": "ItAt_Crawlerqueen"
@@ -408,11 +450,13 @@
       "id": "g1.pest_control",
       "title": {
         "en": "Pest Control",
-        "de": "Kammerjäger"
+        "de": "Kammerjäger",
+        "pl": "Dezynsekcja"
       },
       "description": {
         "en": "Squash 10 meatbugs.",
-        "de": "Zertritt 10 Fleischwanzen."
+        "de": "Zertritt 10 Fleischwanzen.",
+        "pl": "Rozgnieć 10 chrząszczy."
       },
       "icon": {
         "texture": "BQM_MEATBUG.TGA"
@@ -429,11 +473,13 @@
       "id": "g1.steady_hands",
       "title": {
         "en": "Steady Hands",
-        "de": "Ruhige Hand"
+        "de": "Ruhige Hand",
+        "pl": "Pewna ręka"
       },
       "description": {
         "en": "Pick 20 locks.",
-        "de": "Knacke 20 Schlösser."
+        "de": "Knacke 20 Schlösser.",
+        "pl": "Otwórz wytrychem 20 zamków."
       },
       "icon": {
         "item": "ItKeLockpick"
@@ -447,11 +493,13 @@
       "id": "g1.reader_in_the_colony",
       "title": {
         "en": "Reader in the Colony",
-        "de": "Leseratte"
+        "de": "Leseratte",
+        "pl": "Mól książkowy"
       },
       "description": {
         "en": "Read 10 different books or letters.",
-        "de": "Lies 10 verschiedene Bücher oder Briefe."
+        "de": "Lies 10 verschiedene Bücher oder Briefe.",
+        "pl": "Przeczytaj 10 różnych ksiąg lub listów."
       },
       "icon": {
         "item": "ItWr_Book_Circle_01"
@@ -465,11 +513,13 @@
       "id": "g1.below_the_mountain",
       "title": {
         "en": "Below the Mountain",
-        "de": "Unter dem Berg"
+        "de": "Unter dem Berg",
+        "pl": "Pod górą"
       },
       "description": {
         "en": "Enter the Sleeper's temple.",
-        "de": "Betritt den Tempel des Schläfers."
+        "de": "Betritt den Tempel des Schläfers.",
+        "pl": "Przekrocz próg świątyni Śniącego."
       },
       "icon": {
         "texture": "CHAPTER6.TGA"
@@ -484,11 +534,13 @@
       "id": "g1.chromanins_riddle",
       "title": {
         "en": "Chromanin's Riddle",
-        "de": "Chromanins Rätsel"
+        "de": "Chromanins Rätsel",
+        "pl": "Zagadka Chromanina"
       },
       "description": {
         "en": "Follow the stranger's books to the end.",
-        "de": "Folge den Büchern des Fremden bis zum Ende."
+        "de": "Folge den Büchern des Fremden bis zum Ende.",
+        "pl": "Podążaj za księgami nieznajomego aż do samego końca."
       },
       "icon": {
         "item": "theriddle1"
@@ -502,11 +554,13 @@
       "id": "g1.sword_into_rune",
       "title": {
         "en": "Sword Into Rune",
-        "de": "Vom Schwert zur Rune"
+        "de": "Vom Schwert zur Rune",
+        "pl": "Z miecza w runę"
       },
       "description": {
         "en": "Let Xardas turn Uriziel's power into a rune.",
-        "de": "Lass Xardas Uriziels Kraft in eine Rune bannen."
+        "de": "Lass Xardas Uriziels Kraft in eine Rune bannen.",
+        "pl": "Pozwól Xardasowi zamknąć moc Uriziela w runie."
       },
       "icon": {
         "item": "UrizielRune"
@@ -519,11 +573,13 @@
       "id": "g1.end_of_the_barons",
       "title": {
         "en": "End of the Barons",
-        "de": "Das Ende der Barone"
+        "de": "Das Ende der Barone",
+        "pl": "Koniec Magnatów"
       },
       "description": {
         "en": "Kill every ore baron, the last of them in chapter 5.",
-        "de": "Töte jeden Erzbaron, den letzten im fünften Kapitel."
+        "de": "Töte jeden Erzbaron, den letzten im fünften Kapitel.",
+        "pl": "Zabij wszystkich Magnatów, ostatniego w piątym rozdziale."
       },
       "icon": {
         "item": "EBR_ARMOR_H"
@@ -577,11 +633,13 @@
       "id": "g1.model_recruit",
       "title": {
         "en": "Model Recruit",
-        "de": "Musterrekrut"
+        "de": "Musterrekrut",
+        "pl": "Wzorowy rekrut"
       },
       "description": {
         "en": "Join the Old Camp with every point Diego can count.",
-        "de": "Werde ins Alte Lager aufgenommen, mit jedem Punkt, den Diego zählen kann."
+        "de": "Werde ins Alte Lager aufgenommen, mit jedem Punkt, den Diego zählen kann.",
+        "pl": "Dołącz do Starego Obozu ze wszystkimi punktami, jakie Diego potrafi naliczyć."
       },
       "icon": {
         "item": "STT_ARMOR_M"
@@ -604,11 +662,13 @@
       "id": "g1.well_connected",
       "title": {
         "en": "Well Connected",
-        "de": "Gut vernetzt"
+        "de": "Gut vernetzt",
+        "pl": "Dobre znajomości"
       },
       "description": {
         "en": "Join Lares' gang with every favour the New Camp has to give.",
-        "de": "Tritt Lares' Bande bei, mit jedem Gefallen, den das Neue Lager zu vergeben hat."
+        "de": "Tritt Lares' Bande bei, mit jedem Gefallen, den das Neue Lager zu vergeben hat.",
+        "pl": "Dołącz do bandy Laresa, mając za sobą każdą przysługę, jaką oferuje Nowy Obóz."
       },
       "icon": {
         "item": "ORG_ARMOR_M"
@@ -631,11 +691,13 @@
       "id": "g1.blessed_by_the_gurus",
       "title": {
         "en": "Blessed by the Gurus",
-        "de": "Von den Gurus gesegnet"
+        "de": "Von den Gurus gesegnet",
+        "pl": "Błogosławieństwo guru"
       },
       "description": {
         "en": "Win over all five gurus before Cor Kalom takes you in.",
-        "de": "Gewinne alle fünf Gurus, bevor Cor Kalom dich aufnimmt."
+        "de": "Gewinne alle fünf Gurus, bevor Cor Kalom dich aufnimmt.",
+        "pl": "Zdobądź przychylność wszystkich pięciu guru, zanim Cor Kalom cię przyjmie."
       },
       "icon": {
         "item": "GUR_ARMOR_M"
@@ -668,11 +730,13 @@
       "id": "g1.mandible_collector",
       "title": {
         "en": "Mandible Collector",
-        "de": "Zangensammler"
+        "de": "Zangensammler",
+        "pl": "Zbieracz żuwaczek"
       },
       "description": {
         "en": "Bring Cor Kalom 30 minecrawler mandibles at once.",
-        "de": "Bringe Cor Kalom 30 Minecrawler-Zangen auf einmal."
+        "de": "Bringe Cor Kalom 30 Minecrawler-Zangen auf einmal.",
+        "pl": "Przynieś Cor Kalomowi naraz 30 żuwaczek pełzaczy."
       },
       "icon": {
         "item": "ItAt_Crawler_01"
@@ -693,11 +757,13 @@
       "id": "g1.hunters_knowledge",
       "title": {
         "en": "Hunter's Knowledge",
-        "de": "Jägerwissen"
+        "de": "Jägerwissen",
+        "pl": "Wiedza myśliwego"
       },
       "description": {
         "en": "Learn every trophy skill the hunters teach.",
-        "de": "Lerne alles, was die Jäger übers Ausweiden lehren."
+        "de": "Lerne alles, was die Jäger übers Ausweiden lehren.",
+        "pl": "Naucz się wszystkich umiejętności oprawiania zwierzyny, jakich uczą myśliwi."
       },
       "icon": {
         "item": "ItAt_Wolf_01"
