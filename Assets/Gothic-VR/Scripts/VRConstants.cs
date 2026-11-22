@@ -19,6 +19,10 @@ namespace Gothic.VR
             // the right stick while the ring is open, or in the menu).
             public const string FavoritesRingZoom = "favoritesRingZoom";
 
+            // The menu's distance in m (VRPlaceInFrontOfCamera on Gothic's menu), set with the turning hand's
+            // stick while the menu is open.
+            public const string MenuDistance = "menuDistance";
+
             // VrLedgeClimbMode: 0 = pull yourself up, 1 = fade onto the ledge.
             public const string LedgeClimbMode = "ledgeClimbMode";
 
