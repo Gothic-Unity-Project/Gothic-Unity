@@ -458,6 +458,19 @@ MonoBehaviour:
     m_Localized: con el cuerpo|fundido
     m_Metadata:
       m_Items: []
+  - m_Id: 196594145456431104
+    m_Localized: Sombras
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957056
+    m_Localized: "Sombras din\xE1micas del sol, la luna y las luces. Duras o desactivadas
+      para PC m\xE1s lentos"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957057
+    m_Localized: No|Duras|Medias|Suaves
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

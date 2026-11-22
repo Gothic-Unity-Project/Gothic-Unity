@@ -595,6 +595,19 @@ MonoBehaviour:
       \"Favoriten-Ring\"."
     m_Metadata:
       m_Items: []
+  - m_Id: 196594145456431104
+    m_Localized: Schatten
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957056
+    m_Localized: "Dynamische Schatten von Sonne, Mond und Lichtern. Hart oder aus
+      f\xFCr langsamere PCs"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957057
+    m_Localized: Aus|Hart|Mittel|Weich
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

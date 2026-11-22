@@ -469,6 +469,19 @@ MonoBehaviour:
     m_Localized: "s t\u011Blem|prolnut\xED"
     m_Metadata:
       m_Items: []
+  - m_Id: 196594145456431104
+    m_Localized: "St\xEDny"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957056
+    m_Localized: "Dynamick\xE9 st\xEDny slunce, m\u011Bs\xEDce a sv\u011Btel. Ostr\xE9
+      nebo vypnut\xE9 pro slab\u0161\xED PC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957057
+    m_Localized: "Vyp.|Ostr\xE9|St\u0159edn\xED|M\u011Bkk\xE9"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

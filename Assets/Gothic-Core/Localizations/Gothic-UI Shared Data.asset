@@ -567,6 +567,18 @@ MonoBehaviour:
     m_Key: vr.help.ring.text
     m_Metadata:
       m_Items: []
+  - m_Id: 196594145456431104
+    m_Key: menuitem.shadows.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957056
+    m_Key: menuitem.shadows.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957057
+    m_Key: menuitem.shadows.value
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

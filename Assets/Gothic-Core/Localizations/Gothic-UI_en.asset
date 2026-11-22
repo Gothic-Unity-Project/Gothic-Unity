@@ -607,6 +607,19 @@ MonoBehaviour:
       it off in Immersion: "Favorites ring".'
     m_Metadata:
       m_Items: []
+  - m_Id: 196594145456431104
+    m_Localized: Shadows
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957056
+    m_Localized: Dynamic shadows of the sun, moon and lights. Hard or off for slower
+      PCs
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957057
+    m_Localized: Off|Hard|Medium|Soft
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
