@@ -543,7 +543,7 @@ MonoBehaviour:
     m_Localized: "Handel im Dialog w\xE4hlen: ein Tresen erscheint. Links ablegen,
       was du verkaufst. Rechts nehmen, was du kaufst. Die Mitte zeigt die Differenz
       - OK bezahlt mit Erz/Gold aus dem Inventar, X schlie\xDFt. Pfeile bl\xE4ttern
-      die Ringe."
+      die Ringe. Trigger neben einem Stapel halten: einzelne St\xFCcke nehmen."
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176273
