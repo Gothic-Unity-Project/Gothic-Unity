@@ -10,5 +10,7 @@ namespace Gothic.Core.Models.Config
         public List<JsonModFolder> ModFolders;
         public string LogLevel;
         public string LogCategories;
+        // PC builds: the keyboard/mouse device simulator instead of a headset (the Editor uses DeveloperConfig's).
+        public bool EnableVRDeviceSimulator;
     }
 }

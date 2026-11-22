@@ -152,7 +152,7 @@ namespace Gothic.VR.Services.Context
         public float GetFrameRate()
         {
             // If we have no VR device attached to our computer, we will get an NPE for activeLoader.
-            if (_configService.Dev.EnableVRDeviceSimulator || XRGeneralSettings.Instance.Manager.activeLoader == null)
+            if (_configService.EffectiveEnableVRDeviceSimulator || XRGeneralSettings.Instance.Manager.activeLoader == null)
             {
                 return 0;
             }
@@ -204,8 +204,11 @@ namespace Gothic.VR.Services.Context
                 ApplyControlLayout();
             }
 
-            // XRDeviceSimulator
-            _vrInput.SetDeviceSimulatorActive(developerConfig.EnableVRDeviceSimulator);
+            // XRDeviceSimulator (Editor: DeveloperConfig, builds: GameSettings.json)
+            var isSimulatorEnabled = _configService.EffectiveEnableVRDeviceSimulator;
+            if (isSimulatorEnabled)
+                StopXRForSimulator();
+            _vrInput.SetDeviceSimulatorActive(isSimulatorEnabled);
 
             // A trigger click at a worn item in the backpack equips it.
             var equipToggle = new GameObject("_BackpackEquipToggle").AddComponent<VRBackpackEquipToggle>();
@@ -315,6 +318,22 @@ namespace Gothic.VR.Services.Context
         /// <summary>
         /// Game settings "controller hand", "jump button" and "menu button" from Gothic.ini.
         /// </summary>
+        /// <summary>
+        /// Builds start XR on startup. With a headset (or SteamVR) running, it would still drive the camera next to the
+        /// simulator - XR stops, mouse and keyboard own the rig and the window shows the game.
+        /// </summary>
+        private void StopXRForSimulator()
+        {
+            var settings = XRGeneralSettings.Instance;
+            var manager = settings != null ? settings.Manager : null;
+            if (manager == null || manager.activeLoader == null)
+                return;
+
+            manager.StopSubsystems();
+            manager.DeinitializeLoader();
+            Logger.Log("[VRDeviceSimulator] XR stopped, the simulator drives the player.", LogCat.VR);
+        }
+
         private void ApplyControlLayout()
         {
             var gothicIni = _configService.Gothic;
@@ -336,7 +355,7 @@ namespace Gothic.VR.Services.Context
                 // The device simulator's head has no height: with the player's real height (floor tracking) the camera
                 // sat on the floor and the wall fade blacked out the game version / profile menu. Seated, the rig puts
                 // the eyes at their default height. Gothic.ini's setting takes over once it's loaded.
-                var defaultSitStand = _configService.Dev.EnableVRDeviceSimulator
+                var defaultSitStand = _configService.EffectiveEnableVRDeviceSimulator
                     ? VrSitStand.Sitting
                     : VrSitStand.PlayerHeight;
                 _rig.ApplyComfortSettings(defaultSitStand, VrMoveDirection.Camera, VrTurnType.Snap, 45f, 90f);

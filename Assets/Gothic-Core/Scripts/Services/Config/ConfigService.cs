@@ -20,6 +20,23 @@ namespace Gothic.Core.Services.Config
     /// </summary>
     public class ConfigService
     {
+        /// <summary>
+        /// The keyboard/mouse device simulator instead of a headset. Editor: DeveloperConfig; builds:
+        /// GameSettings(.dev).json "EnableVRDeviceSimulator" - a PC build can be tried without the headset on.
+        /// Always off on mobile.
+        /// </summary>
+        public bool EffectiveEnableVRDeviceSimulator
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Dev.EnableVRDeviceSimulator;
+#else
+                return Root != null && Root.EnableVRDeviceSimulator && !UnityEngine.Application.isMobilePlatform;
+#endif
+            }
+        }
+
         public JsonRootConfig Root { get; private set; }
         public DeveloperConfig Dev { get; private set; }
         public GothicIniConfig Gothic { get; private set; }
