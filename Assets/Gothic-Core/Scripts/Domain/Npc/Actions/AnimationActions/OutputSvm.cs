@@ -25,8 +25,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 key = key.Trim();
             _preparedSvmFileName = svm?.GetAudioName(key);
 
-            // ZenKit's SvmInstance only knows G1's C_SVM members. Vanilla scripts name every entry SVM_<voice>_<key>,
-            // like the OU.BIN subtitle.
+            // A key ZenKit's SvmInstance doesn't know (a mod's own C_SVM member). Vanilla scripts name every entry
+            // SVM_<voice>_<key>, like the OU.BIN subtitle.
             if (_preparedSvmFileName == null && svm != null && !string.IsNullOrEmpty(key))
                 _preparedSvmFileName = $"SVM_{NpcInstance.Voice}_{key.TrimStart('$')}";
 
