@@ -49,10 +49,14 @@ Changing a button while the panels are open shows on the next open.
 
 `Tab achievements` (key `achievements.tab`) and `Pages/Page achievements` with `VRAchievementsTab`: the first time
 the page is shown it loads the Core page (`PrefabType.UiAchievementsPage`, 640 x 900 Canvas units at scale 0.01 =
-the 6.4 x 9 page). The page itself (`AchievementsPage`) rebuilds on every open and on an unlock while open.
+the 6.4 x 9 page). The page itself (`AchievementsPage`) rebuilds on every open (first page), on a page flip and on an
+unlock while open. It shows 4 lines per page (`_linesPerPage`), no scrolling: Gothic's up/down arrows (`O.TGA`,
+`U.TGA`, as in the game menus) sit in the top/bottom right corner of the list, only when there is a page before/after.
+They are UI pictures (RawImage + Button), not the menus' MeshRenderer arrows (`UiButtonTextured`): `VRUiOnTop` draws
+meshes before UI pictures, so the panel background would cover them. The list ends above the "VR Hilfe" footer.
 In the in-game menu (`MenuHandler`, drawn on top of the world by `VRUiOnTop`), `VRAchievementsTab` calls
 `VRUiOnTop.Apply()` on every show, after the page's own build: the page is loaded after the menu's on-top pass, and
-pictures left at the default UI material (icons, line backgrounds, progress bars, scrollbar) would be covered by the
+pictures left at the default UI material (icons, line backgrounds, progress bars, page arrows) would be covered by the
 on-top panel background. Texts are wrapped by `VRUiOnTop` itself when they change. The main menu's help panel has no
 `VRUiOnTop`.
 `VRHelpPanelAchievementRecheck` on `Help` re-checks the story variables each time the panel opens (a fallback

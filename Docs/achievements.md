@@ -88,7 +88,7 @@ Condition kinds (one per definition, `all`/`any` combine):
 Texts are in the file (not in the Unity string table), so a mod can bring its own. Missing language: English.
 Icons name an item instance (`"item": "ItMi_InnosEye_MIS"`) or a texture from the installation
 (`"texture": "Map_OldCamp.tga"`), or both (the texture is the fallback). Items are drawn once per session, on
-request, never at world load: the achievements page asks for its items when it opens, a toast for its own item
+request, never at world load: the achievements page asks for the items of the shown page, a toast for its own item
 (`ItemIconService.Request` -> `ItemIconRenderDomain`: the item's own mesh via `VobService.CreateItemMesh`, its own
 light, a hidden orthographic URP camera without shadows and post-processing, a cached 128 px `RenderTexture`). At
 most one icon per frame, and the picture stays on the GPU (no `ReadPixels`, so the CPU never waits for the GPU).
@@ -313,7 +313,7 @@ loaded at runtime.
 | `AchievementService` | `Gothic-Core/Scripts/Services/Achievements/`, ProjectScope |
 | read model for the UI | `AchievementService.GetEntries()` (`AchievementEntry` list), `GetCompletion()`, `CurrentTier`; built by `AchievementReadModelDomain` |
 | toast | `Prefabs/UI/Achievements/AchievementToast` (`PrefabType.UiAchievementToast`), adapter `Adapters/UI/Achievements/AchievementToast`; created once by `PlayerScene` after `ZenKitBootstrapped`. Core prefab: screen overlay, top right (Flat). VR Prefab Variant `Resources/VR/Prefabs/UI/Achievements/AchievementToast`: world space, `VRFollowCamera` + `VRUiOnTop` like `PrintScreen` |
-| menu page | `Prefabs/UI/Achievements/AchievementsPage` (`PrefabType.UiAchievementsPage`), adapters `AchievementsPage` + `AchievementsPageEntry`; calls `RecheckNow()` before `GetEntries()` on every open. VR: help panel tab "Achievements" (`VRAchievementsTab` loads the page, `Docs/vr-help-panels.md`). Flat: no entry point yet - Flat has no in-game menu |
+| menu page | `Prefabs/UI/Achievements/AchievementsPage` (`PrefabType.UiAchievementsPage`), adapters `AchievementsPage` + `AchievementsPageEntry`; calls `RecheckNow()` before `GetEntries()` on every open; 4 lines per page with Gothic's page arrows, icons requested for the shown page only. VR: help panel tab "Achievements" (`VRAchievementsTab` loads the page, `Docs/vr-help-panels.md`). Flat: no entry point yet - Flat has no in-game menu |
 | tier look (name + colour: Adanos blue, Beliar red) | `Adapters/UI/Achievements/AchievementTierStyle` |
 | UI texts | string table `Gothic-UI`, keys `achievements.*` (all locales; titles and descriptions come from the definition files) |
 | `LogCat.Achievements` | `Gothic-Core/Scripts/Logging/LogCat.cs` |
