@@ -50,5 +50,10 @@ Changing a button while the panels are open shows on the next open.
 `Tab achievements` (key `achievements.tab`) and `Pages/Page achievements` with `VRAchievementsTab`: the first time
 the page is shown it loads the Core page (`PrefabType.UiAchievementsPage`, 640 x 900 Canvas units at scale 0.01 =
 the 6.4 x 9 page). The page itself (`AchievementsPage`) rebuilds on every open and on an unlock while open.
+In the in-game menu (`MenuHandler`, drawn on top of the world by `VRUiOnTop`), `VRAchievementsTab` calls
+`VRUiOnTop.Apply()` on every show, after the page's own build: the page is loaded after the menu's on-top pass, and
+pictures left at the default UI material (icons, line backgrounds, progress bars, scrollbar) would be covered by the
+on-top panel background. Texts are wrapped by `VRUiOnTop` itself when they change. The main menu's help panel has no
+`VRUiOnTop`.
 `VRHelpPanelAchievementRecheck` on `Help` re-checks the story variables each time the panel opens (a fallback
 moment), so the tabs stay a plain switcher. See `Docs/achievements.md`.
