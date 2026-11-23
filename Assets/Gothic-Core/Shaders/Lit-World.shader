@@ -73,7 +73,7 @@ Shader "Lit/World"
             float _WorldLightmapBrightness;
 
             // Every material property in here, the same in every pass - else the SRP batcher skips the world and
-            // draws it chunk by chunk.
+            // every pass (sun cascades, lamp cube shadows, depth for SSAO) draws chunk by chunk.
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_TexelSize;
                 int _StationaryLightCount;
@@ -204,6 +204,7 @@ Shader "Lit/World"
                 float4x4 _StationaryLightIndices2;
                 float _WindStrength;
                 float4 _VobLightTint;
+                float _FocusBrightness;
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"
@@ -235,6 +236,7 @@ Shader "Lit/World"
                 float4x4 _StationaryLightIndices2;
                 float _WindStrength;
                 float4 _VobLightTint;
+                float _FocusBrightness;
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"
@@ -265,6 +267,7 @@ Shader "Lit/World"
                 float4x4 _StationaryLightIndices2;
                 float _WindStrength;
                 float4 _VobLightTint;
+                float _FocusBrightness;
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"

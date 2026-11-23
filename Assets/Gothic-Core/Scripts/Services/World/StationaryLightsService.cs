@@ -75,12 +75,12 @@ namespace Gothic.Core.Services.World
         /// gathered, Khorinis' market stayed dark under its lamps. Every one renders its surroundings 6 times, so only
         /// a few; baked lights (in the lightmaps) never - the walls would get them twice.
         /// </summary>
-        // Option "Shadow range" (slider): from 10 lights within 40 m to 40 within 200 m (URP: 256 shadow slices,
-        // 6 per point light; the asset's shadow distance is 200 m).
-        private const int _minShadowLights = 10;
-        private const int _maxShadowLights = 40;
-        private const float _minShadowLightDistance = 40f;
-        private const float _maxShadowLightDistance = 200f;
+        // Option "Shadow range" (slider): from 4 lights within 20 m to 12 within 50 m. Every one draws its surroundings
+        // 6 times per frame - with 40 the frame rate tanked.
+        private const int _minShadowLights = 4;
+        private const int _maxShadowLights = 12;
+        private const float _minShadowLightDistance = 20f;
+        private const float _maxShadowLightDistance = 50f;
         private float ShadowRange => Mathf.Clamp01(_configService.GetGothicOption(Constants.IniNames.ShadowRange,
             Constants.IniNames.ShadowRangeDefaultValue));
         private int ShadowLightCount => Mathf.RoundToInt(Mathf.Lerp(_minShadowLights, _maxShadowLights, ShadowRange));
@@ -445,7 +445,7 @@ namespace Gothic.Core.Services.World
                     continue;
                 // Into the renderer's own materials (each has its own - UpdateRenderer writes its light indices there
                 // too), not a MaterialPropertyBlock: the SRP batcher skips renderers with one, ~1900 VOBs in Khorinis
-                // were drawn one by one.
+                // were drawn one by one in every pass (with the shadows: sun cascades, lamp cubes).
                 renderer.GetSharedMaterials(_rendererMaterials);
                 foreach (var material in _rendererMaterials)
                     if (material != null)

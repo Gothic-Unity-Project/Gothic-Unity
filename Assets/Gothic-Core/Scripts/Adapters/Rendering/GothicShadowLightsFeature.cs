@@ -15,7 +15,7 @@ namespace Gothic.Core.Adapters.Rendering
     /// </summary>
     public class GothicShadowLightsFeature : ScriptableRendererFeature
     {
-        // Up to 40 lamps/fires (Shadow range option) + hero light + spell projectiles (StationaryLightsService).
+        // Up to 12 lamps/fires (Shadow range option) + hero light + spell projectiles (StationaryLightsService).
         // Same as GothicShadows.hlsl.
         private const int _maxShadowLights = 64;
 
