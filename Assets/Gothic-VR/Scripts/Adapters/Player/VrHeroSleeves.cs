@@ -156,7 +156,7 @@ namespace Gothic.VR.Adapters.Player
                     armorBones.TryGetValue(nakedRenderer.rootBone.name.ToUpperInvariant(), out var rootBone))
                     forearm.rootBone = rootBone;
                 forearm.updateWhenOffscreen = true;
-                forearm.shadowCastingMode = ShadowCastingMode.Off;
+                forearm.shadowCastingMode = ShadowCastingMode.On;
                 forearm.enabled = false;
                 _bareForearms.Add(forearm);
                 _bareForearmMeshes[forearm] = (forearmMesh,

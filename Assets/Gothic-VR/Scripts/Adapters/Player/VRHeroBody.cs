@@ -411,7 +411,8 @@ namespace Gothic.VR.Adapters.Player
             _renderers.AddRange(_body.GetComponentsInChildren<Renderer>(true));
             foreach (var r in _renderers)
             {
-                r.shadowCastingMode = ShadowCastingMode.Off;
+                // The hero's own shadow (sun, lamps, torch) - immersion; the body is lit, its shadow was missing.
+                r.shadowCastingMode = ShadowCastingMode.On;
                 if (_bodyRenderer == null && r is SkinnedMeshRenderer skinnedRenderer)
                     _bodyRenderer = skinnedRenderer;
             }
