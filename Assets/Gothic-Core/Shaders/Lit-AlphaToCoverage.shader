@@ -89,9 +89,9 @@ Shader "Lit/AlphaToCoverage"
                 for (uint k = 0; k < min(_StationaryLightCount, MAX_AFFECTING_STATIONARY_LIGHTS); k++)
                 {
                     uint lightIndex = _StationaryLightIndices[k / 4][k % 4];
-                    // Shadow casting lights come per pixel through URP (GothicShadowedLights).
-                    if (!IsStationaryLightShadowed(lightIndex))
-                        diffuse += AdditionalStationaryDiffuse(lightIndex, worldPos, normal);
+                    // Shadow casting lights come per pixel through URP (GothicShadowedLights), the others with
+                    // their cached shadow.
+                    diffuse += StationaryLightContribution(lightIndex, worldPos, normal, false);
                 }
 
                 return diffuse;
@@ -185,6 +185,49 @@ Shader "Lit/AlphaToCoverage"
             #define GOTHIC_SHADOW_ALPHA_CLIP
             #include "GothicIncludes.hlsl"
             #include "GothicWind.hlsl"
+            #include "GothicShadowCaster.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // Cached shadows of the lamps and fires (LightShadowCacheDomain): the distance to the light, drawn
+            // once per light - not by URP (its own LightMode).
+            Name "GothicLightCache"
+            Tags { "LightMode" = "GothicLightCache" }
+            ZWrite On
+            ZTest LEqual
+            ColorMask R
+            AlphaToMask Off
+            // Gothic's polygons are one-sided: a wall facing away from the light still casts its shadow.
+            Cull Off
+
+            HLSLPROGRAM
+            #pragma vertex GothicShadowVert
+            #pragma fragment GothicShadowFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            TEXTURE2D_ARRAY(_MainTex);
+            SAMPLER(sampler_MainTex);
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_TexelSize;
+                half _Cutoff;
+                half _MipScale;
+                float _DistanceFade;
+                int _StationaryLightCount;
+                float4x4 _StationaryLightIndices;
+                float _WindStrength;
+            CBUFFER_END
+
+            #define GOTHIC_SHADOW_ALPHA_CLIP
+            #include "GothicIncludes.hlsl"
+            #include "GothicWind.hlsl"
+            #define GOTHIC_LIGHT_CACHE
             #include "GothicShadowCaster.hlsl"
             ENDHLSL
         }

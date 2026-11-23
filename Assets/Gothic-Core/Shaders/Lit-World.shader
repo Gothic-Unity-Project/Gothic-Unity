@@ -90,16 +90,15 @@ Shader "Lit/World"
             #include "GothicShadows.hlsl"
 
             // Per pixel: per vertex a torch in the middle of a big cave wall lit nothing (its corners are far away).
-            // isOutdoorSurface: vertex lit polygons and VOBs outside light mapped areas - indoor lights skip them.
+            // isOutdoorSurface: vertex lit polygons and VOBs outside light mapped areas - indoor lights without a
+            // cached shadow skip them.
             half3 StationaryLighting(half3 normal, float3 worldPos, bool isOutdoorSurface)
             {
                 half3 diffuse = 0;
                 for (uint k = 0; k < min(_StationaryLightCount, MAX_AFFECTING_STATIONARY_LIGHTS); k++)
                 {
                     uint lightIndex = _StationaryLightIndices[k / 4][k % 4];
-                    if (!IsStationaryLightShadowed(lightIndex) &&
-                        !(isOutdoorSurface && IsStationaryLightIndoor(lightIndex)))
-                        diffuse += AdditionalStationaryDiffuse(lightIndex, worldPos, normal);
+                    diffuse += StationaryLightContribution(lightIndex, worldPos, normal, isOutdoorSurface);
                 }
                 if (_StationaryLightCount >= MAX_AFFECTING_STATIONARY_LIGHTS)
                 {
@@ -107,9 +106,7 @@ Shader "Lit/World"
                             MAX_AFFECTING_STATIONARY_LIGHTS); l++)
                     {
                         uint lightIndex2 = _StationaryLightIndices2[l / 4][l % 4];
-                        if (!IsStationaryLightShadowed(lightIndex2) &&
-                            !(isOutdoorSurface && IsStationaryLightIndoor(lightIndex2)))
-                            diffuse += AdditionalStationaryDiffuse(lightIndex2, worldPos, normal);
+                        diffuse += StationaryLightContribution(lightIndex2, worldPos, normal, isOutdoorSurface);
                     }
                 }
                 return diffuse;
@@ -209,6 +206,44 @@ Shader "Lit/World"
 
             #include "GothicIncludes.hlsl"
             #include "GothicWind.hlsl"
+            #include "GothicShadowCaster.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // Cached shadows of the lamps and fires (LightShadowCacheDomain): the distance to the light, drawn
+            // once per light - not by URP (its own LightMode).
+            Name "GothicLightCache"
+            Tags { "LightMode" = "GothicLightCache" }
+            ZWrite On
+            ZTest LEqual
+            ColorMask R
+            // Gothic's polygons are one-sided: a wall facing away from the sun still casts its shadow.
+            Cull Off
+
+            HLSLPROGRAM
+            #pragma vertex GothicShadowVert
+            #pragma fragment GothicShadowFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_local _ _WIND
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_TexelSize;
+                int _StationaryLightCount;
+                float4x4 _StationaryLightIndices;
+                float4x4 _StationaryLightIndices2;
+                float _WindStrength;
+                float4 _VobLightTint;
+                float _FocusBrightness;
+            CBUFFER_END
+
+            #include "GothicIncludes.hlsl"
+            #include "GothicWind.hlsl"
+            #define GOTHIC_LIGHT_CACHE
             #include "GothicShadowCaster.hlsl"
             ENDHLSL
         }

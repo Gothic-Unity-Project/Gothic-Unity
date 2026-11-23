@@ -5,6 +5,8 @@
 // - GOTHIC_SHADOW_ALPHA_CLIP: _MainTex is a texture array with alpha (plants, fences), cut at _Cutoff like the main pass.
 // - GOTHIC_SHADOW_FATNESS: the vertex is pushed out by _Fatness (NPCs' Mdl_SetModelFatness).
 // - _WIND (material keyword): the same sway as the main pass (GothicWind.hlsl), or the shadow stays behind the tree.
+// - GOTHIC_LIGHT_CACHE: the GothicLightCache pass - writes the distance to the light (_GothicLightCacheLight, divided by
+//   its range) into the cached cube shadows of the lamps and fires (LightShadowCacheDomain), no shadow bias.
 #ifndef GOTHIC_SHADOW_CASTER_INCLUDED
 #define GOTHIC_SHADOW_CASTER_INCLUDED
 
@@ -13,6 +15,8 @@
 // Set by URP for the light whose shadow map is drawn.
 float3 _LightDirection;
 float3 _LightPosition;
+// xyz: position of the light whose cached shadow is drawn, w: 1 / range (LightShadowCacheDomain).
+float4 _GothicLightCacheLight;
 
 struct GothicShadowAttributes
 {
@@ -27,6 +31,9 @@ struct GothicShadowVaryings
     float4 positionCS : SV_POSITION;
 #if defined(GOTHIC_SHADOW_ALPHA_CLIP)
     float4 uv : TEXCOORD0;
+#endif
+#if defined(GOTHIC_LIGHT_CACHE)
+    float3 positionWS : TEXCOORD1;
 #endif
 };
 
@@ -43,6 +50,10 @@ GothicShadowVaryings GothicShadowVert(GothicShadowAttributes v)
 #if defined(_WIND)
     positionWS = ApplyWind(positionWS);
 #endif
+#if defined(GOTHIC_LIGHT_CACHE)
+    o.positionWS = positionWS;
+    o.positionCS = TransformWorldToHClip(positionWS);
+#else
     float3 normalWS = TransformObjectToWorldNormal(v.normal);
 
 #if defined(_CASTING_PUNCTUAL_LIGHT_SHADOW)
@@ -57,6 +68,7 @@ GothicShadowVaryings GothicShadowVert(GothicShadowAttributes v)
     positionCS.z = max(positionCS.z, UNITY_NEAR_CLIP_VALUE);
 #endif
     o.positionCS = positionCS;
+#endif
 
 #if defined(GOTHIC_SHADOW_ALPHA_CLIP)
     o.uv = float4(v.uv.xy * REFERENCE_TEX_ARRAY_SIZE * _MainTex_TexelSize.xy, v.uv.zw);
@@ -64,14 +76,18 @@ GothicShadowVaryings GothicShadowVert(GothicShadowAttributes v)
     return o;
 }
 
-half4 GothicShadowFrag(GothicShadowVaryings i) : SV_Target
+float4 GothicShadowFrag(GothicShadowVaryings i) : SV_Target
 {
 #if defined(GOTHIC_SHADOW_ALPHA_CLIP)
     // A low mip: the shadow map is coarse anyway, and leaves keep their holes instead of turning into blobs.
     half alpha = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainTex, sampler_MainTex, i.uv.xy, i.uv.z, min(1, i.uv.w)).a;
     clip(alpha - _Cutoff);
 #endif
+#if defined(GOTHIC_LIGHT_CACHE)
+    return length(i.positionWS - _GothicLightCacheLight.xyz) * _GothicLightCacheLight.w;
+#else
     return 0;
+#endif
 }
 
 #endif

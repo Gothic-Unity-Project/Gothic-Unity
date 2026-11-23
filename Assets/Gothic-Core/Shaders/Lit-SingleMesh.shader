@@ -150,6 +150,38 @@ Shader "Lit/SingleMesh"
             #include "GothicShadowCaster.hlsl"
             ENDHLSL
         }
+
+        Pass
+        {
+            // Cached shadows of the lamps and fires (LightShadowCacheDomain): the distance to the light, drawn
+            // once per light - not by URP (its own LightMode).
+            Name "GothicLightCache"
+            Tags { "LightMode" = "GothicLightCache" }
+            ZWrite On
+            ZTest LEqual
+            ColorMask R
+            // Gothic's polygons are one-sided: a wall facing away from the light still casts its shadow.
+            Cull Off
+
+            HLSLPROGRAM
+            #pragma vertex GothicShadowVert
+            #pragma fragment GothicShadowFrag
+            #pragma multi_compile_instancing
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_ST;
+                float _Fatness;
+            CBUFFER_END
+
+            #define GOTHIC_SHADOW_FATNESS
+            #include "GothicIncludes.hlsl"
+            #define GOTHIC_LIGHT_CACHE
+            #include "GothicShadowCaster.hlsl"
+            ENDHLSL
+        }
         Pass
         {
             Name "DepthOnly"
