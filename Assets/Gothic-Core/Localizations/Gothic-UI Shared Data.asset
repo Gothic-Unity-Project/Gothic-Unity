@@ -579,6 +579,14 @@ MonoBehaviour:
     m_Key: menuitem.shadows.value
     m_Metadata:
       m_Items: []
+  - m_Id: 196653647115460608
+    m_Key: menuitem.shadowRange.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Key: menuitem.shadowRange.description
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

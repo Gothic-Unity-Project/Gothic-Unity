@@ -15,8 +15,9 @@ namespace Gothic.Core.Adapters.Rendering
     /// </summary>
     public class GothicShadowLightsFeature : ScriptableRendererFeature
     {
-        // 10 lamps/fires + hero light + spell projectiles (StationaryLightsService). Same as GothicShadows.hlsl.
-        private const int _maxShadowLights = 16;
+        // Up to 40 lamps/fires (Shadow range option) + hero light + spell projectiles (StationaryLightsService).
+        // Same as GothicShadows.hlsl.
+        private const int _maxShadowLights = 64;
 
         private static readonly int _indicesShaderId = Shader.PropertyToID("_GothicShadowLightIndices");
         private static readonly int _countShaderId = Shader.PropertyToID("_GothicShadowLightCount");
@@ -37,10 +38,32 @@ namespace Gothic.Core.Adapters.Rendering
         {
             private readonly Vector4[] _indices = new Vector4[_maxShadowLights / 4];
             private StationaryLightsService _lightsService;
+            private float _nextResolveTime;
+
+            /// <summary>
+            /// The service only exists while the game runs (not for the Editor's scene view, not before the boot) -
+            /// asked again once a second until then.
+            /// </summary>
+            private StationaryLightsService TryResolveLightsService()
+            {
+                if (!Application.isPlaying || Time.unscaledTime < _nextResolveTime ||
+                    ReflexProjectInstaller.DIContainer == null)
+                    return null;
+
+                _nextResolveTime = Time.unscaledTime + 1f;
+                try
+                {
+                    return ReflexProjectInstaller.DIContainer.Resolve<StationaryLightsService>();
+                }
+                catch (System.Exception)
+                {
+                    return null;
+                }
+            }
 
             public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
             {
-                _lightsService ??= ReflexProjectInstaller.DIContainer?.Resolve<StationaryLightsService>();
+                _lightsService ??= TryResolveLightsService();
                 var lightData = frameData.Get<UniversalLightData>();
                 var visibleLights = lightData.visibleLights;
                 var count = 0;

@@ -482,6 +482,15 @@ MonoBehaviour:
     m_Localized: "Vyp.|Ostr\xE9|St\u0159edn\xED|M\u011Bkk\xE9"
     m_Metadata:
       m_Items: []
+  - m_Id: 196653647115460608
+    m_Localized: "Dosah st\xEDn\u016F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Localized: "Kolik lamp a oh\u0148\u016F vrh\xE1 st\xEDny a jak daleko. Na slab\u0161\xEDch
+      PC sni\u017Ete"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

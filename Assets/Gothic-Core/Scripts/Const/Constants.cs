@@ -19,6 +19,10 @@ namespace Gothic.Core.Const
             // Only where the quality level draws shadows at all (PC; Quest has none).
             public const string Shadows = "shadows";
             public const int ShadowsDefaultValue = 3;
+            // Slider 0...1: how many lamps/fires cast shadows and how far - 0 = 10 within 40 m, 1 = 40 within 200 m
+            // (StationaryLightsService). Lights beyond have no shadow (a candle in a house lit its outside walls).
+            public const string ShadowRange = "shadowRange";
+            public const float ShadowRangeDefaultValue = 0.75f;
             // 1 = "-X HP" numbers over NPC heads and next to the hero's bar, 0 = off (default).
             public const string HitNumbers = "hitNumbers";
             // 1 = "HP/MAX" on health bars (and "MANA/MAX" on the hero's mana bar), 0 = off (default).

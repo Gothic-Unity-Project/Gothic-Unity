@@ -56,6 +56,9 @@ namespace Gothic.VR.Adapters.Player
 
         private const float _torsoBackOffset = 0.15f;
         private const float _hiddenBoneScale = 0.001f;
+        // A copy of the head (and what sits on it - helmet, hood) that only casts the shadow: the head bone is scaled
+        // away so the camera never sees inside it, the shadow had no head. Follows the head bone every frame.
+        private Transform _shadowHead;
         private const string _headBoneName = "BIP01 HEAD";
         private const float _minScale = 0.5f;
         private const float _maxScale = 1.3f;
@@ -230,7 +233,10 @@ namespace Gothic.VR.Adapters.Player
 
             var feetY = rig.Root.position.y;
             if (_downPose.UpdateDown(head, feetY, _standingScale, rig))
+            {
+                UpdateShadowHead();
                 return;
+            }
             // Crouching (sneaking) lowers the head, not the body size - keep the standing scale then. The crouch
             // button's camera offset doesn't count: standing up the camera rises slowly, the body shrank and grew
             // with it.
@@ -258,6 +264,7 @@ namespace Gothic.VR.Adapters.Player
             }
 
             SolveArms();
+            UpdateShadowHead();
         }
 
         /// <summary>
@@ -289,6 +296,47 @@ namespace Gothic.VR.Adapters.Player
             var height = _sneakEyeHeight * scale;
             if (!rig.CrouchHeightOverride.HasValue || Mathf.Abs(rig.CrouchHeightOverride.Value - height) > 0.01f)
                 rig.CrouchHeightOverride = height;
+        }
+
+        /// <summary>
+        /// Shadow-only copies of the renderers on the head bone (before it's scaled away), under an anchor that follows
+        /// the bone (UpdateShadowHead). The camera never draws them, the lights do.
+        /// </summary>
+        private void CreateShadowHead()
+        {
+            var headRenderers = _headBone.GetComponentsInChildren<MeshRenderer>(true);
+            if (headRenderers.Length == 0)
+                return;
+
+            _shadowHead = new GameObject("_ShadowHead").transform;
+            _shadowHead.SetParent(_body.transform, false);
+            _shadowHead.SetPositionAndRotation(_headBone.position, _headBone.rotation);
+            foreach (var headRenderer in headRenderers)
+            {
+                var meshFilter = headRenderer.GetComponent<MeshFilter>();
+                if (meshFilter == null || meshFilter.sharedMesh == null)
+                    continue;
+
+                var copy = new GameObject(headRenderer.name);
+                copy.transform.SetParent(_shadowHead, false);
+                copy.transform.SetPositionAndRotation(headRenderer.transform.position, headRenderer.transform.rotation);
+                copy.transform.localScale = headRenderer.transform.lossyScale;
+                copy.AddComponent<MeshFilter>().sharedMesh = meshFilter.sharedMesh;
+                var copyRenderer = copy.AddComponent<MeshRenderer>();
+                copyRenderer.sharedMaterials = headRenderer.sharedMaterials;
+                copyRenderer.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+                copyRenderer.allowOcclusionWhenDynamic = false;
+                // The original sits on the scaled-away bone: off, also when the body's visibility switches back.
+                headRenderer.enabled = false;
+                _renderers.Remove(headRenderer);
+                _renderers.Add(copyRenderer);
+            }
+        }
+
+        private void UpdateShadowHead()
+        {
+            if (_shadowHead != null && _headBone != null)
+                _shadowHead.SetPositionAndRotation(_headBone.position, _headBone.rotation);
         }
 
         private void SolveArms()
@@ -448,6 +496,7 @@ namespace Gothic.VR.Adapters.Player
                 foreach (var bone in bones.Values)
                     lowestY = Mathf.Min(lowestY, bone.position.y);
                 _modelHeadHeight = Mathf.Max(0.5f, _headBone.position.y - lowestY + _neckBelowEyes);
+                CreateShadowHead();
                 _headBone.localScale = Vector3.one * _hiddenBoneScale;
             }
 

@@ -478,6 +478,15 @@ MonoBehaviour:
     m_Localized: "Wy\u0142.|Twarde|\u015Arednie|Mi\u0119kkie"
     m_Metadata:
       m_Items: []
+  - m_Id: 196653647115460608
+    m_Localized: "Zasi\u0119g cieni"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Localized: "Ile lamp i ognisk rzuca cienie i jak daleko. Zmniejsz na s\u0142abszych
+      komputerach"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

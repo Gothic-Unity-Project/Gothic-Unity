@@ -471,6 +471,15 @@ MonoBehaviour:
     m_Localized: No|Duras|Medias|Suaves
     m_Metadata:
       m_Items: []
+  - m_Id: 196653647115460608
+    m_Localized: Alcance de sombras
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Localized: "Cu\xE1ntas l\xE1mparas y fuegos proyectan sombras y hasta d\xF3nde.
+      Red\xFAcelo en PC m\xE1s lentos"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

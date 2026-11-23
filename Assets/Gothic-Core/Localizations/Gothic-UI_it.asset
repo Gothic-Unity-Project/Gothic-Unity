@@ -472,6 +472,15 @@ MonoBehaviour:
     m_Localized: No|Nette|Medie|Morbide
     m_Metadata:
       m_Items: []
+  - m_Id: 196653647115460608
+    m_Localized: Portata ombre
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Localized: "Quante lampade e fuochi proiettano ombre e fin dove. Riducila sui
+      PC pi\xF9 lenti"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

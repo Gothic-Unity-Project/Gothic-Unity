@@ -77,7 +77,7 @@ bool GothicIsShadowedLight(int lightIndex)
 
 // This frame's shadow casting lights: their index among URP's additional lights (GothicShadowLightsFeature) - not
 // the object's per-object list (8 lights, a big world chunk near candles didn't get the lamp).
-float4 _GothicShadowLightIndices[4];
+float4 _GothicShadowLightIndices[16];
 float _GothicShadowLightCount;
 
 // The shadow casting lights, per pixel with their cube shadow. World and plants (isStationaryFalloff): like a
@@ -87,7 +87,7 @@ half3 GothicShadowedLights(float3 worldPos, half3 normalWS, bool isStationaryFal
 {
     half3 diffuse = 0;
 #if defined(_ADDITIONAL_LIGHT_SHADOWS)
-    int count = min(16, (int)_GothicShadowLightCount);
+    int count = min(64, (int)_GothicShadowLightCount);
     for (int k = 0; k < count; k++)
     {
         int lightIndex = (int)_GothicShadowLightIndices[k / 4][k % 4];

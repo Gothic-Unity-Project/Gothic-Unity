@@ -608,6 +608,15 @@ MonoBehaviour:
     m_Localized: Aus|Hart|Mittel|Weich
     m_Metadata:
       m_Items: []
+  - m_Id: 196653647115460608
+    m_Localized: Schattenreichweite
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Localized: Wie viele Lampen und Feuer Schatten werfen und wie weit. Auf langsameren
+      PCs verringern
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

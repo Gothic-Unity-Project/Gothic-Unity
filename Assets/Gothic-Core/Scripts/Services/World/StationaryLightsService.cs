@@ -75,8 +75,16 @@ namespace Gothic.Core.Services.World
         /// gathered, Khorinis' market stayed dark under its lamps. Every one renders its surroundings 6 times, so only
         /// a few; baked lights (in the lightmaps) never - the walls would get them twice.
         /// </summary>
-        private const int _maxShadowLights = 10;
-        private const float _shadowLightMaxDistance = 40f;
+        // Option "Shadow range" (slider): from 10 lights within 40 m to 40 within 200 m (URP: 256 shadow slices,
+        // 6 per point light; the asset's shadow distance is 200 m).
+        private const int _minShadowLights = 10;
+        private const int _maxShadowLights = 40;
+        private const float _minShadowLightDistance = 40f;
+        private const float _maxShadowLightDistance = 200f;
+        private float ShadowRange => Mathf.Clamp01(_configService.GetGothicOption(Constants.IniNames.ShadowRange,
+            Constants.IniNames.ShadowRangeDefaultValue));
+        private int ShadowLightCount => Mathf.RoundToInt(Mathf.Lerp(_minShadowLights, _maxShadowLights, ShadowRange));
+        private float ShadowLightMaxDistance => Mathf.Lerp(_minShadowLightDistance, _maxShadowLightDistance, ShadowRange);
         // Geometry closer to the light than this casts no shadow: the lamp's cage casts its bars, not the flame's own
         // mesh around the light.
         private const float _shadowLightNearPlane = 0.05f;
@@ -270,7 +278,7 @@ namespace Gothic.Core.Services.World
             GlobalEventDispatcher.MainMenuSceneLoaded.AddListener(ClearWorldLightmaps);
             GlobalEventDispatcher.PlayerPrefUpdated.AddListener((key, _) =>
             {
-                if (key == Constants.IniNames.Shadows)
+                if (key == Constants.IniNames.Shadows || key == Constants.IniNames.ShadowRange)
                     RefreshShadowLights();
             });
         }
@@ -780,8 +788,8 @@ namespace Gothic.Core.Services.World
                 _isUploadDirty = true;
             }
 
-            UpdateUnityLights(camPos);
             UpdateShadowLights(camPos);
+            UpdateUnityLights(camPos);
 
             if (_wantedLights.Count > _poolPeak)
             {
@@ -815,7 +823,8 @@ namespace Gothic.Core.Services.World
                     continue;
                 var isNear = Vector3.Distance(light.CachedPosition, cameraPosition) - light.CachedRange <=
                              _unityLightMaxDistance;
-                light.SetUnityLightEnabled(isNear);
+                // A shadow casting light farther away needs its Unity light for the shadow.
+                light.SetUnityLightEnabled(isNear || _shadowLights.Contains(light));
             }
         }
 
@@ -885,6 +894,8 @@ namespace Gothic.Core.Services.World
             _dynamicShadowLights.RemoveAll(light => light == null);
             _shadowCandidates.Clear();
             _wantedShadowLights.Clear();
+            var maxDistance = ShadowLightMaxDistance;
+            var maxCount = ShadowLightCount;
             if (_configService.Gothic.GetInt(Constants.IniNames.Shadows, Constants.IniNames.ShadowsDefaultValue) > 0)
             {
                 foreach (var light in _pooledLights)
@@ -893,13 +904,13 @@ namespace Gothic.Core.Services.World
                         !light.isActiveAndEnabled)
                         continue;
                     var distance = Vector3.Distance(light.CachedPosition, cameraPosition);
-                    if (distance - light.CachedRange > _shadowLightMaxDistance)
+                    if (distance - light.CachedRange > maxDistance)
                         continue;
                     // Spell effects (summoning, fire rain) before lamps - they're short and right next to the hero.
-                    _shadowCandidates.Add((light.IsSpellLight ? distance - _shadowLightMaxDistance : distance, light));
+                    _shadowCandidates.Add((light.IsSpellLight ? distance - maxDistance : distance, light));
                 }
                 _shadowCandidates.Sort((a, b) => a.Distance.CompareTo(b.Distance));
-                for (var i = 0; i < _shadowCandidates.Count && i < _maxShadowLights; i++)
+                for (var i = 0; i < _shadowCandidates.Count && i < maxCount; i++)
                     _wantedShadowLights.Add(_shadowCandidates[i].Light);
             }
 

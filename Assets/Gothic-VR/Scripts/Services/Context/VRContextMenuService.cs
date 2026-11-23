@@ -141,7 +141,8 @@ namespace Gothic.VR.Services.Context
                 (CreateToggleLabel(gameMenu, "DIALOG_FREE_MOVEMENT", "dialogFreeMovement"),
                     CreateToggleChoice(gameMenu, "DIALOG_FREE_MOVEMENT", Constants.IniNames.DialogFreeMovement)),
                 (CreateToggleLabel(gameMenu, "LIGHT_REFRESH", "lightRefresh"), CreateLightRefreshChoice(gameMenu)),
-                (CreateToggleLabel(gameMenu, "SHADOWS", "shadows"), CreateShadowsChoice(gameMenu))
+                (CreateToggleLabel(gameMenu, "SHADOWS", "shadows"), CreateShadowsChoice(gameMenu)),
+                (CreateToggleLabel(gameMenu, "SHADOW_RANGE", "shadowRange"), CreateShadowRangeSlider(gameMenu))
             };
             // DeveloperConfig.EnableHeroHands: the hero's own fists instead of the VR hand models (needs the hero body).
             if (_configService.Dev.EnableHeroHands && _configService.Dev.EnableVrHeroBody)
@@ -284,6 +285,23 @@ namespace Gothic.VR.Services.Context
                 Constants.IniNames.ShadowsDefaultValue);
             item.SetText(0, _localizationService.GetText("menuitem.shadows.value"));
             return item;
+        }
+
+        /// <summary>
+        /// How many lamps/fires cast shadows and how far (Core, StationaryLightsService) - slower PCs slide it down.
+        /// </summary>
+        private AbstractMenuItemInstance CreateShadowRangeSlider(AbstractMenuInstance gameMenu)
+        {
+            var mouseSlider = gameMenu.FindMenuItem("MENUITEM_MSENSITIVITY_SLIDER", out _);
+            var slider = new MutableMenuItemInstance("MENUITEM_GOTHIC_OPT_VR_IMMERSION_SHADOW_RANGE_SLIDER",
+                mouseSlider);
+
+            slider.SetUserFloat(0, VRConstants.SmoothRotationSettingAmount); // Steps.
+            slider.SetUserFloat(3, Constants.IniNames.ShadowRangeDefaultValue);
+            slider.OnChgSetOption = Constants.IniNames.ShadowRange;
+            slider.OnChgSetOptionSection = VRConstants.IniSectionImmersion;
+
+            return slider;
         }
 
         private AbstractMenuItemInstance CreateHitNumbersSizeSlider(AbstractMenuInstance gameMenu)

@@ -20,17 +20,16 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 return RootGo;
             }
 
+            // Without an NPC (the VR hero body) the head mesh is built anyway - its shadow (VRHeroBody) - only the
+            // face animation setup is skipped.
             var npcContainer = RootGo.GetComponentInParent<NpcLoader>()?.Npc?.GetUserData();
-            if (npcContainer == null)
+            if (npcContainer != null)
             {
-                Logger.LogWarning($"NpcContainer not available during head build for {RootGo.name} — skipping head component setup.", LogCat.Mesh);
-                return RootGo;
+                // Cache it for faster use during runtime
+                npcContainer.PrefabProps.Head = headGo.transform;
+                npcContainer.PrefabProps.HeadMorph = headGo.AddComponent<HeadMorph>().Inject();
+                npcContainer.PrefabProps.HeadMorph.HeadName = npcContainer.Props.BodyData.Head;
             }
-
-            // Cache it for faster use during runtime
-            npcContainer.PrefabProps.Head = headGo.transform;
-            npcContainer.PrefabProps.HeadMorph = headGo.AddComponent<HeadMorph>().Inject();
-            npcContainer.PrefabProps.HeadMorph.HeadName = npcContainer.Props.BodyData.Head;
             
             // Fix for G1: Damlurker
             if (Mmb == null)

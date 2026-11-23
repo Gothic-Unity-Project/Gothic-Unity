@@ -476,6 +476,15 @@ MonoBehaviour:
     m_Localized: Non|Dures|Moyennes|Douces
     m_Metadata:
       m_Items: []
+  - m_Id: 196653647115460608
+    m_Localized: "Port\xE9e des ombres"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Localized: "Combien de lampes et de feux projettent des ombres, et jusqu'o\xF9.
+      \xC0 r\xE9duire sur les PC plus lents"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
