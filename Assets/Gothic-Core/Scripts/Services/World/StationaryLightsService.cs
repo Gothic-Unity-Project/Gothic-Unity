@@ -81,7 +81,8 @@ namespace Gothic.Core.Services.World
         /// a few; baked lights (in the lightmaps) never - the walls would get them twice.
         /// </summary>
         // Option "Shadow range" (slider): from 4 lights within 20 m to 12 within 50 m. Every one draws its surroundings
-        // 6 times per frame - with 40 the frame rate tanked.
+        // 6 times per frame - with 40 the frame rate tanked. The lamps beyond have their cached shadow
+        // (LightShadowCacheDomain), these only add the NPCs' and the hero's shadows close by.
         private const int _minShadowLights = 4;
         private const int _maxShadowLights = 12;
         private const float _minShadowLightDistance = 20f;

@@ -238,6 +238,7 @@ Shader "Lit/World"
                 float4x4 _StationaryLightIndices2;
                 float _WindStrength;
                 float4 _VobLightTint;
+                float _FocusBrightness;
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"

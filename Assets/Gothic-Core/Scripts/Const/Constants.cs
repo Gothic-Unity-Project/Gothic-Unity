@@ -20,8 +20,8 @@ namespace Gothic.Core.Const
             public const string Shadows = "shadows";
             public const int ShadowsDefaultValue = 3;
             // Slider 0...1: how many lamps/fires near the hero get URP's per-frame shadow (NPCs and the hero cast in
-            // it) - 0 = 4 within 20 m, 1 = 12 within 50 m (StationaryLightsService). Lights beyond have no shadow;
-            // an indoor light skips outdoor surfaces instead.
+            // it) - 0 = 4 within 20 m, 1 = 12 within 50 m (StationaryLightsService). The others in reach keep their
+            // cached shadow of walls and VOBs (LightShadowCacheDomain).
             public const string ShadowRange = "shadowRange";
             public const float ShadowRangeDefaultValue = 0.75f;
             // 1 = "-X HP" numbers over NPC heads and next to the hero's bar, 0 = off (default).
