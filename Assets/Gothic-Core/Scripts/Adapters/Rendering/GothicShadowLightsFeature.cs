@@ -15,8 +15,8 @@ namespace Gothic.Core.Adapters.Rendering
     /// </summary>
     public class GothicShadowLightsFeature : ScriptableRendererFeature
     {
-        // 6 lamps/fires + hero light + spell projectiles (StationaryLightsService). Same as GothicShadows.hlsl.
-        private const int _maxShadowLights = 12;
+        // 10 lamps/fires + hero light + spell projectiles (StationaryLightsService). Same as GothicShadows.hlsl.
+        private const int _maxShadowLights = 16;
 
         private static readonly int _indicesShaderId = Shader.PropertyToID("_GothicShadowLightIndices");
         private static readonly int _countShaderId = Shader.PropertyToID("_GothicShadowLightCount");

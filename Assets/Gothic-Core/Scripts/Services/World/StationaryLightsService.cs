@@ -75,8 +75,8 @@ namespace Gothic.Core.Services.World
         /// gathered, Khorinis' market stayed dark under its lamps. Every one renders its surroundings 6 times, so only
         /// a few; baked lights (in the lightmaps) never - the walls would get them twice.
         /// </summary>
-        private const int _maxShadowLights = 6;
-        private const float _shadowLightMaxDistance = 30f;
+        private const int _maxShadowLights = 10;
+        private const float _shadowLightMaxDistance = 40f;
         // Geometry closer to the light than this casts no shadow: the lamp's cage casts its bars, not the flame's own
         // mesh around the light.
         private const float _shadowLightNearPlane = 0.05f;
@@ -598,6 +598,8 @@ namespace Gothic.Core.Services.World
             var isShadowed = _heroUnityLight != null && _shadowUnityLights.Contains(_heroUnityLight);
             _lightPositionsAndAttenuation[HeroLightIndex] = new Vector4(
                 worldPosition.x, worldPosition.y, worldPosition.z, isShadowed ? -attenuation : attenuation);
+            // Alpha 0: the hero's light reaches indoor and outdoor surfaces.
+            linearColor.a = 0f;
             _lightColors[HeroLightIndex] = linearColor;
             UploadGlobalLightArrays();
             return true;
@@ -852,9 +854,14 @@ namespace Gothic.Core.Services.World
             }
         }
 
+        /// <summary>
+        /// The slot's color; its alpha marks an indoor light (StationaryLighting.hlsl: no light on outdoor surfaces).
+        /// </summary>
         private Color GetSlotColor(StationaryLight light)
         {
-            return light.IsOutdoor ? light.RuntimeLinearColor * _outdoorLightFactor : light.RuntimeLinearColor;
+            var color = light.IsOutdoor ? light.RuntimeLinearColor * _outdoorLightFactor : light.RuntimeLinearColor;
+            color.a = light.IsIndoor ? 1f : 0f;
+            return color;
         }
 
         /// <summary>

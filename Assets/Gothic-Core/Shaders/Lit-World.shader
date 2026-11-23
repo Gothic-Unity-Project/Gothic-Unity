@@ -89,13 +89,15 @@ Shader "Lit/World"
             #include "GothicShadows.hlsl"
 
             // Per pixel: per vertex a torch in the middle of a big cave wall lit nothing (its corners are far away).
-            half3 StationaryLighting(half3 normal, float3 worldPos)
+            // isOutdoorSurface: vertex lit polygons and VOBs outside light mapped areas - indoor lights skip them.
+            half3 StationaryLighting(half3 normal, float3 worldPos, bool isOutdoorSurface)
             {
                 half3 diffuse = 0;
                 for (uint k = 0; k < min(_StationaryLightCount, MAX_AFFECTING_STATIONARY_LIGHTS); k++)
                 {
                     uint lightIndex = _StationaryLightIndices[k / 4][k % 4];
-                    if (!IsStationaryLightShadowed(lightIndex))
+                    if (!IsStationaryLightShadowed(lightIndex) &&
+                        !(isOutdoorSurface && IsStationaryLightIndoor(lightIndex)))
                         diffuse += AdditionalStationaryDiffuse(lightIndex, worldPos, normal);
                 }
                 if (_StationaryLightCount >= MAX_AFFECTING_STATIONARY_LIGHTS)
@@ -104,7 +106,8 @@ Shader "Lit/World"
                             MAX_AFFECTING_STATIONARY_LIGHTS); l++)
                     {
                         uint lightIndex2 = _StationaryLightIndices2[l / 4][l % 4];
-                        if (!IsStationaryLightShadowed(lightIndex2))
+                        if (!IsStationaryLightShadowed(lightIndex2) &&
+                            !(isOutdoorSurface && IsStationaryLightIndoor(lightIndex2)))
                             diffuse += AdditionalStationaryDiffuse(lightIndex2, worldPos, normal);
                     }
                 }
@@ -158,7 +161,8 @@ Shader "Lit/World"
 
                 GothicOcclusion occlusion = GothicGetOcclusion(i.vertex);
                 half3 light = baseLight * occlusion.indirect +
-                    (StationaryLighting(normal, i.worldPos) + GothicShadowedLights(i.worldPos, normal, true)) *
+                    (StationaryLighting(normal, i.worldPos, i.normal.w > 0.5) +
+                     GothicShadowedLights(i.worldPos, normal, true)) *
                     occlusion.direct;
                 half3 diffuse = albedo.rgb * GothicClampLight(light) * _FocusBrightness;
 

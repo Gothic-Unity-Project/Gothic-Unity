@@ -147,6 +147,12 @@ namespace Gothic.Core.Adapters.Vob
         public bool IsOutdoor { get; set; }
 
         /// <summary>
+        /// Under a light mapped ceiling (house, cave, sewer): it doesn't light outdoor surfaces - the candles in a house
+        /// glowed on its outside walls, the walls had no shadow for them.
+        /// </summary>
+        public bool IsIndoor { get; set; }
+
+        /// <summary>
         /// A spell's light (VisualFxLight): it casts a shadow before the lamps (StationaryLightsService).
         /// </summary>
         public bool IsSpellLight { get; set; }
