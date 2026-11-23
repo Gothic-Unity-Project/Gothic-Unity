@@ -344,6 +344,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
             // Renderer module
             {
                 var rendererModule = pfxGo.GetComponent<ParticleSystemRenderer>();
+                // Like VOB meshes (AbstractMeshBuilder.PrepareMeshRenderer): not culled by the baked occlusion data.
+                rendererModule.allowOcclusionWhenDynamic = false;
                 // FIXME - Move to a cached constant value
                 var standardShader = Constants.ShaderUnlitParticles;
                 var material = new Material(standardShader);

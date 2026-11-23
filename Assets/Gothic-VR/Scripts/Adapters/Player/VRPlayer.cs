@@ -78,8 +78,33 @@ namespace Gothic.VR.Adapters.Player
         {
             // Enabled later via button press or other events
             MenuHandler?.gameObject.SetActive(false);
+            StartCoroutine(KeepPlayerRenderersVisible());
             GlobalEventDispatcher.HeroDied.AddListener(OnHeroDied);
             GlobalEventDispatcher.LoadGameStart.AddListener(OnLoadGameStart);
+        }
+
+        // How often new renderers under the player (menus, held items, the hero body) are taken out of occlusion culling.
+        private const float _occlusionCheckSeconds = 1f;
+        private readonly System.Collections.Generic.List<Renderer> _playerRenderers = new();
+
+        /// <summary>
+        /// The world's baked occlusion data culled the player's own renderers at some places: the hands, the hero body
+        /// and the menu panels (their meshes and texts) vanished or got cut with each degree the head turned. Everything
+        /// under the player is never occlusion culled - checked once a second for new ones (menus, items in the hands).
+        /// </summary>
+        private IEnumerator KeepPlayerRenderersVisible()
+        {
+            var wait = new WaitForSeconds(_occlusionCheckSeconds);
+            while (true)
+            {
+                GetComponentsInChildren(true, _playerRenderers);
+                foreach (var playerRenderer in _playerRenderers)
+                {
+                    if (playerRenderer.allowOcclusionWhenDynamic)
+                        playerRenderer.allowOcclusionWhenDynamic = false;
+                }
+                yield return wait;
+            }
         }
 
         private void OnDestroy()
