@@ -18,6 +18,11 @@ namespace Gothic.Core.Services.World
         [Inject] private readonly ConfigService _configService;
 
         private readonly WorldLightmapDomain _lightmapDomain = new WorldLightmapDomain().Inject();
+        // Cached shadows of every pooled lamp/fire in reach (PC): drawn once, not every frame like URP's shadow lights.
+        private readonly LightShadowCacheDomain _shadowCache = new LightShadowCacheDomain().Inject();
+        private readonly List<LightShadowCacheDomain.Candidate> _cacheCandidates = new();
+        private readonly Dictionary<int, StationaryLight> _cacheLights = new();
+        private readonly List<int> _cacheChangedKeys = new();
 
         /// <summary>
         /// Same as MAX_TOTAL_STATIONARY_LIGHTS in StationaryLighting.hlsl (1023 = Unity's cap, mobile 512). The global
@@ -139,6 +144,13 @@ namespace Gothic.Core.Services.World
             if (Time.time >= _nextPoolRebalance ||
                 (_isPoolDirty && Time.time >= _lastPoolRebalance + _poolMinRebalanceInterval))
                 RebalancePool();
+
+            if (_shadowCache.IsEnabled)
+            {
+                _cacheChangedKeys.Clear();
+                _shadowCache.Render(_worldChunkRenderers, _cacheChangedKeys);
+                ApplyCacheSlots(_cacheChangedKeys);
+            }
 
             // Lights loaded/unloaded this frame are uploaded at once (the whole arrays go to the GPU each time).
             if (_isUploadDirty)
@@ -563,6 +575,8 @@ namespace Gothic.Core.Services.World
             _dynamicShadowLights.Clear();
             _dynamicShadowNearPlanes.Clear();
             _heroUnityLight = null;
+            _shadowCache.Clear();
+            _cacheLights.Clear();
             _poolPeak = 0;
             _isPoolDirty = true;
 
@@ -745,6 +759,9 @@ namespace Gothic.Core.Services.World
             if (cam == null)
                 return;
             var camPos = cam.transform.position;
+            // The cache follows the option and the quality level (High) also while the camera stands still.
+            if (IsShadowCacheWanted() != _shadowCache.IsEnabled)
+                isDirty = true;
             if (!isDirty && (camPos - _lastPoolRebalanceCameraPosition).sqrMagnitude <
                 _poolMinCameraMove * _poolMinCameraMove)
                 return;
@@ -792,6 +809,7 @@ namespace Gothic.Core.Services.World
 
             UpdateShadowLights(camPos);
             UpdateUnityLights(camPos);
+            UpdateShadowCache(camPos);
 
             if (_wantedLights.Count > _poolPeak)
             {
@@ -866,13 +884,87 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// The slot's color; its alpha marks an indoor light (StationaryLighting.hlsl: no light on outdoor surfaces).
+        /// The slot's color; its alpha: indoor (StationaryLighting.hlsl: no light on outdoor surfaces without a cached
+        /// shadow) + 2 * (cached shadow slot + 1).
         /// </summary>
         private Color GetSlotColor(StationaryLight light)
         {
             var color = light.IsOutdoor ? light.RuntimeLinearColor * _outdoorLightFactor : light.RuntimeLinearColor;
-            color.a = light.IsIndoor ? 1f : 0f;
+            var cacheSlot = _shadowCache.GetSlot(light.GetInstanceID());
+            color.a = (light.IsIndoor ? 1f : 0f) + 2f * (cacheSlot + 1);
             return color;
+        }
+
+        /// <summary>
+        /// Cached shadows (LightShadowCacheDomain) for the pooled lamps/fires closest to the camera - all of them in
+        /// reach, unlike URP's few shadow lights (those keep theirs: NPCs and the hero cast in them). Not for lights
+        /// baked into the lightmaps (only VOBs/NPCs get them) or spell lights (they move). Runs with the rebalance.
+        /// </summary>
+        private void UpdateShadowCache(Vector3 cameraPosition)
+        {
+            var isEnabled = IsShadowCacheWanted();
+            if (isEnabled != _shadowCache.IsEnabled)
+            {
+                _shadowCache.SetEnabled(isEnabled);
+                _cacheLights.Clear();
+                // Every slot loses or gets its cache marker.
+                foreach (var light in _pooledLights)
+                    if (light != null && light.Index > HeroLightIndex && light.Index < _lightColors.Length)
+                        _lightColors[light.Index] = GetSlotColor(light);
+                _isUploadDirty = true;
+            }
+            if (!isEnabled)
+                return;
+
+            _cacheCandidates.Clear();
+            _cacheLights.Clear();
+            foreach (var light in _pooledLights)
+            {
+                if (light == null || light.Index <= HeroLightIndex || light.IsBakedIntoWorld || light.IsSpellLight ||
+                    !light.isActiveAndEnabled)
+                    continue;
+                var key = light.GetInstanceID();
+                _cacheLights[key] = light;
+                _cacheCandidates.Add(new LightShadowCacheDomain.Candidate
+                {
+                    Key = key,
+                    Position = light.CachedPosition,
+                    Range = light.CachedRange,
+                    Distance = Vector3.Distance(light.CachedPosition, cameraPosition) - light.CachedRange
+                });
+            }
+
+            _cacheChangedKeys.Clear();
+            _shadowCache.UpdateWanted(_cacheCandidates, _cacheChangedKeys);
+            ApplyCacheSlots(_cacheChangedKeys);
+        }
+
+        /// <summary>
+        /// Option "Shadows" on, PC with URP's additional light shadows (High quality) - Quest's shaders don't sample
+        /// the cache.
+        /// </summary>
+        private bool IsShadowCacheWanted()
+        {
+            return !Application.isMobilePlatform && SystemInfo.supports2DArrayTextures &&
+                   UniversalRenderPipeline.asset != null &&
+                   UniversalRenderPipeline.asset.supportsAdditionalLightShadows &&
+                   _configService.Gothic.GetInt(Constants.IniNames.Shadows, Constants.IniNames.ShadowsDefaultValue) > 0;
+        }
+
+        /// <summary>
+        /// Lights whose cached shadow appeared or went away get their slot's alpha rewritten.
+        /// </summary>
+        private void ApplyCacheSlots(List<int> keys)
+        {
+            foreach (var key in keys)
+            {
+                if (!_cacheLights.TryGetValue(key, out var light) || light == null)
+                    continue;
+                if (light.Index <= HeroLightIndex || light.Index >= _lightColors.Length)
+                    continue;
+                _lightColors[light.Index] = GetSlotColor(light);
+                _isUploadDirty = true;
+            }
         }
 
         /// <summary>
@@ -945,6 +1037,7 @@ namespace Gothic.Core.Services.World
                 if (light != null)
                     SetLightShadow(light, true);
             UpdateShadowLights(cam.transform.position);
+            UpdateShadowCache(cam.transform.position);
         }
 
         /// <summary>
