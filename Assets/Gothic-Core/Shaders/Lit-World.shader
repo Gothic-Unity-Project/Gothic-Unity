@@ -31,8 +31,6 @@ Shader "Lit/World"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
-            float _FocusBrightness;
-
             struct appdata
             {
                 float4 vertex : POSITION;
@@ -68,6 +66,8 @@ Shader "Lit/World"
             SAMPLER(sampler_WorldLightmaps);
             float _WorldLightmapBrightness;
 
+            // Every material property in here, the same in every pass - else the SRP batcher skips the world and
+            // draws it chunk by chunk.
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_TexelSize;
                 int _StationaryLightCount;
@@ -75,6 +75,7 @@ Shader "Lit/World"
                 float4x4 _StationaryLightIndices2;
                 float _WindStrength;
                 float4 _VobLightTint;
+                float _FocusBrightness;
             CBUFFER_END
 
             #include "GothicIncludes.hlsl"

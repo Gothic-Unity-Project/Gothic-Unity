@@ -307,7 +307,6 @@ namespace Gothic.Core.Services.World
         public bool IsWorldLit(Renderer renderer) => _worldLitRenderers.Contains(renderer);
         // Lightmap light per cell (ToCell) of the light mapped world polygons, sampled at their centers by WorldMeshBuilder.
         private readonly Dictionary<long, Color> _lightmapCells = new();
-        private MaterialPropertyBlock _vobLightBlock;
 
         /// <summary>
         /// The lightmap light of the world's light mapped polygons per cell (rgb summed, w = polygon count).
@@ -378,15 +377,18 @@ namespace Gothic.Core.Services.World
             if (!light.HasValue)
                 return;
 
-            _vobLightBlock ??= new MaterialPropertyBlock();
             var tint = new Vector4(light.Value.r, light.Value.g, light.Value.b, 1f);
             foreach (var renderer in renderers)
             {
                 if (renderer is MeshRenderer meshRenderer && IsWorldChunk(meshRenderer))
                     continue;
-                renderer.GetPropertyBlock(_vobLightBlock);
-                _vobLightBlock.SetVector(_vobLightTintShaderId, tint);
-                renderer.SetPropertyBlock(_vobLightBlock);
+                // Into the renderer's own materials (each has its own - UpdateRenderer writes its light indices there
+                // too), not a MaterialPropertyBlock: the SRP batcher skips renderers with one, ~1900 VOBs in Khorinis
+                // were drawn one by one.
+                renderer.GetSharedMaterials(_rendererMaterials);
+                foreach (var material in _rendererMaterials)
+                    if (material != null)
+                        material.SetVector(_vobLightTintShaderId, tint);
                 _worldLitRenderers.Add(renderer);
             }
         }
