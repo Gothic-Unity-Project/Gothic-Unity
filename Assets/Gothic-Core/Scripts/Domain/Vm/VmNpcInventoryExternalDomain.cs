@@ -41,6 +41,7 @@ namespace Gothic.Core.Domain.Vm
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly ProjectileService _projectileService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly VmCacheService _vmCacheService;
 
         private readonly VmExternalSupport _support;
 
@@ -94,18 +95,33 @@ namespace Gothic.Core.Domain.Vm
         public void CreateInvItem(NpcInstance npc, int itemId)
         {
             _npcInventoryService.ExtCreateInvItems(npc, itemId, 1);
+            SetScriptItem(itemId);
             _support.LogInstantExternal(nameof(CreateInvItem), npc, itemId);
         }
 
         public void CreateInvItems(NpcInstance npc, int itemId, int amount)
         {
             _npcInventoryService.ExtCreateInvItems(npc, itemId, amount);
+            SetScriptItem(itemId);
             _support.LogInstantExternal(nameof(CreateInvItem), npc, itemId, amount);
+        }
+
+        /// <summary>
+        /// Like the engine, the created item becomes the scripts' 'item': G2's B_GiveInvItems prints item.name right
+        /// after CreateInvItems ("Torch - received"). Without it the name was empty and ZenKit logged
+        /// 'Accessing member "C_ITEM.NAME" without an instance set'.
+        /// </summary>
+        private void SetScriptItem(int itemId)
+        {
+            var item = _vmCacheService.TryGetItemData(itemId);
+            if (item != null)
+                _gameStateService.GothicVm.GlobalItem = item;
         }
 
         public void Npc_RemoveInvItem(NpcInstance npc, int itemId)
         {
             _npcInventoryService.ExtRemoveInvItems(npc, itemId, 1);
+            _npcInventoryService.UnequipIfLastOneRemoved(npc, itemId);
             GlobalEventDispatcher.ScriptRemovedInvItems.Invoke(npc.GetUserData(), itemId, 1);
             _support.LogInstantExternal(nameof(Npc_RemoveInvItem), npc, itemId);
         }
@@ -113,6 +129,7 @@ namespace Gothic.Core.Domain.Vm
         public void Npc_RemoveInvItems(NpcInstance npc, int itemId, int amount)
         {
             _npcInventoryService.ExtRemoveInvItems(npc, itemId, amount);
+            _npcInventoryService.UnequipIfLastOneRemoved(npc, itemId);
             GlobalEventDispatcher.ScriptRemovedInvItems.Invoke(npc.GetUserData(), itemId, amount);
             _support.LogInstantExternal(nameof(Npc_RemoveInvItems), npc, itemId, amount);
         }

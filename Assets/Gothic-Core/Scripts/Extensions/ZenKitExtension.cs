@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -355,8 +356,10 @@ namespace Gothic.Core.Extensions
         }
         
         /// <summary>
-        /// Leveraging switch statements with string => member mapping as it's faster than reflection.
-        /// https://www.jacksondunstan.com/articles/2972
+        /// The C_SVM member a script's SVM key ($MONSTERKILLED, "$Aargh_1") names, i.e. the line's audio/subtitle name.
+        /// The switch holds the keys whose names differ from ZenKit's property (G1's truncated keys, ZenKit typos),
+        /// every other key is found by name among all members ZenKit knows (G1 and G2, cached once). Switch first,
+        /// as it's faster than reflection: https://www.jacksondunstan.com/articles/2972
         /// </summary>
         [SuppressMessage("ReSharper", "StringLiteralTypo")]
         public static string GetAudioName(this SvmInstance svm, string svmEntry)
@@ -399,6 +402,8 @@ namespace Gothic.Core.Extensions
                 "$handsoff" => svm.HandsOff,
                 "$getoutofhere" => svm.GetOutOfHere,
                 "$youviolatedforbiddenterritor" => svm.YouViolatedForbiddenTerritory,
+                // ZenKit's typos.
+                "$doesntwork" => svm.DoesntMork,
                 "$youwannafoolme" => svm.YouWannaFoolMe,
                 "$whatsthissupposedtobe" => svm.WhatsThisSupposedToBe,
                 "$whyareyouinhere" => svm.WhyAreYouInHere,
@@ -427,7 +432,7 @@ namespace Gothic.Core.Extensions
                 "$nolearnnopoints" => svm.NoLearnNoPoints,
                 "$nolearnovermax" => svm.NoLearnOverMax,
                 "$nolearnyoualreadyknow" => svm.NoLearnYouAlreadyKnow,
-                "$nolearnyourebetter" => svm.NoLearnYouAlreadyKnow,
+                "$nolearnyourebetter" => svm.NoLearnYoureBetter,
                 "$heyyou" => svm.HeyYou,
                 "$notnow" => svm.NotNow,
                 "$whatdoyouwant" => svm.WhatDoYouWant,
@@ -497,15 +502,43 @@ namespace Gothic.Core.Extensions
                 "$sc_heyturnaround02" => svm.ScHeyTurnAround02,
                 "$sc_heyturnaround03" => svm.ScHeyTurnAround03,
                 "$sc_heyturnaround04" => svm.ScHeyTurnAround04,
-                _ => null
+                _ => GetSvmMemberByName(svm, svmEntry)
             };
 
+            // A key ZenKit doesn't know (a mod's own C_SVM member): OutputSvm falls back to SVM_<voice>_<key>.
             if (fileName == null)
-            {
-                Logger.LogError($"key {svmEntry} not (yet) implemented.", LogCat.Misc);
-            }
+                Logger.LogWarningOnce(svmEntry, $"[Svm] Key {svmEntry} is no C_SVM member ZenKit knows.", LogCat.Dialog);
 
             return fileName;
+        }
+
+        // Every string member of ZenKit's SvmInstance by its name without '_', lower case (SMALLTALK28 -> smalltalk28).
+        private static Dictionary<string, PropertyInfo> _svmMembers;
+
+        [CanBeNull]
+        private static string GetSvmMemberByName(SvmInstance svm, string svmEntry)
+        {
+            if (_svmMembers == null)
+            {
+                _svmMembers = new Dictionary<string, PropertyInfo>();
+                foreach (var property in typeof(SvmInstance).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    if (property.PropertyType == typeof(string) && property.GetIndexParameters().Length == 0)
+                        _svmMembers[NormalizeSvmName(property.Name)] = property;
+                }
+            }
+
+            if (!_svmMembers.TryGetValue(NormalizeSvmName(svmEntry), out var member))
+                return null;
+
+            // A member the game's C_SVM doesn't have (a G2 key in G1) is empty.
+            var value = member.GetValue(svm) as string;
+            return string.IsNullOrEmpty(value) ? null : value;
+        }
+
+        private static string NormalizeSvmName(string name)
+        {
+            return name.TrimStart('$').Replace("_", string.Empty).ToLowerInvariant();
         }
 
         /// <summary>

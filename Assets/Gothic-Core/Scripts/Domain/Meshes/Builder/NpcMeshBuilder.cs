@@ -19,6 +19,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
     {
         [Inject] private readonly NpcArmorPositionCacheService _npcArmorCacheService;
 
+        // Attachments live in an own child of their bone, so an armor change can remove them again.
+        private const string _attachmentGoName = "_Attachment";
 
         protected ExtSetVisualBodyData BodyData;
         private bool _isHitboxExpected;
@@ -43,6 +45,68 @@ namespace Gothic.Core.Domain.Meshes.Builder
             CreateBodyAabbCollider();
 
             return RootGo;
+        }
+
+        /// <summary>
+        /// Runtime armor change (EquipItem, AI_EquipArmor, Mdl_SetVisualBody, a script taking the armor): replaces
+        /// the body's skinned meshes (ZM_*) and the armor's attachments (e.g. Greg's hat) with the ones of the current
+        /// .mdm on the NPC's existing skeleton. Head, weapons, helmet, colliders and the animation stay untouched.
+        /// </summary>
+        public bool RebuildBody()
+        {
+            if (Mdh == null || Mdm == null)
+            {
+                Logger.LogWarning($"[ArmorVisual] No .mdh/.mdm '{MeshName}' for {RootGo.name} - body not rebuilt.",
+                    LogCat.Mesh);
+                return false;
+            }
+
+            var nodeObjects = new GameObject[Mdh.Nodes.Count];
+            for (var i = 0; i < Mdh.Nodes.Count; i++)
+            {
+                nodeObjects[i] = RootGo.FindChildRecursively(Mdh.Nodes[i].Name);
+                if (nodeObjects[i] == null)
+                {
+                    Logger.LogWarning($"[ArmorVisual] Bone '{Mdh.Nodes[i].Name}' missing on {RootGo.name} - body not " +
+                                      "rebuilt.", LogCat.Mesh);
+                    return false;
+                }
+            }
+
+            foreach (Transform child in RootGo.transform)
+            {
+                if (child.name.StartsWith("ZM_") && child.GetComponent<SkinnedMeshRenderer>() != null)
+                    Object.Destroy(child.gameObject);
+            }
+
+            // Attachments of the old armor (e.g. Greg's captain hat) go with it.
+            foreach (var oldAttachment in RootGo.GetComponentsInChildren<Transform>(true))
+            {
+                if (oldAttachment.name == _attachmentGoName)
+                    Object.Destroy(oldAttachment.gameObject);
+            }
+
+            // Bind poses are calculated from the bones' current pose (CreateBonesData) and written into the cached,
+            // shared mesh. An animated NPC would bake its current pose into it - mangled armor for everyone wearing it.
+            // The skeleton goes into its rest pose (like during the initial build) for the rebuild, then back.
+            var animatedPositions = new UnityEngine.Vector3[nodeObjects.Length];
+            var animatedRotations = new Quaternion[nodeObjects.Length];
+            for (var i = 0; i < nodeObjects.Length; i++)
+            {
+                nodeObjects[i].transform.GetLocalPositionAndRotation(out animatedPositions[i], out animatedRotations[i]);
+
+                SetPosAndRot(nodeObjects[i], Mdh.Nodes[i].Transform);
+                if (Mdh.Nodes[i].ParentIndex == -1)
+                    nodeObjects[i].transform.localPosition = Mdh.RootTranslation.ToUnityVector();
+            }
+
+            var meshCounter = CreateSoftSkinMeshes(nodeObjects);
+            CreateAttachments(nodeObjects, meshCounter);
+
+            for (var i = 0; i < nodeObjects.Length; i++)
+                nodeObjects[i].transform.SetLocalPositionAndRotation(animatedPositions[i], animatedRotations[i]);
+
+            return true;
         }
 
         protected override GameObject[] BuildViaMdmAndMdh()
@@ -91,6 +155,18 @@ namespace Gothic.Core.Domain.Meshes.Builder
             }
 
             return newAttachments;
+        }
+
+        /// <summary>
+        /// An attachment goes into an own child of its bone: a hat on BIP01 HEAD would otherwise share the bone's
+        /// MeshFilter, and RebuildBody can remove the old armor's attachments again.
+        /// </summary>
+        protected override GameObject GetAttachmentGo(GameObject node)
+        {
+            var attachmentGo = new GameObject(_attachmentGoName);
+            attachmentGo.transform.SetParent(node.transform, false);
+            attachmentGo.layer = node.layer;
+            return attachmentGo;
         }
 
         /// <summary>

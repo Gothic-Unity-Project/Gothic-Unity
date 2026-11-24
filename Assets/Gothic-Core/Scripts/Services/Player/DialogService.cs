@@ -138,9 +138,16 @@ namespace Gothic.Core.Manager
                 _gameStateService.Dialogs.IsChoosing = true;
                 _gameStateService.Dialogs.ExitInfo = null;
             }
-            // There is at least one important entry, the NPC wants to talk to the hero about.
-            else if (initialDialogStarting && TryGetImportant(npcContainer, out var infoInstance))
+            // There is at least one important entry, the NPC wants to talk to the hero about. Like the engine, after
+            // one important info the next one starts by itself (G2 Hanna: her greeting, then the thieves' cellar one),
+            // not only when the dialog starts. A permanent important info only at the start - it would repeat forever.
+            else if (TryGetImportant(npcContainer, out var infoInstance) &&
+                     (initialDialogStarting || infoInstance.Permanent != 1))
             {
+                if (!initialDialogStarting)
+                    Logger.Log($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: next important info " +
+                               $"{infoInstance.Index} (nr {infoInstance.Nr}) starts by itself", LogCat.Dialog);
+
                 _gameStateService.Dialogs.CurrentInstance = infoInstance;
                 CallMainInformation(npcContainer, infoInstance);
             }
@@ -161,6 +168,15 @@ namespace Gothic.Core.Manager
                     // Dialog condition is false
                     if (conditionResult == 0)
                     {
+                        continue;
+                    }
+
+                    // Important infos are the NPC's to start, never a choice for the hero: they have no description
+                    // and showed up as an empty option (G2 Hanna's cellar info).
+                    if (dialog.Important == 1)
+                    {
+                        Logger.Log($"[Dialog] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: important info " +
+                                   $"{dialog.Index} (nr {dialog.Nr}) is not a choice", LogCat.Dialog);
                         continue;
                     }
 

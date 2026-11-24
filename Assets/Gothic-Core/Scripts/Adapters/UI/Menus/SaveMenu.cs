@@ -36,6 +36,8 @@ namespace Gothic.Core.Adapters.UI.Menus
         private TMP_Text Version;
 
         private readonly SaveGame[] _saves = new SaveGame[16];
+        // One thumbnail per slot, rebuilt whenever the slots are read again (after every save).
+        private readonly Texture2D[] _thumbnails = new Texture2D[16];
 
         [SerializeField] private bool _isSaving;
         private bool _isLoading => !_isSaving;
@@ -152,8 +154,15 @@ namespace Gothic.Core.Adapters.UI.Menus
             return (MenuItemCache[menuItemName].item.Flags & MenuItemFlag.Disabled) == 0;
         }
 
+        private void OnDestroy()
+        {
+            ReleaseThumbnails();
+        }
+
         private void FillSaveGameEntries()
         {
+            ReleaseThumbnails();
+
             var saveGameListPath = _saveGameService.SavesFolderPath;
             if (!Directory.Exists(saveGameListPath))
                 return;
@@ -226,8 +235,7 @@ namespace Gothic.Core.Adapters.UI.Menus
                 return;
             }
 
-            Thumbnail.GetComponent<MeshRenderer>().material.mainTexture
-                = _textureCacheService.TryGetTexture(save.Thumbnail, "savegame_" + save.Metadata.Title);
+            Thumbnail.GetComponent<MeshRenderer>().material.mainTexture = GetThumbnail(id, save);
             Thumbnail.SetActive(true);
             World.text = save.Metadata.World;
             SavedAt.text = save.Metadata.SaveDate;
@@ -235,6 +243,40 @@ namespace Gothic.Core.Adapters.UI.Menus
             var playTime = save.Metadata.PlayTime;
             PlayTime.text = $"{(int)playTime.TotalHours}:{playTime.Minutes:00}";
             // Version.text = save.Metadata.VersionAppName;
+        }
+
+        /// <summary>
+        /// The slot's thumbnail from its THUMB.SAV. Not from TextureCacheService's shared cache: it was keyed by the
+        /// title, so a slot overwritten under the same name (or two slots with the same or an empty name) showed the
+        /// old picture until the game was restarted.
+        /// </summary>
+        private Texture2D GetThumbnail(int id, SaveGame save)
+        {
+            if (_thumbnails[id] != null)
+                return _thumbnails[id];
+
+            _thumbnails[id] = _textureCacheService.TryGetTexture(save.Thumbnail, $"savegame{id}_thumbnail",
+                useCache: false);
+            if (_thumbnails[id] == null)
+                Logger.LogWarning($"[SaveMenu] Save slot {id} has no thumbnail.", LogCat.Ui);
+
+            return _thumbnails[id];
+        }
+
+        private void ReleaseThumbnails()
+        {
+            // The shown thumbnail is destroyed below - the next hover shows the new one.
+            if (Thumbnail != null)
+                Thumbnail.SetActive(false);
+
+            for (var i = 0; i < _thumbnails.Length; i++)
+            {
+                if (_thumbnails[i] == null)
+                    continue;
+
+                Destroy(_thumbnails[i]);
+                _thumbnails[i] = null;
+            }
         }
 
         public void OnLoadGameSlotPointerExit()

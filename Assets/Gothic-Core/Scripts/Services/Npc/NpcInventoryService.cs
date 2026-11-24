@@ -158,6 +158,31 @@ namespace Gothic.Core.Services.Npc
             EquipArmorFromInventory(npc, best);
         }
 
+        /// <summary>
+        /// Like the engine (oCNpc::RemoveFromInv, OpenGothic Inventory::delItem): a script taking the last piece of an
+        /// equipped item takes it off first. G2's Greg gets the hero's farmer clothes (B_GiveInvItems): the hero's
+        /// protection and the item's on_unequip go, and the hero's body shows the naked body again.
+        /// Only for script removals (Npc_RemoveInvItem(s)): a VR weapon held in a hand or holster is out of the
+        /// backpack but still equipped.
+        /// </summary>
+        public void UnequipIfLastOneRemoved(NpcInstance npc, int itemIndex)
+        {
+            var container = npc?.GetUserData();
+            var item = _vmCacheService.TryGetItemData(itemIndex);
+            if (container?.Props == null || item == null || ExtNpcHasItems(npc, itemIndex) > 0 ||
+                container.Props.EquippedItems.All(i => i?.Index != item.Index))
+                return;
+
+            Logger.Log($"[Equip] {npc.GetName(NpcNameSlot.Slot0)}: a script took the last '{item.Name}' - taking it " +
+                       "off like the engine.", LogCat.Npc);
+
+            // Externals run inside a script: on_unequip runs next frame, like the script equips (ExtEquipItem).
+            if (item.StaysEquippedOutsideBackpack())
+                _equipDomain.RemoveEquippedWeapon(container, item);
+            else
+                _equipDomain.UnequipItemWithEffects(npc, item, deferItemFunctions: true);
+        }
+
         /// <inheritdoc cref="EquipDomain.RemoveEquippedWeapon"/>
         public void RemoveEquippedWeapon(NpcContainer npc, string itemInstanceName)
         {

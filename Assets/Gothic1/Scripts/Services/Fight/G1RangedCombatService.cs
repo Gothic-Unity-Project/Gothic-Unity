@@ -16,7 +16,6 @@ namespace Gothic.G1.Services.Fight
     /// <summary>
     /// G1 (OpenGothic DamageCalculator::rangeDamageValue): weapon damage only, with a critical hit (talent value as
     /// chance) multiplying it; the hit chance is the shooter's dexterity %.
-    /// FIXME - G1 crit (TALENT_BOW/CROSSBOW value % chance) together with the melee talent formula.
     /// </summary>
     public class G1RangedCombatService : IContextRangedCombatService
     {
