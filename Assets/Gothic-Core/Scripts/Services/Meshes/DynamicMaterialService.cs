@@ -40,7 +40,6 @@ namespace Gothic.Core.Services.Meshes
             { Constants.ShaderLitAlphaToCoverageName, new (Constants.ShaderLitAlphaToCoverageDynamic, (int)RenderQueue.AlphaTest) }
         };
 
-        private static readonly int _fatnessShaderId = Shader.PropertyToID("_Fatness");
 
         // Some objects (like NPCs) have multiple meshes. We therefore add all self+children renderers/materials.
         private Dictionary<GameObject, CacheEntry> _cache = new();
@@ -109,7 +108,8 @@ namespace Gothic.Core.Services.Meshes
         }
 
         /// <summary>
-        /// Only our own dynamic material copies are changed - the default materials are shared with other objects.
+        /// Only our own dynamic material copies are changed - the default materials stay as they are (some are
+        /// shared with other objects, e.g. Constants.LoadingMaterial; VOB world materials are per renderer).
         /// </summary>
         private static void SetValue(CacheEntry entry, int shaderProperty, float shaderValue)
         {
@@ -147,14 +147,13 @@ namespace Gothic.Core.Services.Meshes
                         continue;
                     }
 
-                    var newMaterial = new Material(shaderMapEntry.dynamicShader)
+                    // A copy of the original keeps every per-renderer value (texture, fatness, the world-light tint
+                    // _VobLightTint, the stationary light indices): a chest in the Old Mine stays dark while focused.
+                    var newMaterial = new Material(mat)
                     {
-                        mainTexture = mat.mainTexture,
+                        shader = shaderMapEntry.dynamicShader,
                         renderQueue = shaderMapEntry.shaderType
                     };
-                    // A fat NPC stays fat while it is highlighted or see-through.
-                    if (mat.HasProperty(_fatnessShaderId) && newMaterial.HasProperty(_fatnessShaderId))
-                        newMaterial.SetFloat(_fatnessShaderId, mat.GetFloat(_fatnessShaderId));
                     dynamicSlots[i] = newMaterial;
                 }
 

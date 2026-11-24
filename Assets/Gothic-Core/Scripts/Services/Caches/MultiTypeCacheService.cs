@@ -39,10 +39,10 @@ namespace Gothic.Core.Services.Caches
         public Dictionary<string, AudioClip> AudioClips = new();
 
         /// <summary>
-        /// Materials of texture-less, color-only meshes (e.g. G2's treasure X marks) - shared by all VOBs with the same
-        /// color.
+        /// 1x1 textures of texture-less, color-only meshes (e.g. G2's treasure X marks) - shared by all VOBs with the
+        /// same color. Each renderer gets its own material with it: per-renderer light values are written there.
         /// </summary>
-        public Dictionary<Color32, Material> UntexturedMaterials = new();
+        public Dictionary<Color32, Texture2D> UntexturedTextures = new();
 
         /// <summary>
         /// Colliders of items without pre-cached ones, calculated from their mesh once per mesh name
@@ -65,7 +65,7 @@ namespace Gothic.Core.Services.Caches
             FontCache.Clear();
             Meshes.Clear();
             AudioClips.Clear();
-            UntexturedMaterials.Clear();
+            UntexturedTextures.Clear();
             ItemColliders.Clear();
             NpcCache.Clear();
             VobCache.Clear();
