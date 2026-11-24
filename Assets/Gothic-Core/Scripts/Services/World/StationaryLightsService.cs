@@ -372,6 +372,15 @@ namespace Gothic.Core.Services.World
             foreach (var renderer in renderers)
                 bounds.Encapsulate(renderer.bounds);
 
+            // Like the engine's VOB light (the ground polygon's light): only a VOB standing on light mapped ground takes
+            // it. Abuyin's carpets in Khorinis lie on the vertex lit street under a house's light mapped overhang - the
+            // nearest cells (up to 8 m, also above) were the overhang's black lightmap, the carpets turned black.
+            if (!_isMostlyLightmapped && !HasLightmappedFloor(bounds))
+            {
+                LogVobWorldLightSkip(vobGo, "not standing on light mapped ground");
+                return;
+            }
+
             var light = SampleWorldLight(bounds);
             LogVobWorldLight(vobGo, bounds, light);
             if (!light.HasValue)
@@ -447,6 +456,22 @@ namespace Gothic.Core.Services.World
         /// The average lightmap light of the light mapped cells around the bounds' center and bottom (3x3x3 cells each),
         /// null if there are none - outdoors the sun lights the VOB.
         /// </summary>
+        /// <summary>
+        /// A light mapped cell right under the VOB's bottom (its own 2 m cell or a neighbor, the floor level or one below).
+        /// </summary>
+        private bool HasLightmappedFloor(Bounds bounds)
+        {
+            var bottom = new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
+            for (var x = -1; x <= 1; x++)
+            for (var y = -1; y <= 0; y++)
+            for (var z = -1; z <= 1; z++)
+            {
+                if (_lightmapCells.ContainsKey(ToCell(bottom + new Vector3(x, y, z) * _cellSize)))
+                    return true;
+            }
+            return false;
+        }
+
         public Color? SampleWorldLight(Bounds bounds)
         {
             // Ring by ring (2 m cells) up to _vobLightMaxRings - a bridge over a chasm has its walls a few meters away.
