@@ -100,6 +100,35 @@ namespace Gothic.Core.Services.World
 
         public bool HasShadowLights => _shadowUnityLights.Count > 0;
 
+        private bool _isNoLightShadowsLogged;
+
+        /// <summary>
+        /// Option "Shadows" (0 off, 1 hard, 2 medium, 3 soft) - 0 while the active URP asset renders no point light
+        /// shadows (Quest's Performant, Balanced): the shaders then compile GothicShadowedLights away, a light picked
+        /// for a shadow anyway went dark (the pool skips it, nothing else lit it).
+        /// </summary>
+        private int ShadowOption
+        {
+            get
+            {
+                var pipeline = UniversalRenderPipeline.asset;
+                if (pipeline == null || !pipeline.supportsAdditionalLightShadows)
+                {
+                    if (!_isNoLightShadowsLogged)
+                        Logger.Log($"[StationaryLights] No lamp shadows: '{(pipeline ? pipeline.name : "none")}' " +
+                                   "renders no additional light shadows.", LogCat.Vob);
+                    _isNoLightShadowsLogged = true;
+                    return 0;
+                }
+                _isNoLightShadowsLogged = false;
+                return _configService.Gothic.GetInt(Constants.IniNames.Shadows, Constants.IniNames.ShadowsDefaultValue);
+            }
+        }
+
+        // The ShadowOption the moving shadow lights (torch, spells) were last set up with - a quality level switch
+        // changes it without an option event.
+        private int _appliedDynamicShadowOption = -1;
+
         public bool IsShadowLight(Light light) => _shadowUnityLights.Contains(light);
 
         /// <summary>
@@ -230,7 +259,7 @@ namespace Gothic.Core.Services.World
 
             var nonAllocMaterials = _rendererMaterials;
             var indicesMatrix = Matrix4x4.identity;
-            renderer.GetSharedMaterials(nonAllocMaterials);
+            GetOwnedMaterials(renderer, nonAllocMaterials);
             for (var i = 0; i < Mathf.Min(16, rendererLights.Count); i++)
             {
                 indicesMatrix[i / 4, i % 4] = rendererLights[i].Index;
@@ -456,14 +485,30 @@ namespace Gothic.Core.Services.World
             {
                 if (renderer is MeshRenderer meshRenderer && IsWorldChunk(meshRenderer))
                     continue;
-                // Into the renderer's own materials (each has its own - UpdateRenderer writes its light indices there
-                // too), not a MaterialPropertyBlock: the SRP batcher skips renderers with one, ~1900 VOBs in Khorinis
-                // were drawn one by one in every pass (with the shadows: sun cascades, lamp cubes).
-                renderer.GetSharedMaterials(_rendererMaterials);
+                // Into the renderer's own materials (UpdateRenderer writes its light indices there too), not a
+                // MaterialPropertyBlock: the SRP batcher skips renderers with one, ~1900 VOBs in Khorinis were drawn
+                // one by one in every pass (with the shadows: sun cascades, lamp cubes).
+                GetOwnedMaterials(renderer, _rendererMaterials);
                 foreach (var material in _rendererMaterials)
-                    if (material != null)
+                    if (material.HasProperty(_vobLightTintShaderId))
                         material.SetVector(_vobLightTintShaderId, tint);
                 _worldLitRenderers.Add(renderer);
+            }
+        }
+
+        /// <summary>
+        /// The renderer's materials this service writes per-renderer values into (light indices, world-light tint).
+        /// Every VOB and chunk renderer has its own (mesh builders); the loading material is the one shared exception,
+        /// left in place when a mesh failed to build - writing there would light every renderer still using it.
+        /// </summary>
+        private static void GetOwnedMaterials(Renderer renderer, List<Material> materials)
+        {
+            renderer.GetSharedMaterials(materials);
+            // Backwards and without a lambda: called for hundreds of renderers at once (GC spikes on Quest).
+            for (var i = materials.Count - 1; i >= 0; i--)
+            {
+                if (materials[i] == null || materials[i] == Constants.LoadingMaterial)
+                    materials.RemoveAt(i);
             }
         }
 
@@ -573,8 +618,12 @@ namespace Gothic.Core.Services.World
             _pooledLights.Clear();
             _shadowLights.Clear();
             _shadowUnityLights.Clear();
+            // The hero's torch outlives the world - else it kept its shadow and ForcePixel without being in the list.
+            foreach (var light in _dynamicShadowLights)
+                ResetShadow(light);
             _dynamicShadowLights.Clear();
             _dynamicShadowNearPlanes.Clear();
+            _isDynamicShadowCapLogged = false;
             _heroUnityLight = null;
             _shadowCache.Clear();
             _cacheLights.Clear();
@@ -991,7 +1040,10 @@ namespace Gothic.Core.Services.World
             _wantedShadowLights.Clear();
             var maxDistance = ShadowLightMaxDistance;
             var maxCount = ShadowLightCount;
-            if (_configService.Gothic.GetInt(Constants.IniNames.Shadows, Constants.IniNames.ShadowsDefaultValue) > 0)
+            var option = ShadowOption;
+            if (option != _appliedDynamicShadowOption)
+                RefreshDynamicShadowLights();
+            if (option > 0)
             {
                 foreach (var light in _pooledLights)
                 {
@@ -1052,6 +1104,7 @@ namespace Gothic.Core.Services.World
         private const float _dynamicShadowNearPlane = 0.15f;
         private readonly List<Light> _dynamicShadowLights = new();
         private readonly Dictionary<Light, float> _dynamicShadowNearPlanes = new();
+        private bool _isDynamicShadowCapLogged;
 
         public void AddDynamicShadowLight(Light light, float nearPlane = _dynamicShadowNearPlane)
         {
@@ -1059,7 +1112,22 @@ namespace Gothic.Core.Services.World
                 return;
             _dynamicShadowLights.RemoveAll(other => other == null);
             if (_dynamicShadowLights.Count >= _maxDynamicShadowLights)
-                return;
+            {
+                // The hero's torch / Light spell lights the hero's surroundings the whole time - it takes the place of
+                // the oldest projectile. A 5th projectile stays a plain light.
+                var evicted = light == _heroUnityLight
+                    ? _dynamicShadowLights.Find(other => other != _heroUnityLight)
+                    : null;
+                if (evicted == null)
+                {
+                    if (!_isDynamicShadowCapLogged)
+                        Logger.Log($"[StationaryLights] {_maxDynamicShadowLights} moving shadow lights already - " +
+                                   $"'{light.name}' casts no shadow (logged once per world).", LogCat.Vob);
+                    _isDynamicShadowCapLogged = true;
+                    return;
+                }
+                RemoveDynamicShadowLight(evicted);
+            }
 
             _dynamicShadowLights.Add(light);
             _dynamicShadowNearPlanes[light] = nearPlane;
@@ -1072,12 +1140,20 @@ namespace Gothic.Core.Services.World
                 return;
             _dynamicShadowNearPlanes.Remove(light);
             _shadowUnityLights.Remove(light);
+            ResetShadow(light);
+        }
+
+        private static void ResetShadow(Light light)
+        {
+            if (light == null)
+                return;
             light.shadows = LightShadows.None;
             light.renderMode = LightRenderMode.Auto;
         }
 
         private void RefreshDynamicShadowLights()
         {
+            _appliedDynamicShadowOption = ShadowOption;
             _dynamicShadowLights.RemoveAll(light => light == null);
             foreach (var light in _dynamicShadowLights)
                 ApplyDynamicShadow(light);
@@ -1085,8 +1161,7 @@ namespace Gothic.Core.Services.World
 
         private void ApplyDynamicShadow(Light light)
         {
-            var option = _configService.Gothic.GetInt(Constants.IniNames.Shadows,
-                Constants.IniNames.ShadowsDefaultValue);
+            var option = ShadowOption;
             var isOn = option > 0;
             light.shadows = !isOn ? LightShadows.None : option == 1 ? LightShadows.Hard : LightShadows.Soft;
             light.renderMode = isOn ? LightRenderMode.ForcePixel : LightRenderMode.Auto;
@@ -1111,8 +1186,7 @@ namespace Gothic.Core.Services.World
             if (unityLight == null)
                 return;
 
-            var option = _configService.Gothic.GetInt(Constants.IniNames.Shadows,
-                Constants.IniNames.ShadowsDefaultValue);
+            var option = ShadowOption;
             unityLight.shadows = !isOn ? LightShadows.None : option == 1 ? LightShadows.Hard : LightShadows.Soft;
             if (isOn)
                 _shadowUnityLights.Add(unityLight);

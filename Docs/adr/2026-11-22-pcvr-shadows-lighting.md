@@ -16,7 +16,7 @@ Gothic bakes its lighting: the sun's shadows are in the world's vertex light, th
 5. **Ambient occlusion on PC.** It gives soft contact shadows in corners and under objects, and darkens the baked and ambient light more than the sun and fires (like GD3D11).
 6. **Gothic's light stops at full brightness.** Lamps next to each other no longer burn the colors out. The engine's 8-bit vertex light worked the same way.
 7. **Nights, mines and rain are darker; lamps and fires outdoors dim by day.** Lights stand out at night, mines are lit by their lamps and the hero's torch, and a street lamp doesn't glow on a shaded wall at noon. Lights under a roof (houses, caves, sewers) stay as they are. Gothic's lamps burn all day too, but its bright vertex light hid them. Ours are stronger, so we dim them, which is a deliberate difference from the original.
-8. **Options in the VR Immersion menu: "Shadows" (off, hard, medium, soft; default soft) and "Shadow range" (how many lamps get a shadow).** Not every PC is fast. Quest stays without shadows and ambient occlusion: its quality level has them off.
+8. **Options in the VR Immersion menu: "Shadows" (off, hard, medium, soft; default soft) and "Shadow range" (how many lamps get a shadow).** Not every PC is fast. Quest stays without shadows and ambient occlusion: its quality level has them off. Lamps get a shadow only where the active quality level renders point light shadows; elsewhere the option counts as off, so the lamps stay lit the old way instead of going dark.
 9. **Gothic's world shader stays SRP batcher compatible.** Every pass of Lit/World has the same material buffer with every material property, and VOBs get their lightmap tint in their own material, not in a property block. Without it every shadow pass drew the world chunk by chunk (3100 SetPass calls in Khorinis, 190 with it).
 
 ## Consequences
@@ -24,4 +24,5 @@ Gothic bakes its lighting: the sun's shadows are in the world's vertex light, th
 - PC costs GPU time for the shadow maps (the sun's cascades plus up to 12 point lights) and ambient occlusion. Players with slower PCs pick hard shadows, a shorter shadow range or switch them off.
 - Lamps beyond the shadow range have no shadow; walls between them and the player don't stop their light (only the roof rule of decision 3). Lights baked into lightmaps cast none.
 - New Gothic shader passes must keep the material buffer identical, or the SRP batcher drops the world again.
+- Darker nights and mines, the stronger lamps and the day dimming (decision 7) also apply on Quest, which has no shadows to go with them. Kept on purpose for now; if it looks wrong on the headset it gets its own fix.
 - Not done in this step: height fog, god rays, bloom and tonemapping, water reflections.
