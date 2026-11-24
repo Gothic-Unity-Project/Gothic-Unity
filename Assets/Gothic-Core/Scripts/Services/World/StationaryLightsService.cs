@@ -161,7 +161,7 @@ namespace Gothic.Core.Services.World
 
             var nonAllocMaterials = _rendererMaterials;
             var indicesMatrix = Matrix4x4.identity;
-            renderer.GetSharedMaterials(nonAllocMaterials);
+            GetOwnedMaterials(renderer, nonAllocMaterials);
             for (var i = 0; i < Mathf.Min(16, rendererLights.Count); i++)
             {
                 indicesMatrix[i / 4, i % 4] = rendererLights[i].Index;
@@ -307,7 +307,6 @@ namespace Gothic.Core.Services.World
         public bool IsWorldLit(Renderer renderer) => _worldLitRenderers.Contains(renderer);
         // Lightmap light per cell (ToCell) of the light mapped world polygons, sampled at their centers by WorldMeshBuilder.
         private readonly Dictionary<long, Color> _lightmapCells = new();
-        private MaterialPropertyBlock _vobLightBlock;
 
         /// <summary>
         /// The lightmap light of the world's light mapped polygons per cell (rgb summed, w = polygon count).
@@ -387,16 +386,35 @@ namespace Gothic.Core.Services.World
             if (!light.HasValue)
                 return;
 
-            _vobLightBlock ??= new MaterialPropertyBlock();
             var tint = new Vector4(light.Value.r, light.Value.g, light.Value.b, 1f);
             foreach (var renderer in renderers)
             {
                 if (renderer is MeshRenderer meshRenderer && IsWorldChunk(meshRenderer))
                     continue;
-                renderer.GetPropertyBlock(_vobLightBlock);
-                _vobLightBlock.SetVector(_vobLightTintShaderId, tint);
-                renderer.SetPropertyBlock(_vobLightBlock);
+                // Into the renderer's own materials (UpdateRenderer writes its light indices there too), not a
+                // MaterialPropertyBlock: the SRP batcher skips renderers with one, ~1900 VOBs in Khorinis were drawn
+                // one by one.
+                GetOwnedMaterials(renderer, _rendererMaterials);
+                foreach (var material in _rendererMaterials)
+                    if (material.HasProperty(_vobLightTintShaderId))
+                        material.SetVector(_vobLightTintShaderId, tint);
                 _worldLitRenderers.Add(renderer);
+            }
+        }
+
+        /// <summary>
+        /// The renderer's materials this service writes per-renderer values into (light indices, world-light tint).
+        /// Every VOB and chunk renderer has its own (mesh builders); the loading material is the one shared exception,
+        /// left in place when a mesh failed to build - writing there would light every renderer still using it.
+        /// </summary>
+        private static void GetOwnedMaterials(Renderer renderer, List<Material> materials)
+        {
+            renderer.GetSharedMaterials(materials);
+            // Backwards and without a lambda: called for hundreds of renderers at once (GC spikes on Quest).
+            for (var i = materials.Count - 1; i >= 0; i--)
+            {
+                if (materials[i] == null || materials[i] == Constants.LoadingMaterial)
+                    materials.RemoveAt(i);
             }
         }
 
