@@ -32,6 +32,7 @@ Core code is in `Assets/Gothic-Core/Scripts/`.
 |------|----------|
 | A static VOB in a light mapped area takes the light of the floor below it (nearest lightmap cell, searched ring by ring) | `StationaryLightsService.ApplyWorldLight`, called by `VobInitializerDomain` |
 | A VOB lit this way ignores the baked static lights, else it gets the light twice | `Adapters/Vob/StationaryLight.cs` |
+| The tint is `_VobLightTint` in the VOB's own materials, never a MaterialPropertyBlock: VOBs stay SRP batched; the focus highlight copies the material, so the tint stays | `StationaryLightsService.ApplyWorldLight`, `DynamicMaterialService.CacheGameObject` |
 
 ## Fireplaces and torches
 
