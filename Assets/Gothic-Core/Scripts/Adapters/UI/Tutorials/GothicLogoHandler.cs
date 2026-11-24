@@ -8,9 +8,6 @@ namespace Gothic.Core.Adapters.UI
     public class GothicLogoHandler : MonoBehaviour, IPointerClickHandler
     {
         [SerializeField]
-        private GameObject _tutorialHandler;
-
-        [SerializeField]
         private float _minBrightness = 0.7f;
         [SerializeField]
         private float _maxBrightness = 1.3f;
@@ -52,22 +49,19 @@ namespace Gothic.Core.Adapters.UI
 
 
         /// <summary>
-        /// Counts as a poke for the Marvin mode activation and toggles the tutorial.
-        /// The click completing the Marvin pokes doesn't toggle the tutorial, otherwise it would stay open
+        /// Counts as a poke for the Marvin mode activation and raises GothicLogoClicked (the VR help panels listen).
+        /// The click completing the Marvin pokes doesn't raise it, otherwise the help would stay open
         /// (open, close, open).
         /// </summary>
         public void OnPointerClick(PointerEventData eventData)
         {
             GlobalEventDispatcher.MarvinLogoPoked.Invoke(eventData);
 
-            if (_tutorialHandler == null)
-                return;
-
             var marvinService = ReflexProjectInstaller.DIContainer.Resolve<MarvinService>();
             if (marvinService.IsLogoPokeComplete)
                 return;
 
-            _tutorialHandler.gameObject.SetActive(!_tutorialHandler.gameObject.activeSelf);
+            GlobalEventDispatcher.GothicLogoClicked.Invoke(gameObject);
         }
 
         private void OnDestroy()
