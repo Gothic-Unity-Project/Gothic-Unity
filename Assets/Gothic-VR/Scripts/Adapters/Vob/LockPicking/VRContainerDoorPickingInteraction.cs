@@ -154,6 +154,16 @@ namespace Gothic.VR.Adapters.Vob.LockPicking
                 return;
             }
 
+            // A lock without combination (key only, or never opens) can't be picked: like an empty hand, the key in
+            // the inventory opens it, else the hero says why ($KEYMISSING). Picking threw on every turn of the hand.
+            if (string.IsNullOrEmpty(_combination))
+            {
+                Logger.Log($"[Lock] Lock pick at '{_lockable.Vob.Name}', which has no combination (key: " +
+                           $"'{_keyInstance}') - can't be picked.", LogCat.VR);
+                OnEmptyHandTouched(_handSide);
+                return;
+            }
+
             // The hand turns, not the pick's world angle.
             var isHandRollTracked = false;
             var handVisual = _vrPlayerService.VRContextInteractionService?.Rig?.GetHandVisual(_handSide);
