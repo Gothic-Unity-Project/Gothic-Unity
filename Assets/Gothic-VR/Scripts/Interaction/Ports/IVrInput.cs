@@ -76,7 +76,7 @@ namespace Gothic.VR.Interaction.Ports
         Vector2 GetThumbstick(VrHandSide side);
 
         /// <summary>
-        /// Activates the desktop device simulator (DeveloperConfig.EnableVRDeviceSimulator).
+        /// Activates the desktop device simulator (ConfigService.EffectiveEnableVRDeviceSimulator).
         /// </summary>
         void SetDeviceSimulatorActive(bool isActive);
     }
