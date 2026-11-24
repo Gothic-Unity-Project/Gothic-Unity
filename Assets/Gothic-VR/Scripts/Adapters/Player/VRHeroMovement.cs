@@ -196,19 +196,7 @@ namespace Gothic.VR.Adapters.Player
             _lastBodyStatePosition = position;
 
             var props = heroInstance.GetUserData()?.Props;
-            if (props == null)
-                return;
-
-            // A hero nothing has set a body state for yet is 0 - not BS_STAND (that one carries flags). It counts as
-            // standing: before, the hero stayed 0 for the whole game, never walked or ran, and NPCs never heard him.
-            if (props.BodyState == 0)
-            {
-                Logger.Log("[VRHeroMovement] The hero had no body state yet - set from his movement from now on.",
-                    LogCat.VR);
-                props.BodyState = VmGothicEnums.BodyState.BsStand;
-            }
-
-            if (props.BodyState is not (VmGothicEnums.BodyState.BsStand
+            if (props == null || props.BodyState is not (VmGothicEnums.BodyState.BsStand
                     or VmGothicEnums.BodyState.BsWalk or VmGothicEnums.BodyState.BsRun
                     or VmGothicEnums.BodyState.BsSneak))
                 return;

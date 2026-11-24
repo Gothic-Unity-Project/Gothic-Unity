@@ -121,7 +121,9 @@ namespace Gothic.Core.Adapters.Properties
 
         // HINT: This information isn't set within Daedalus. We need to define it manually.
         // HINT: i.e. every animation might have a BS. E.g. when AI_TakeItem() is called, we set BS.BS_TAKEITEM
-        public VmGothicEnums.BodyState BodyState;
+        // Starts as BS_STAND, not 0: BS_STAND carries flags (interruptable, free hands), so 0 is no body state and
+        // C_BodyStateContains(npc, BS_STAND) was false for every NPC (and the hero) until a walk action ran.
+        public VmGothicEnums.BodyState BodyState = VmGothicEnums.BodyState.BsStand;
 
         /// <summary>
         /// Npc_IsDead(). Like Gothic, it's the death transition (FightService, loading a dead NPC), not HP <= 0:
