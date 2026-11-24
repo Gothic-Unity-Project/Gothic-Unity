@@ -26,7 +26,13 @@ bool IsStationaryLightIndoor(uint lightIndex)
 
 bool IsStationaryLightShadowed(uint lightIndex)
 {
+#if defined(_ADDITIONAL_LIGHT_SHADOWS)
     return _GlobalStationaryLightPositionsAndAttenuation[lightIndex].w < 0;
+#else
+    // No URP light shadows (Quest, lower quality levels, none this frame): GothicShadowedLights is compiled away, so
+    // the pool lights it - else the closest lamps and the torch went dark.
+    return false;
+#endif
 }
 
 half3 AdditionalStationaryDiffuse(uint lightIndex, real3 worldPos, real3 normal)
