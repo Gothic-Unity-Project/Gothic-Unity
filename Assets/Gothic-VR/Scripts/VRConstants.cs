@@ -335,11 +335,11 @@ namespace Gothic.VR
             // Meters the hands must be above the eyes for the gesture.
             public const float GestureHeightAboveEyes = 0.1f;
 
-            // Seconds both triggers are held for the open/close gesture.
-            public const float GestureSeconds = 1f;
+            // Seconds both triggers are held for the open/close gesture. 1 s felt long with the arms up.
+            public const float GestureSeconds = 0.5f;
 
             // A broken gesture shorter than this (s) keeps the hold time.
-            public const float GestureGraceSeconds = 0.3f;
+            public const float GestureGraceSeconds = 0.2f;
 
             // Seconds the front spell rests before its effect preview shows.
             public const float PreviewSeconds = 1f;

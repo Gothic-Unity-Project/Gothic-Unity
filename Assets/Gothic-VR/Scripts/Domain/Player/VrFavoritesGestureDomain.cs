@@ -52,8 +52,7 @@ namespace Gothic.VR.Domain.Player
                 return false;
             }
 
-            // A hand dipping below the eyes or a trigger flickering for a moment
-            // doesn't start the hold again - it took much longer than GestureSeconds.
+            // A hand dipping below the eyes or a trigger flickering for a moment doesn't start the hold again.
             if (!isGesture)
             {
                 _gestureBrokenTime += Time.deltaTime;
