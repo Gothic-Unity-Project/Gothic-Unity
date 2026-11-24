@@ -342,6 +342,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         protected void PrepareMeshRenderer(Renderer rend, IMultiResolutionMesh mrmData)
         {
+            // VOBs and NPCs are created at runtime, after the world's occlusion data was baked: Unity tests them as
+            // dynamic objects against it, and at some places (a Khorinis alley) the baked cells put the camera inside a
+            // wall - every VOB and NPC around vanished, flickering with each degree the head turned. Only the world
+            // mesh keeps occlusion culling; VOBs and NPCs are culled by the frustum and our distance culling.
+            rend.allowOcclusionWhenDynamic = false;
+
             if (null == mrmData)
             {
                 Logger.LogError($"No mesh data could be added to renderer: {rend.transform.parent.name}", LogCat.Mesh);
