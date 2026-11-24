@@ -11,6 +11,16 @@ namespace Gothic.Core.Extensions
 {
     public static class ZenKitVmExtension
     {
+        /// <summary>
+        /// An instance with a parent class (C_Item, C_Npc, ...). ZenKit's own $INSTANCE_HELP (index 0 - what a missing
+        /// item symbol in a script points to) has none: its init failed natively.
+        /// </summary>
+        public static bool IsInstanceWithClass(this DaedalusSymbol symbol)
+        {
+            return symbol != null && symbol.Type == DaedalusDataType.Instance && symbol.Parent >= 0 &&
+                   !symbol.Name.StartsWith("$", StringComparison.Ordinal);
+        }
+
         private const string _zenKitLibrary = "zenkitcapi";
 
         // ZenKit keeps the native VM pointer internal; the string calls below need it.

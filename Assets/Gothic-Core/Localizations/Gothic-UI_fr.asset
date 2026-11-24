@@ -463,6 +463,39 @@ MonoBehaviour:
     m_Localized: avec le corps|fondu
     m_Metadata:
       m_Items: []
+  - m_Id: 196002124818051072
+    m_Localized: "Succ\xE8s"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124834828288
+    m_Localized: '{0} / {1} obtenus'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022592
+    m_Localized: 'Cette partie : {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022593
+    m_Localized: Aucune partie en cours
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022594
+    m_Localized: "Les succ\xE8s sont d\xE9sactiv\xE9s."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022596
+    m_Localized: Indisponible
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022597
+    m_Localized: "Succ\xE8s obtenu"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196080985626931200
+    m_Localized: "{0} : jeu normal, sauvegarder et charger librement\n{1} : triches
+      (mode Marvin) utilis\xE9es"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

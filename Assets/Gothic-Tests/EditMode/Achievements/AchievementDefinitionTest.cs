@@ -1,0 +1,201 @@
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Gothic.Core.Const;
+using Gothic.Core.Domain.Achievements;
+using Gothic.Core.Models.Achievements;
+using Newtonsoft.Json.Linq;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace Gothic.Tests.EditMode.Achievements
+{
+    /// <summary>
+    /// The shipped definition files parse completely, without the scripts (symbols are resolved at runtime).
+    /// </summary>
+    public class AchievementDefinitionTest
+    {
+        private const string _g1 = Constants.Achievements.G1FileName;
+        private const string _g2 = Constants.Achievements.G2FileName;
+
+        private static string ReadDefinitionFile(string fileName)
+        {
+            return File.ReadAllText(Path.Combine(Application.streamingAssetsPath, Constants.Achievements.FolderName,
+                fileName));
+        }
+
+        [Test]
+        public void G1FileParsesCompletely()
+        {
+            var json = ReadDefinitionFile(_g1);
+            var errors = new List<string>();
+
+            var definitions = AchievementDefinitionParser.Parse(json, errors);
+
+            Assert.IsEmpty(errors, string.Join("\n", errors));
+            Assert.AreEqual(((JArray)JObject.Parse(json)["achievements"]).Count, definitions.Count);
+            Assert.Greater(definitions.Count, 0);
+        }
+
+        [Test]
+        public void G1IdsAreUniqueAndPrefixed()
+        {
+            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile(_g1), new List<string>());
+
+            var ids = definitions.Select(i => i.Id).ToList();
+            CollectionAssert.AllItemsAreUnique(ids);
+            Assert.IsTrue(ids.All(i => i.StartsWith("g1.")), "Every G1 id starts with g1.");
+        }
+
+        [Test]
+        public void EveryShippedAchievementHasEnglishGermanAndPolishTexts()
+        {
+            var definitions = new[] { _g1, _g2 }
+                .SelectMany(i => AchievementDefinitionParser.Parse(ReadDefinitionFile(i), new List<string>()));
+
+            foreach (var definition in definitions)
+            {
+                foreach (var language in new[] { "en", "de", "pl" })
+                {
+                    Assert.IsTrue(definition.Title.Translations.ContainsKey(language), $"{definition.Id} {language}");
+                    Assert.IsTrue(definition.Description.Translations.ContainsKey(language),
+                        $"{definition.Id} {language}");
+                }
+            }
+        }
+
+        [Test]
+        public void G2FileIsValid()
+        {
+            var errors = new List<string>();
+
+            AchievementDefinitionParser.Parse(ReadDefinitionFile(_g2), errors);
+
+            Assert.IsEmpty(errors, string.Join("\n", errors));
+        }
+
+        [Test]
+        public void ItemIconParsesWithAndWithoutTexture()
+        {
+            const string json = @"{ ""achievements"": [
+                { ""id"": ""a"", ""title"": { ""en"": ""A"" }, ""description"": { ""en"": ""A"" },
+                  ""icon"": { ""item"": ""ItMi_InnosEye_MIS"", ""texture"": ""Map_OldCamp.tga"" },
+                  ""condition"": { ""infoTold"": ""DIA_Gilbert_First"" } },
+                { ""id"": ""b"", ""title"": { ""en"": ""B"" }, ""description"": { ""en"": ""B"" },
+                  ""icon"": { ""item"": ""ItKe_Lockpick"" },
+                  ""condition"": { ""infoTold"": ""DIA_Gilbert_First"" } } ] }";
+            var errors = new List<string>();
+
+            var definitions = AchievementDefinitionParser.Parse(json, errors);
+
+            Assert.IsEmpty(errors, string.Join("\n", errors));
+            Assert.AreEqual("ItMi_InnosEye_MIS", definitions[0].Icon.Item);
+            Assert.AreEqual("Map_OldCamp.tga", definitions[0].Icon.Texture);
+            Assert.AreEqual("ItKe_Lockpick", definitions[1].Icon.Item);
+            Assert.IsNull(definitions[1].Icon.Texture);
+        }
+
+        [Test]
+        public void EveryShippedAchievementHasAnIcon()
+        {
+            foreach (var file in new[] { _g1, _g2 })
+            {
+                foreach (var definition in AchievementDefinitionParser.Parse(ReadDefinitionFile(file),
+                             new List<string>()))
+                {
+                    Assert.IsFalse(string.IsNullOrEmpty(definition.Icon.Item) &&
+                                   string.IsNullOrEmpty(definition.Icon.Texture), $"{definition.Id} has no icon.");
+                }
+            }
+        }
+
+        [Test]
+        public void EveryConditionKindParses()
+        {
+            const string json = @"{ ""achievements"": [
+                { ""id"": ""a"", ""title"": { ""en"": ""A"" }, ""description"": { ""en"": ""A"" },
+                  ""condition"": { ""all"": [
+                    { ""logTopic"": ""CH1_JoinOC"", ""status"": ""success"" },
+                    { ""variable"": ""Kapitel"", ""op"": "">="", ""value"": 3 },
+                    { ""variable"": ""Jesse_PayForMe"", ""op"": ""=="", ""value"": ""LOG_SUCCESS"" },
+                    { ""trueGuild"": [""GIL_SLD""] },
+                    { ""infoTold"": ""DIA_Gilbert_First"" },
+                    { ""item"": ""ItMiNugget"", ""count"": 15000 },
+                    { ""killed"": [""Meatbug""], ""count"": 10, ""byHero"": true },
+                    { ""npcAivar"": ""GRD_251_Kirgo"", ""aivar"": ""AIV_WASDEFEATEDBYSC"", ""value"": 1 },
+                    { ""counter"": ""lockpick.success"", ""count"": 20 },
+                    { ""any"": [ { ""distinct"": ""document.shown"", ""count"": 10 } ] }
+                  ] } } ] }";
+            var errors = new List<string>();
+
+            var condition = AchievementDefinitionParser.Parse(json, errors).Single().Condition;
+
+            Assert.IsEmpty(errors, string.Join("\n", errors));
+            var kinds = condition.Children.Select(i => i.Kind).ToList();
+            CollectionAssert.AreEqual(new[]
+            {
+                AchievementConditionKind.LogTopic, AchievementConditionKind.Variable,
+                AchievementConditionKind.Variable, AchievementConditionKind.TrueGuild,
+                AchievementConditionKind.InfoTold, AchievementConditionKind.Item, AchievementConditionKind.Killed,
+                AchievementConditionKind.NpcAivar, AchievementConditionKind.Counter, AchievementConditionKind.Any
+            }, kinds);
+            Assert.AreEqual("LOG_SUCCESS", condition.Children[2].ValueName);
+            Assert.AreEqual(AchievementCompareOp.GreaterOrEqual, condition.Children[1].Op);
+            Assert.IsTrue(condition.Children[6].IsByHero);
+            Assert.AreEqual(10, condition.Children[6].Count);
+            Assert.AreEqual("kill:a:0", condition.Children[6].KillCounterKey);
+        }
+
+        [Test]
+        public void BrokenDefinitionIsSkippedAndNamed()
+        {
+            const string json = @"{ ""achievements"": [
+                { ""id"": ""ok"", ""title"": { ""en"": ""A"" }, ""description"": { ""en"": ""A"" },
+                  ""condition"": { ""counter"": ""x"" } },
+                { ""id"": ""broken"", ""title"": { ""en"": ""B"" }, ""description"": { ""en"": ""B"" },
+                  ""condition"": { ""unknownKind"": 1 } },
+                { ""id"": ""ok"", ""title"": { ""en"": ""C"" }, ""description"": { ""en"": ""C"" },
+                  ""condition"": { ""counter"": ""y"" } } ] }";
+            var errors = new List<string>();
+
+            var definitions = AchievementDefinitionParser.Parse(json, errors);
+
+            Assert.AreEqual(1, definitions.Count);
+            Assert.AreEqual(2, errors.Count);
+            StringAssert.StartsWith("broken", errors[0]);
+        }
+
+        [Test]
+        public void OnlyPureVariableDefinitionsGoToTheVariableCheck()
+        {
+            var definitions = AchievementDefinitionParser.Parse(ReadDefinitionFile(_g1), new List<string>());
+
+            var index = AchievementDefinitionDomain.BuildIndex(definitions);
+
+            var variableIds = index.VariableDefinitions.Select(i => i.Id).ToList();
+            CollectionAssert.Contains(variableIds, "g1.great_invocation");
+            CollectionAssert.Contains(variableIds, "g1.debts_settled");
+            CollectionAssert.DoesNotContain(variableIds, "g1.hired_early");
+            var guildFact = new AchievementFact(AchievementFactKind.TrueGuild, value: 7);
+            CollectionAssert.Contains(index.Get(guildFact).Select(i => i.Id).ToList(), "g1.hired_early");
+        }
+
+        [Test]
+        public void FactGetsKeyedAndWholeKindDefinitions()
+        {
+            var keyed = new AchievementDefinition { Id = "keyed" };
+            var wholeKind = new AchievementDefinition { Id = "wholeKind" };
+            var otherKey = new AchievementDefinition { Id = "otherKey" };
+            var index = new AchievementTriggerIndex();
+            index.Add(AchievementFactKind.TrueGuild, 7, keyed);
+            index.Add(AchievementFactKind.TrueGuild, 8, otherKey);
+            index.Add(AchievementFactKind.TrueGuild, wholeKind);
+
+            var ids = index.Get(new AchievementFact(AchievementFactKind.TrueGuild, 7)).Select(i => i.Id).ToList();
+
+            CollectionAssert.AreEquivalent(new[] { "keyed", "wholeKind" }, ids);
+            var unkeyedIds = index.Get(new AchievementFact(AchievementFactKind.TrueGuild, 9)).Select(i => i.Id);
+            CollectionAssert.AreEquivalent(new[] { "wholeKind" }, unkeyedIds.ToList());
+        }
+    }
+}

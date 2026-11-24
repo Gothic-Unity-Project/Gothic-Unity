@@ -465,6 +465,39 @@ MonoBehaviour:
       dr\u0105\u017Cek, gdy jest otwarty)"
     m_Metadata:
       m_Items: []
+  - m_Id: 196002124818051072
+    m_Localized: "Osi\u0105gni\u0119cia"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124834828288
+    m_Localized: '{0} / {1} zdobyte'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022592
+    m_Localized: 'Ta gra: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022593
+    m_Localized: "Brak trwaj\u0105cej gry"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022594
+    m_Localized: "Osi\u0105gni\u0119cia s\u0105 wy\u0142\u0105czone."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022596
+    m_Localized: "Niedost\u0119pne"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022597
+    m_Localized: "Zdobyto osi\u0105gni\u0119cie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196080985626931200
+    m_Localized: "{0}: zwyk\u0142a gra, zapis i wczytywanie do woli\n{1}: u\u017Cyto
+      kod\xF3w (tryb Marvina)"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

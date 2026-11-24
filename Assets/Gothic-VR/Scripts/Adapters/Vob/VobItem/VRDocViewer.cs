@@ -92,7 +92,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // Gothic textures are uploaded top row first (SetPixelData) - world meshes cancel that out with Gothic's
             // UVs, a UI RawImage showed them upside down (maps looked mirrored).
             foreach (var image in canvasGo.GetComponentsInChildren<RawImage>())
-                image.uvRect = new Rect(0f, 1f, 1f, -1f);
+                image.SetUpright(true);
 
             if (!twoPages)
                 CreatePlayerMarker(doc, canvasGo.transform.GetChild(0) as RectTransform);

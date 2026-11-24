@@ -1588,6 +1588,9 @@ namespace Gothic.Core.Services.Npc
         public void ExtSetTrueGuild(NpcInstance npc, int guild)
         {
             npc.GetUserData().Props.TrueGuild = (VmGothicEnums.Guild) guild;
+
+            if (npc.IsHero(_gameStateService.GothicVm))
+                GlobalEventDispatcher.HeroTrueGuildChanged.Invoke(guild);
         }
 
         public int ExtGetTrueGuild(NpcInstance npc)

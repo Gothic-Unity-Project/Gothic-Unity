@@ -567,6 +567,38 @@ MonoBehaviour:
     m_Key: vr.help.ring.text
     m_Metadata:
       m_Items: []
+  - m_Id: 196002124818051072
+    m_Key: achievements.tab
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124834828288
+    m_Key: achievements.completion
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022592
+    m_Key: achievements.run
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022593
+    m_Key: achievements.run.none
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022594
+    m_Key: achievements.off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022596
+    m_Key: achievements.unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022597
+    m_Key: achievements.toast
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196080985626931200
+    m_Key: achievements.tiers
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

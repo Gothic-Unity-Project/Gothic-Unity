@@ -459,6 +459,39 @@ MonoBehaviour:
     m_Localized: col corpo|dissolvenza
     m_Metadata:
       m_Items: []
+  - m_Id: 196002124818051072
+    m_Localized: Obiettivi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124834828288
+    m_Localized: '{0} / {1} ottenuti'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022592
+    m_Localized: 'Questa partita: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022593
+    m_Localized: Nessuna partita in corso
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022594
+    m_Localized: Gli obiettivi sono disattivati.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022596
+    m_Localized: Non disponibile
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196002124839022597
+    m_Localized: Obiettivo ottenuto
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196080985626931200
+    m_Localized: "{0}: gioco normale, salvi e carichi quando vuoi\n{1}: trucchi (modalit\xE0
+      Marvin) usati"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -1,0 +1,1126 @@
+{
+  "version": 1,
+  "achievements": [
+    {
+      "id": "g2.lord_andres_man",
+      "title": {
+        "en": "Lord Andre's Man",
+        "de": "Lord Andres Mann",
+        "pl": "Człowiek lorda Andre"
+      },
+      "description": {
+        "en": "Join the city militia.",
+        "de": "Tritt der Stadtmiliz bei.",
+        "pl": "Zaciągnij się do straży miejskiej."
+      },
+      "icon": {
+        "item": "ITAR_MIL_L"
+      },
+      "condition": {
+        "trueGuild": [
+          "GIL_MIL"
+        ]
+      }
+    },
+    {
+      "id": "g2.behind_monastery_walls",
+      "title": {
+        "en": "Behind Monastery Walls",
+        "de": "Hinter Klostermauern",
+        "pl": "Za murami klasztoru"
+      },
+      "description": {
+        "en": "Become a novice in the monastery of Innos.",
+        "de": "Werde Novize im Kloster Innos'.",
+        "pl": "Zostań nowicjuszem w klasztorze Innosa."
+      },
+      "icon": {
+        "item": "ITAR_NOV_L"
+      },
+      "condition": {
+        "trueGuild": [
+          "GIL_NOV"
+        ]
+      }
+    },
+    {
+      "id": "g2.onars_blade",
+      "title": {
+        "en": "Onar's Blade",
+        "de": "Onars Klinge",
+        "pl": "Miecz Onara"
+      },
+      "description": {
+        "en": "Become one of Lee's mercenaries on Onar's farm.",
+        "de": "Werde Söldner auf Onars Hof.",
+        "pl": "Zostań jednym z najemników Lee na farmie Onara."
+      },
+      "icon": {
+        "item": "ITAR_SLD_M"
+      },
+      "condition": {
+        "trueGuild": [
+          "GIL_SLD"
+        ]
+      }
+    },
+    {
+      "id": "g2.word_from_the_valley",
+      "title": {
+        "en": "Word from the Valley",
+        "de": "Nachricht aus dem Tal",
+        "pl": "Wieści z Doliny"
+      },
+      "description": {
+        "en": "Bring Lord Hagen proof of the dragons.",
+        "de": "Bringe Lord Hagen den Beweis für die Drachen.",
+        "pl": "Przynieś lordowi Hagenowi dowód na istnienie smoków."
+      },
+      "icon": {
+        "texture": "MAP_OLDWORLD.TGA"
+      },
+      "condition": {
+        "infoTold": "DIA_Garond_Success"
+      }
+    },
+    {
+      "id": "g2.the_eye_found",
+      "title": {
+        "en": "The Eye Found",
+        "de": "Das Auge gefunden",
+        "pl": "Oko odnalezione"
+      },
+      "description": {
+        "en": "Recover the Eye of Innos.",
+        "de": "Bringe das Auge Innos' zurück.",
+        "pl": "Odzyskaj Oko Innosa."
+      },
+      "icon": {
+        "item": "ItMi_InnosEye_Broken_Mis"
+      },
+      "condition": {
+        "item": "ItMi_InnosEye_Broken_MIS"
+      }
+    },
+    {
+      "id": "g2.the_eye_made_whole",
+      "title": {
+        "en": "The Eye Made Whole",
+        "de": "Das Auge geheilt",
+        "pl": "Oko uleczone"
+      },
+      "description": {
+        "en": "Restore the Eye of Innos at the stone circle.",
+        "de": "Stelle das Auge Innos' am Steinkreis wieder her.",
+        "pl": "Przywróć moc Oku Innosa w Słonecznym Kręgu."
+      },
+      "icon": {
+        "item": "ItMi_InnosEye_MIS"
+      },
+      "condition": {
+        "variable": "MIS_RitualInnosEyeRepair",
+        "op": "==",
+        "value": "LOG_SUCCESS"
+      }
+    },
+    {
+      "id": "g2.four_fewer_dragons",
+      "title": {
+        "en": "Four Fewer Dragons",
+        "de": "Vier Drachen weniger",
+        "pl": "O cztery smoki mniej"
+      },
+      "description": {
+        "en": "Slay the dragons in the Valley of Mines.",
+        "de": "Erschlage die Drachen im Minental.",
+        "pl": "Zabij smoki w Górniczej Dolinie."
+      },
+      "icon": {
+        "texture": "DRAGON.TGA"
+      },
+      "condition": {
+        "variable": "MIS_AllDragonsDead",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.cast_off",
+      "title": {
+        "en": "Cast Off",
+        "de": "Leinen los",
+        "pl": "Rzucić cumy!"
+      },
+      "description": {
+        "en": "Take a ship to Irdorath.",
+        "de": "Segle nach Irdorath.",
+        "pl": "Popłyń statkiem na Irdorath."
+      },
+      "icon": {
+        "texture": "LOADING_DRAGONISLAND.TGA"
+      },
+      "condition": {
+        "variable": "Kapitel",
+        "op": ">=",
+        "value": 6
+      }
+    },
+    {
+      "id": "g2.beliars_champion_falls",
+      "title": {
+        "en": "Beliar's Champion Falls",
+        "de": "Beliars Streiter fällt",
+        "pl": "Upadek czempiona Beliara"
+      },
+      "description": {
+        "en": "Defeat the undead dragon.",
+        "de": "Besiege den untoten Drachen.",
+        "pl": "Pokonaj nieumarłego smoka."
+      },
+      "icon": {
+        "texture": "ZOMBIEDRAGON.TGA"
+      },
+      "condition": {
+        "variable": "UndeadDragonIsDead",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.beyond_the_portal",
+      "title": {
+        "en": "Beyond the Portal",
+        "de": "Jenseits des Portals",
+        "pl": "Po drugiej stronie portalu"
+      },
+      "description": {
+        "en": "Step through the portal into Jharkendar.",
+        "de": "Betritt Jharkendar durch das Portal.",
+        "pl": "Przejdź przez portal do Jarkendaru."
+      },
+      "icon": {
+        "texture": "LOADING_ADDONWORLD.TGA"
+      },
+      "condition": {
+        "variable": "ENTERED_ADDONWORLD",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.gregs_crew",
+      "title": {
+        "en": "Greg's Crew",
+        "de": "Gregs Mannschaft",
+        "pl": "Załoga Grega"
+      },
+      "description": {
+        "en": "Join the pirates.",
+        "de": "Heuere bei den Piraten an.",
+        "pl": "Dołącz do piratów."
+      },
+      "icon": {
+        "texture": "NW_SEQ_OBJ_PIRATEFLAG_01.TGA"
+      },
+      "condition": {
+        "infoTold": "DIA_Addon_Greg_JoinPirates"
+      }
+    },
+    {
+      "id": "g2.the_raven_falls",
+      "title": {
+        "en": "The Raven Falls",
+        "de": "Der Rabe fällt",
+        "pl": "Upadek Kruka"
+      },
+      "description": {
+        "en": "Stop Raven in his temple.",
+        "de": "Halte Raven in seinem Tempel auf.",
+        "pl": "Powstrzymaj Kruka w jego świątyni."
+      },
+      "icon": {
+        "item": "ITAR_Raven_Addon",
+        "texture": "ARMOR_RAVEN.TGA"
+      },
+      "condition": {
+        "variable": "RavenIsDead",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.down_in_the_sewers",
+      "title": {
+        "en": "Down in the Sewers",
+        "de": "Unter der Stadt",
+        "pl": "W kanałach"
+      },
+      "description": {
+        "en": "Find the thieves' guild beneath Khorinis.",
+        "de": "Finde die Diebesgilde unter Khorinis.",
+        "pl": "Odnajdź gildię złodziei pod Khorinis."
+      },
+      "icon": {
+        "texture": "MAP_NEWWORLD_CITY.TGA"
+      },
+      "condition": {
+        "infoTold": "DIA_Cassia_Aufnahme"
+      }
+    },
+    {
+      "id": "g2.the_black_giant",
+      "title": {
+        "en": "The Black Giant",
+        "de": "Der schwarze Riese",
+        "pl": "Czarny olbrzym"
+      },
+      "description": {
+        "en": "Defeat the black troll.",
+        "de": "Besiege den schwarzen Troll.",
+        "pl": "Powal czarnego trolla."
+      },
+      "icon": {
+        "texture": "TRO_BODY_DEMON_V0.TGA"
+      },
+      "condition": {
+        "killed": [
+          "Troll_Black"
+        ],
+        "count": 1,
+        "byHero": true
+      }
+    },
+    {
+      "id": "g2.a_rich_man",
+      "title": {
+        "en": "A Rich Man",
+        "de": "Ein reicher Mann",
+        "pl": "Bogacz"
+      },
+      "description": {
+        "en": "Own 20,000 gold.",
+        "de": "Besitze 20.000 Gold.",
+        "pl": "Posiadaj 20 000 sztuk złota."
+      },
+      "icon": {
+        "item": "ItMi_Gold"
+      },
+      "condition": {
+        "item": "ItMi_Gold",
+        "count": 20000
+      }
+    },
+    {
+      "id": "g2.sausage_for_everyone",
+      "title": {
+        "en": "Sausage for Everyone",
+        "de": "Wurst für alle",
+        "pl": "Kiełbasa dla każdego"
+      },
+      "description": {
+        "en": "Hand every novice a sausage, missing nobody.",
+        "de": "Gib jedem Novizen eine Wurst, ohne einen auszulassen.",
+        "pl": "Daj kiełbasę każdemu nowicjuszowi, nikogo nie pomijając."
+      },
+      "icon": {
+        "item": "ItFo_Sausage"
+      },
+      "condition": {
+        "variable": "Wurst_Gegeben",
+        "op": ">=",
+        "value": 13
+      }
+    },
+    {
+      "id": "g2.no_chest_is_safe",
+      "title": {
+        "en": "No Chest Is Safe",
+        "de": "Keine Truhe ist sicher",
+        "pl": "Żadna skrzynia nie jest bezpieczna"
+      },
+      "description": {
+        "en": "Pick 50 locks.",
+        "de": "Knacke 50 Schlösser.",
+        "pl": "Otwórz wytrychem 50 zamków."
+      },
+      "icon": {
+        "item": "ItKe_Lockpick"
+      },
+      "condition": {
+        "counter": "lockpick.success",
+        "count": 50
+      }
+    },
+    {
+      "id": "g2.under_the_monastery",
+      "title": {
+        "en": "Under the Monastery",
+        "de": "Unter dem Kloster",
+        "pl": "Pod klasztorem"
+      },
+      "description": {
+        "en": "Find the sea chart in Xardas' hidden library below the monastery.",
+        "de": "Finde die Seekarte in Xardas' verborgener Bibliothek unter dem Kloster.",
+        "pl": "Znajdź mapę morską w ukrytej bibliotece Xardasa pod klasztorem."
+      },
+      "icon": {
+        "item": "ItWr_Seamap_Irdorath"
+      },
+      "condition": {
+        "variable": "MIS_SCKnowsWayToIrdorath",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.wolf_among_wolves",
+      "title": {
+        "en": "Wolf Among Wolves",
+        "de": "Wolf unter Wölfen",
+        "pl": "Wilk wśród wilków"
+      },
+      "description": {
+        "en": "Get into the bandit camp in Jharkendar.",
+        "de": "Gelange ins Banditenlager in Jharkendar.",
+        "pl": "Dostań się do obozu bandytów w Jarkendarze."
+      },
+      "icon": {
+        "item": "ITAR_BDT_M"
+      },
+      "condition": {
+        "variable": "Player_HasTalkedToBanditCamp",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.old_friends",
+      "title": {
+        "en": "Old Friends",
+        "de": "Alte Freunde",
+        "pl": "Starzy przyjaciele"
+      },
+      "description": {
+        "en": "Bring Diego back to where it all began.",
+        "de": "Bringe Diego dorthin zurück, wo alles begann.",
+        "pl": "Zaprowadź Diega z powrotem tam, gdzie wszystko się zaczęło."
+      },
+      "icon": {
+        "texture": "MAP_OLDCAMP.TGA"
+      },
+      "condition": {
+        "infoTold": "DIA_Addon_ThiefOW_Nostalgie"
+      }
+    },
+    {
+      "id": "g2.gate_opener",
+      "title": {
+        "en": "Gate Opener",
+        "de": "Toröffner",
+        "pl": "Brama otwarta"
+      },
+      "description": {
+        "en": "Open the castle gate in the Valley of Mines.",
+        "de": "Öffne das Burgtor im Minental.",
+        "pl": "Otwórz bramę zamku w Górniczej Dolinie."
+      },
+      "icon": {
+        "item": "ITKE_OC_MAINGATE_MIS"
+      },
+      "condition": {
+        "variable": "MIS_OCGateOpen",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.coin_collector",
+      "title": {
+        "en": "Coin Collector",
+        "de": "Münzsammler",
+        "pl": "Zbieracz monet"
+      },
+      "description": {
+        "en": "Sell Wasili 40 more old coins after the first.",
+        "de": "Verkaufe Wasili nach der ersten noch 40 alte Münzen.",
+        "pl": "Po pierwszej monecie sprzedaj Wasiliemu jeszcze 40 starych monet."
+      },
+      "icon": {
+        "item": "ItMi_OldCoin"
+      },
+      "condition": {
+        "variable": "OldCoinCounter",
+        "op": ">=",
+        "value": 40
+      }
+    },
+    {
+      "id": "g2.over_the_wall",
+      "title": {
+        "en": "Over the Wall",
+        "de": "Über die Mauer",
+        "pl": "Przez mur"
+      },
+      "description": {
+        "en": "Reach Lares in the harbour without passing the city guards.",
+        "de": "Erreiche Lares am Hafen, ohne an den Stadtwachen vorbeizugehen.",
+        "pl": "Dotrzyj do Laresa w porcie, omijając straż miejską."
+      },
+      "icon": {
+        "item": "ItRu_TeleportSeaport"
+      },
+      "condition": {
+        "all": [
+          {
+            "infoTold": "DIA_Lares_HALLO"
+          },
+          {
+            "variable": "Mil_310_schonmalreingelassen",
+            "op": "==",
+            "value": 0
+          },
+          {
+            "variable": "Mil_333_schonmalreingelassen",
+            "op": "==",
+            "value": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "g2.old_armor_new_plates",
+      "title": {
+        "en": "Old Armor, New Plates",
+        "de": "Alte Rüstung, neue Platten",
+        "pl": "Stara zbroja, nowe płyty"
+      },
+      "description": {
+        "en": "Have Wolf make you armor from minecrawler plates.",
+        "de": "Lass dir von Wolf eine Rüstung aus Minecrawler-Platten fertigen.",
+        "pl": "Niech Wilk zrobi ci zbroję z płyt pancerza pełzacza."
+      },
+      "icon": {
+        "item": "ITAR_DJG_Crawler"
+      },
+      "condition": {
+        "variable": "Player_GotCrawlerArmor",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.chalice_hunter",
+      "title": {
+        "en": "Chalice Hunter",
+        "de": "Kelchjäger",
+        "pl": "Łowca kielichów"
+      },
+      "description": {
+        "en": "Bring Cassia all six blood chalices.",
+        "de": "Bringe Cassia alle sechs Blutkelche.",
+        "pl": "Przynieś Cassii wszystkie sześć Krwawych Kielichów."
+      },
+      "icon": {
+        "item": "ItMi_BloodCup_MIS"
+      },
+      "condition": {
+        "variable": "MIS_CassiaKelche",
+        "op": "==",
+        "value": "LOG_SUCCESS"
+      }
+    },
+    {
+      "id": "g2.drinking_partner",
+      "title": {
+        "en": "Drinking Partner",
+        "de": "Trinkkumpan",
+        "pl": "Kompan od kieliszka"
+      },
+      "description": {
+        "en": "Help Randolph drink Rukhar under the table.",
+        "de": "Hilf Randolph, Rukhar unter den Tisch zu trinken.",
+        "pl": "Pomóż Randolphowi przepić Rukhara."
+      },
+      "icon": {
+        "item": "ItFo_Booze"
+      },
+      "condition": {
+        "all": [
+          {
+            "variable": "MIS_Rukhar_Wettkampf",
+            "op": "==",
+            "value": "LOG_SUCCESS"
+          },
+          {
+            "variable": "Rukhar_Won_Wettkampf",
+            "op": "==",
+            "value": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "g2.warlords_rings",
+      "title": {
+        "en": "Warlords' Rings",
+        "de": "Ringe der Kriegsherren",
+        "pl": "Pierścienie hersztów"
+      },
+      "description": {
+        "en": "As a paladin, see all 23 orc warlords that hunt you in Khorinis fall.",
+        "de": "Sorge als Paladin dafür, dass alle 23 Ork-Kriegsherren fallen, die in Khorinis Jagd auf dich machen.",
+        "pl": "Jako paladyn doczekaj upadku wszystkich 23 hersztów orków, którzy polują na ciebie w Khorinis."
+      },
+      "icon": {
+        "item": "ItRi_OrcEliteRing"
+      },
+      "condition": {
+        "killed": [
+          "OrcElite_AntiPaladin",
+          "OrcElite_AntiPaladin1",
+          "OrcElite_AntiPaladin2",
+          "OrcElite_AntiPaladin3",
+          "OrkElite_AntiPaladinOrkOberst"
+        ],
+        "count": 23
+      }
+    },
+    {
+      "id": "g2.nest_robber",
+      "title": {
+        "en": "Nest Robber",
+        "de": "Nesträuber",
+        "pl": "Złodziej gniazd"
+      },
+      "description": {
+        "en": "Bring Bennet a dozen lizardman eggs.",
+        "de": "Bringe Bennet ein Dutzend Echsenmenschen-Eier.",
+        "pl": "Przynieś Bennetowi tuzin jaj jaszczuroludzi."
+      },
+      "icon": {
+        "item": "ItAt_DragonEgg_MIS"
+      },
+      "condition": {
+        "variable": "DragonEggCounter",
+        "op": ">=",
+        "value": 12
+      }
+    },
+    {
+      "id": "g2.the_seekers_victims",
+      "title": {
+        "en": "The Seekers' Victims",
+        "de": "Opfer der Suchenden",
+        "pl": "Ofiary Poszukiwaczy"
+      },
+      "description": {
+        "en": "Find everyone the Seekers have possessed.",
+        "de": "Finde jeden, den die Suchenden besessen haben.",
+        "pl": "Odnajdź wszystkich opętanych przez Poszukiwaczy."
+      },
+      "icon": {
+        "item": "ITAR_Dementor"
+      },
+      "condition": {
+        "all": [
+          {
+            "variable": "NpcObsessedByDMT_Brutus",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "NpcObsessedByDMT_Engrom",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "NpcObsessedByDMT_Vino",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "NpcObsessedByDMT_Malak",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "NpcObsessedByDMT_Fernando",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "NpcObsessedByDMT_Bromor",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "NpcObsessedByDMT_Sekob",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "NpcObsessedByDMT_Randolph",
+            "op": "==",
+            "value": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "g2.red_lantern",
+      "title": {
+        "en": "Red Lantern",
+        "de": "Rote Laterne",
+        "pl": "Czerwona latarnia"
+      },
+      "description": {
+        "en": "Pay Nadja a visit.",
+        "de": "Statte Nadja einen Besuch ab.",
+        "pl": "Złóż wizytę Nadii."
+      },
+      "icon": {
+        "texture": "NW_MISC_OILLAMP_02.TGA"
+      },
+      "condition": {
+        "variable": "Nadja_Nacht",
+        "op": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.law_and_order",
+      "title": {
+        "en": "Law and Order",
+        "de": "Recht und Ordnung",
+        "pl": "Prawo i porządek"
+      },
+      "description": {
+        "en": "Put every criminal in town behind bars.",
+        "de": "Bringe jeden Verbrecher der Stadt hinter Gitter.",
+        "pl": "Wsadź za kratki każdego przestępcę w mieście."
+      },
+      "icon": {
+        "texture": "OTREGITTER01.TGA"
+      },
+      "condition": {
+        "all": [
+          {
+            "variable": "Rengaru_Ausgeliefert",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Halvor_Ausgeliefert",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Nagur_Ausgeliefert",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Canthar_Ausgeliefert",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "MIS_Andre_REDLIGHT",
+            "op": "==",
+            "value": "LOG_SUCCESS"
+          },
+          {
+            "variable": "Fernando_ImKnast",
+            "op": "==",
+            "value": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "g2.harads_supplier",
+      "title": {
+        "en": "Harad's Supplier",
+        "de": "Harads Lieferant",
+        "pl": "Dostawca Harada"
+      },
+      "description": {
+        "en": "Bring Harad one of every blade he buys, all at once.",
+        "de": "Bringe Harad von jeder Klinge, die er kauft, eine - alle auf einmal.",
+        "pl": "Przynieś Haradowi naraz po jednym ostrzu każdego rodzaju, jaki skupuje."
+      },
+      "icon": {
+        "item": "ItMw_1H_Common_01"
+      },
+      "condition": {
+        "all": [
+          {
+            "infoTold": "DIA_Harad_SellBlades"
+          },
+          {
+            "item": "ItMw_1H_Common_01"
+          },
+          {
+            "item": "ItMw_Schwert1"
+          },
+          {
+            "item": "ItMw_Schwert4"
+          },
+          {
+            "item": "ItMw_Rubinklinge"
+          },
+          {
+            "item": "ItMw_ElBastardo"
+          }
+        ]
+      }
+    },
+    {
+      "id": "g2.fur_trader",
+      "title": {
+        "en": "Fur Trader",
+        "de": "Fellhändler",
+        "pl": "Handlarz futrami"
+      },
+      "description": {
+        "en": "Bring Bosper every kind of hide at once.",
+        "de": "Bringe Bosper jede Art von Fell auf einmal.",
+        "pl": "Przynieś Bosperowi naraz skórę każdego rodzaju."
+      },
+      "icon": {
+        "item": "ItAt_SheepFur"
+      },
+      "condition": {
+        "all": [
+          {
+            "infoTold": "DIA_Bosper_SellFur"
+          },
+          {
+            "item": "ItAt_SheepFur"
+          },
+          {
+            "item": "ItAt_WolfFur"
+          },
+          {
+            "item": "ItAt_WargFur"
+          },
+          {
+            "item": "ItAt_ShadowFur"
+          },
+          {
+            "item": "ItAt_TrollFur"
+          },
+          {
+            "item": "ItAt_TrollBlackFur"
+          },
+          {
+            "item": "ItAt_Addon_KeilerFur"
+          }
+        ]
+      }
+    },
+    {
+      "id": "g2.mushroom_picker",
+      "title": {
+        "en": "Mushroom Picker",
+        "de": "Pilzsammler",
+        "pl": "Grzybiarz"
+      },
+      "description": {
+        "en": "Sell Constantino 50 dark mushrooms.",
+        "de": "Verkaufe Constantino 50 Dunkelpilze.",
+        "pl": "Sprzedaj Constantinowi 50 ciemnych grzybów."
+      },
+      "icon": {
+        "item": "ItPl_Mushroom_01"
+      },
+      "condition": {
+        "variable": "Constantino_DunkelpilzCounter",
+        "op": ">=",
+        "value": 50
+      }
+    },
+    {
+      "id": "g2.apprentice_wanted",
+      "title": {
+        "en": "Apprentice Wanted",
+        "de": "Lehrling gesucht",
+        "pl": "Przyjmę ucznia"
+      },
+      "description": {
+        "en": "Win the approval of all five masters in town.",
+        "de": "Gewinne die Zustimmung aller fünf Meister der Stadt.",
+        "pl": "Zdobądź poparcie wszystkich pięciu mistrzów w mieście."
+      },
+      "icon": {
+        "item": "ItMi_Hammer"
+      },
+      "condition": {
+        "all": [
+          {
+            "variable": "DIA_Harad_Zustimmung_Permanent",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Bosper_Zustimmung_Once",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "MIS_Thorben_GetBlessings",
+            "op": "==",
+            "value": "LOG_SUCCESS"
+          },
+          {
+            "variable": "DIA_Matteo_Zustimmung_perm",
+            "op": "==",
+            "value": 1
+          },
+          {
+            "variable": "Constantino_Logpatch2",
+            "op": "==",
+            "value": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "g2.bilgot_brought_home",
+      "title": {
+        "en": "Bilgot Brought Home",
+        "de": "Bilgot heimgebracht",
+        "pl": "Bilgot wraca do domu"
+      },
+      "description": {
+        "en": "Lead Bilgot out of the Valley of Mines.",
+        "de": "Führe Bilgot aus dem Minental.",
+        "pl": "Wyprowadź Bilgota z Górniczej Doliny."
+      },
+      "icon": {
+        "texture": "MAP_OLDWORLD_OREMINES.TGA"
+      },
+      "condition": {
+        "variable": "MIS_RescueBilgot",
+        "op": "==",
+        "value": "LOG_SUCCESS"
+      }
+    },
+    {
+      "id": "g2.no_blood_spilled",
+      "title": {
+        "en": "No Blood Spilled",
+        "de": "Ohne Blutvergießen",
+        "pl": "Bez rozlewu krwi"
+      },
+      "description": {
+        "en": "Join the thieves' guild without a fight with Attila.",
+        "de": "Tritt der Diebesgilde bei, ohne mit Attila zu kämpfen.",
+        "pl": "Dołącz do gildii złodziei bez walki z Attilą."
+      },
+      "icon": {
+        "item": "ItKe_ThiefGuildKey_MIS"
+      },
+      "condition": {
+        "all": [
+          {
+            "infoTold": "DIA_Cassia_Aufnahme"
+          },
+          {
+            "variable": "Attila_Key",
+            "op": "==",
+            "value": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "g2.a_house_for_diego",
+      "title": {
+        "en": "A House for Diego",
+        "de": "Ein Haus für Diego",
+        "pl": "Dom dla Diega"
+      },
+      "description": {
+        "en": "Help Diego win his villa.",
+        "de": "Hilf Diego zu seiner Villa.",
+        "pl": "Pomóż Diegowi zdobyć willę."
+      },
+      "icon": {
+        "item": "ItMi_GoldChalice"
+      },
+      "condition": {
+        "variable": "MIS_DiegosResidence",
+        "op": "==",
+        "value": "LOG_SUCCESS"
+      }
+    },
+    {
+      "id": "g2.gold_panner",
+      "title": {
+        "en": "Gold Panner",
+        "de": "Goldwäscher",
+        "pl": "Poszukiwacz złota"
+      },
+      "description": {
+        "en": "Become a master digger: a 90 percent chance at gold.",
+        "de": "Werde Meister Buddler: 90 Prozent Chance auf Gold.",
+        "pl": "Zostań mistrzem kopania: 90 procent szans na złoto."
+      },
+      "icon": {
+        "item": "ItMi_GoldNugget_Addon"
+      },
+      "condition": {
+        "variable": "Hero_HackChance",
+        "op": ">=",
+        "value": 90
+      }
+    },
+    {
+      "id": "g2.stone_tablets",
+      "title": {
+        "en": "Stone Tablets",
+        "de": "Steintafeln",
+        "pl": "Kamienne tablice"
+      },
+      "description": {
+        "en": "Bring Saturas all five stone tablets of the builders.",
+        "de": "Bringe Saturas alle fünf Steintafeln der Erbauer.",
+        "pl": "Przynieś Saturasowi wszystkie pięć kamiennych tablic Budowniczych."
+      },
+      "icon": {
+        "item": "ItMi_Addon_Stone_01"
+      },
+      "condition": {
+        "variable": "MIS_Saturas_LookingForHousesOfRulers",
+        "op": "==",
+        "value": "LOG_SUCCESS"
+      }
+    },
+    {
+      "id": "g2.haggler",
+      "title": {
+        "en": "Haggler",
+        "de": "Feilscher",
+        "pl": "Twardy negocjator"
+      },
+      "description": {
+        "en": "Talk Henry down to a free pass into the pirate camp.",
+        "de": "Handle Henry bis zum freien Eintritt ins Piratenlager herunter.",
+        "pl": "Wytargój od Henry'ego darmowe wejście do obozu piratów."
+      },
+      "icon": {
+        "item": "ITAR_PIR_L_Addon"
+      },
+      "condition": {
+        "all": [
+          {
+            "infoTold": "DIA_Addon_Henry_Tribut"
+          },
+          {
+            "infoTold": "DIA_Addon_Henry_Malcom"
+          },
+          {
+            "infoTold": "DIA_Addon_Henry_MeatForMorgan"
+          },
+          {
+            "infoTold": "DIA_Addon_Henry_BaltramPack"
+          },
+          {
+            "variable": "MIS_Henry_FreeBDTTower",
+            "op": "==",
+            "value": "LOG_SUCCESS"
+          }
+        ]
+      }
+    },
+    {
+      "id": "g2.forgot_something",
+      "title": {
+        "en": "Forgot Something?",
+        "de": "Etwas vergessen?",
+        "pl": "Czegoś zapomniałeś?"
+      },
+      "description": {
+        "en": "Land on Irdorath without the Eye of Innos.",
+        "de": "Lande ohne das Auge Innos' auf Irdorath.",
+        "pl": "Wyląduj na Irdorath bez Oka Innosa."
+      },
+      "icon": {
+        "item": "ItMi_InnosEye_Discharged_Mis"
+      },
+      "condition": {
+        "variable": "SC_InnosEyeVergessen_DI",
+        "op": "==",
+        "value": 1
+      }
+    },
+    {
+      "id": "g2.orcbane",
+      "title": {
+        "en": "Orcbane",
+        "de": "Orkschreck",
+        "pl": "Postrach orków"
+      },
+      "description": {
+        "en": "Kill 50 orcs.",
+        "de": "Töte 50 Orks.",
+        "pl": "Ubij 50 orków."
+      },
+      "icon": {
+        "item": "ItMw_2H_OrcAxe_01"
+      },
+      "condition": {
+        "killed": [
+          "OrcElite_Roam",
+          "OrcElite_Rest",
+          "OrkElite_AntiPaladinOrkOberst",
+          "OrcElite_AntiPaladin",
+          "OrcElite_AntiPaladin1",
+          "OrcElite_AntiPaladin2",
+          "OrcElite_AntiPaladin3",
+          "OrkElite_AntiPaladinOrkOberst_DI",
+          "OrcElite_DIOberst1_Rest",
+          "OrcElite_DIOberst2_Rest",
+          "OrcElite_DIOberst3_Rest",
+          "OrcShaman_Sit",
+          "OrcShaman_Hosh_Pak",
+          "OrcShaman_Sit_CanyonLibraryKey",
+          "OrcWarrior_Roam",
+          "OrcWarrior_Rest",
+          "OrcWarrior_Sit",
+          "OrcWarrior_Harad",
+          "OrcWarrior_Lobart1",
+          "OrcWarrior_Lobart2",
+          "OrcWarrior_Lobart3",
+          "OrcWarrior_Lobart4",
+          "OrcWarrior_Lobart5",
+          "OrcWarrior_Lobart6"
+        ],
+        "count": 50,
+        "byHero": true
+      }
+    },
+    {
+      "id": "g2.pickpocket_of_khorinis",
+      "title": {
+        "en": "Pickpocket of Khorinis",
+        "de": "Taschendieb von Khorinis",
+        "pl": "Kieszonkowiec z Khorinis"
+      },
+      "description": {
+        "en": "Pick 100 pockets (a failed attempt costs one).",
+        "de": "Bestiehl 100 Leute (ein Fehlversuch kostet einen).",
+        "pl": "Okradnij 100 osób (nieudana próba kosztuje jedną osobę)."
+      },
+      "icon": {
+        "item": "ItMi_Pocket"
+      },
+      "condition": {
+        "variable": "VictimCount",
+        "op": ">=",
+        "value": 100
+      }
+    }
+  ]
+}

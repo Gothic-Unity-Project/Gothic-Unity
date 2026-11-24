@@ -10,6 +10,20 @@ namespace Gothic.Core.Extensions
     public static class NpcContainerExtension
     {
         /// <summary>
+        /// Who a hit, knockout or kill counts for: what the hero's summon does counts as the hero's (ZS_Unconscious
+        /// checks C_NpcIsHero(other): Buster's admission duel didn't go on after the hero's goblins beat him,
+        /// witnesses see the hero as the attacker, a kill counts for the hero's achievements). Anyone else: the
+        /// attacker itself.
+        /// </summary>
+        public static NpcContainer GetCreditedAttacker(this NpcContainer attacker, NpcContainer hero)
+        {
+            if (attacker?.SummonedBy == null)
+                return attacker;
+
+            return hero?.Instance != null && attacker.SummonedBy.Index == hero.Instance.Index ? hero : attacker;
+        }
+
+        /// <summary>
         /// The NPC reached its mob and is in one of its states (e.g. seated on a bench).
         /// </summary>
         public static bool IsUsingMob(this NpcContainer npc)

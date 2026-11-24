@@ -648,6 +648,9 @@ namespace Gothic.Core.Manager
                     LogCat.Dialog);
             }
 
+            // After the function: the variables it set (Kapitel, MIS_*) are seen now (DialogInfoTold came before).
+            GlobalEventDispatcher.DialogInfoFinished.Invoke(information);
+
             var animationQueue = npcContainer.Props.AnimationQueue;
 
             // If Daedalus tells us, that the dialog is stopped after this chat (AI_StopProcessInfos), then we're done.
@@ -726,17 +729,28 @@ namespace Gothic.Core.Manager
                 Told = true
             };
             
+            var isStored = false;
             for (var i = 0; i < allStates.InfoStateCount; i++)
             {
                 if (allStates.GetInfoState(i).Name == infoInstanceName)
                 {
                     allStates.SetInfoState(i, infoState);
-                    return;
+                    isStored = true;
+                    break;
                 }
             }
-            
+
             // If not yet existing, then create it.
-            allStates.AddInfoState(infoState);
+            if (!isStored)
+                allStates.AddInfoState(infoState);
+
+            // Before the info function runs: variables it sets are seen at DialogInfoFinished.
+            GlobalEventDispatcher.DialogInfoTold.Invoke(informationIndex);
+        }
+
+        public bool IsInfoTold(int informationIndex)
+        {
+            return GetInfoState(informationIndex).Told;
         }
 
         private GameObject GetGo(NpcInstance npc)

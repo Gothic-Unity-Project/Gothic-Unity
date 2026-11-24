@@ -242,6 +242,7 @@ namespace Gothic.Core.Services.Npc
                 items.Add(new ContentItem(itemInstance.Name, amount));
 
             vob.SetPacked((int)inventoryCat, items.PackItems());
+            RaiseHeroItemsChanged(npc, itemIndex);
         }
 
         public void ExtRemoveInvItems(NpcInstance npc, int itemIndex, int amount)
@@ -289,6 +290,16 @@ namespace Gothic.Core.Services.Npc
                 return;
 
             vob.SetPacked((int)inventoryCat, items.PackItems());
+            RaiseHeroItemsChanged(npc, itemIndex);
+        }
+
+        /// <summary>
+        /// Hero only: an NPC carrying the same item doesn't count for him.
+        /// </summary>
+        private void RaiseHeroItemsChanged(NpcInstance npc, int itemIndex)
+        {
+            if (npc.IsHero(_gameStateService.GothicVm))
+                GlobalEventDispatcher.HeroItemsChanged.Invoke(itemIndex);
         }
 
         public List<ContentItem> GetInventoryItems(NpcInstance npc, VmGothicEnums.InvCats category)

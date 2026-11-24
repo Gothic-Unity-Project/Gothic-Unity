@@ -13,6 +13,7 @@ using Gothic.Core.Manager;
 using Gothic.Core.Models.Context;
 using Gothic.Core.Models.Vob.WayNet;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Achievements;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -47,6 +48,7 @@ namespace Gothic.Core.Adapters.Scenes
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly ContextInteractionService _contextInteractionService;
         [Inject] private readonly SurroundingsBuildService _surroundingsBuildService;
+        [Inject] private readonly AchievementService _achievementService;
 
         private Vector3? _spawnPosition;
 
@@ -191,6 +193,10 @@ namespace Gothic.Core.Adapters.Scenes
                 _loadingService.HideScreen();
                 _loadingService.StopLoading();
                 SceneManager.UnloadSceneAsync(Constants.SceneLoading);
+
+                // After every WorldSceneLoaded listener, the STARTUP_*/INIT_* scripts and the surroundings: from now
+                // on facts count for achievements (loading unlocks nothing by itself).
+                _achievementService.OnWorldReady();
             }
             catch(Exception ex)
             {

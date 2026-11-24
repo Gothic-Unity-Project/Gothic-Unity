@@ -61,6 +61,7 @@ namespace Gothic.Core.Adapters.Vob
                 return;
             }
             _vmService.Vm.Call(sym.Index);
+            GlobalEventDispatcher.TriggerScriptFinished.Invoke(funcName);
         }
 
         private void OnTriggerEnter(Collider other)

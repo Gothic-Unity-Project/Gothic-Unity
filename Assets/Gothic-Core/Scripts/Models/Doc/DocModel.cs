@@ -21,6 +21,12 @@ namespace Gothic.Core.Models.Doc
         public List<DocPage> Pages = new();
 
         /// <summary>
+        /// The item instance whose use shows the document (e.g. ItWr_Book_Circle_01), null for a mob's page. The same
+        /// in every session (Id is only a runtime counter), e.g. for "read N different documents".
+        /// </summary>
+        public string SourceName;
+
+        /// <summary>
         /// Doc_SetLevel: the world the map shows (e.g. WORLD.ZEN) - the hero is marked on it only there.
         /// </summary>
         public string Level;

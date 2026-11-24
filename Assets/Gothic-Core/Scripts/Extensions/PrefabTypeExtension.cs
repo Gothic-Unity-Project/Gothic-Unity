@@ -19,6 +19,8 @@ namespace Gothic.Core.Extensions
                 PrefabType.UiVirtualKeyboard => "Prefabs/UI/VirtualKeyboard",
                 PrefabType.UiHitNumber => "Prefabs/UI/UiHitNumber",
                 PrefabType.HitNumber => "Prefabs/UI/HitNumber",
+                PrefabType.UiAchievementToast => "Prefabs/UI/Achievements/AchievementToast",
+                PrefabType.UiAchievementsPage => "Prefabs/UI/Achievements/AchievementsPage",
 
                 PrefabType.UiDebugText => "Prefabs/UI/Debug/Text",
                 PrefabType.UiDebugLogLine => "Prefabs/UI/Debug/LogLine",

@@ -5,6 +5,7 @@ using Gothic.Core.Domain.Npc;
 using Gothic.Core.Domain.Vobs;
 using Gothic.Core.Manager;
 using Gothic.Core.Services;
+using Gothic.Core.Services.Achievements;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Config;
 using Gothic.Core.Services.Context;
@@ -129,6 +130,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(VmCacheService));
             containerBuilder.AddSingleton(typeof(MultiTypeCacheService));
             containerBuilder.AddSingleton(typeof(TextureCacheService));
+            containerBuilder.AddSingleton(typeof(ItemIconService));
             containerBuilder.AddSingleton(typeof(MorphMeshCacheService));
             containerBuilder.AddSingleton(typeof(NpcArmorPositionCacheService));
             containerBuilder.AddSingleton(typeof(StaticCacheService));
@@ -164,6 +166,9 @@ namespace Gothic.Core
             // Marvin
             containerBuilder.AddSingleton(typeof(MarvinService));
             containerBuilder.AddSingleton(typeof(MarvinCommandService));
+
+            // Achievements
+            containerBuilder.AddSingleton(typeof(AchievementService));
 
             // FIXME - Need to be migrated to a Service!
             containerBuilder.AddSingleton(typeof(VobInitializerDomain));

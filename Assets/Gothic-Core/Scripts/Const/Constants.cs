@@ -72,6 +72,22 @@ namespace Gothic.Core.Const
         }
 
         /// <summary>
+        /// Folder and file names of local achievements (Docs/achievements.md).
+        /// </summary>
+        public static class Achievements
+        {
+            // One folder name in two places: definition files (StreamingAssets), profiles (persistentDataPath).
+            public const string FolderName = "Achievements";
+
+            public const string G1FileName = "g1.json";
+            public const string G2FileName = "g2.json";
+
+            // A mod's own list: in its folder, or next to its ini as <ini name> + ModIniFileSuffix.
+            public const string ModFileName = "Achievements.json";
+            public const string ModIniFileSuffix = ".achievements.json";
+        }
+
+        /// <summary>
         /// Resources paths of the TMP fonts for texts built at runtime (ResourceCacheService.TryGetFontAsset).
         /// </summary>
         public static class Fonts

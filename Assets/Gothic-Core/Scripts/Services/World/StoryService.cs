@@ -47,6 +47,23 @@ namespace Gothic.Core.Services.World
                     _saveState.SetLogTopic(i, topic);
                 }
             }
+
+            GlobalEventDispatcher.LogTopicStatusChanged.Invoke(name, status);
+        }
+
+        /// <summary>
+        /// The status of the topic with this text (as the scripts produce it), -1 if it doesn't exist.
+        /// </summary>
+        public int GetLogTopicStatus(string name)
+        {
+            for (var i = 0; i < _saveState.LogTopicCount; i++)
+            {
+                var topic = _saveState.GetLogTopic(i);
+                if (topic.Description == name)
+                    return (int)topic.Status;
+            }
+
+            return -1;
         }
 
         public void ExtLogAddEntry(string topic, string entry)
@@ -67,6 +84,7 @@ namespace Gothic.Core.Services.World
         {
             _isChapterSwitchPending = true;
             _chapterSwitchData = (chapter, text, texture, wav, time);
+            GlobalEventDispatcher.ChapterIntroduced.Invoke(chapter);
         }
 
         public List<SaveLogTopic> GetLogTopics(SaveTopicSection section, SaveTopicStatus status)
