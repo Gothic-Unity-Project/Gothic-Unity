@@ -459,6 +459,28 @@ MonoBehaviour:
     m_Localized: col corpo|dissolvenza
     m_Metadata:
       m_Items: []
+  - m_Id: 196594145456431104
+    m_Localized: Ombre
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957056
+    m_Localized: "Ombre dinamiche di sole, luna e luci. Nette o disattivate per PC
+      pi\xF9 lenti"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957057
+    m_Localized: No|Nette|Medie|Morbide
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647115460608
+    m_Localized: Portata ombre
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Localized: "Quante lampade e fuochi proiettano ombre e fin dove. Riducila sui
+      PC pi\xF9 lenti"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

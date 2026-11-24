@@ -376,8 +376,10 @@ player's view, which in VR causes nausea.
 ### P4. Rendering has a budget
 
 **Rule:** A feature that adds draw calls, materials, realtime lights, shadows, transparency, post-processing or
-shader variants says what it costs on Quest in its PR, and has a quality setting if it's optional. Meshes share
-materials and texture arrays so they batch.
+shader variants says what it costs on Quest in its PR, and has a quality setting if it's optional. World and VOB
+shaders stay SRP batcher compatible: every `Properties` entry sits in `UnityPerMaterial`, the same in every pass, and
+world/VOB renderers get no `MaterialPropertyBlock`. A per-renderer value goes into the renderer's own material (the
+mesh builders give each one its own); meshes share texture arrays.
 
 **Why:** On a mobile GPU the frame is usually lost in rendering, not in C#. Each eye renders the scene, so every
 draw call and every overdrawn pixel counts.

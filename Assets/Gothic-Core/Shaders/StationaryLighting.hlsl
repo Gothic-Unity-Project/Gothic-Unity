@@ -11,7 +11,29 @@
 #define MAX_AFFECTING_STATIONARY_LIGHTS 16
 
 float4 _GlobalStationaryLightPositionsAndAttenuation[MAX_TOTAL_STATIONARY_LIGHTS];
-real3 _GlobalStationaryLightColors[MAX_TOTAL_STATIONARY_LIGHTS];
+// rgb: color, a: 1 = indoor light (under a light mapped ceiling, IsStationaryLightIndoor). Same 16 byte stride as
+// the former real3.
+real4 _GlobalStationaryLightColors[MAX_TOTAL_STATIONARY_LIGHTS];
+
+// A pooled light with w < 0 casts a shadow (StationaryLightsService): the shaders light it through its URP light with
+// the cube shadow (GothicShadowedLights) and skip it here - URP reaches every object in its range, the pool only the
+// renderers the light gathered.
+// A candle in a house doesn't light the house's outside walls (no shadow for it from the walls).
+bool IsStationaryLightIndoor(uint lightIndex)
+{
+    return _GlobalStationaryLightColors[lightIndex].a > 0.5;
+}
+
+bool IsStationaryLightShadowed(uint lightIndex)
+{
+#if defined(_ADDITIONAL_LIGHT_SHADOWS)
+    return _GlobalStationaryLightPositionsAndAttenuation[lightIndex].w < 0;
+#else
+    // No URP light shadows (Quest, lower quality levels, none this frame): GothicShadowedLights is compiled away, so
+    // the pool lights it - else the closest lamps and the torch went dark.
+    return false;
+#endif
+}
 
 half3 AdditionalStationaryDiffuse(uint lightIndex, real3 worldPos, real3 normal)
 {
@@ -19,10 +41,10 @@ half3 AdditionalStationaryDiffuse(uint lightIndex, real3 worldPos, real3 normal)
     float3 lightVector = lightPosAndAttenuation.xyz - worldPos;
     float distanceSqr = max(dot(lightVector, lightVector), HALF_MIN);
 
-    // Linear distance falloff (1 - d/R)
-    float attenuation = saturate(1.0 - sqrt(distanceSqr * lightPosAndAttenuation.w));
+    // w = 1/R², negative for a shadow casting light.
+    float attenuation = StationaryLightFalloff(distanceSqr, abs(lightPosAndAttenuation.w));
 
-    return _GlobalStationaryLightColors[lightIndex] * attenuation * _PointLightIntensity;
+    return _GlobalStationaryLightColors[lightIndex].rgb * attenuation * _PointLightIntensity;
 }
 
 #endif

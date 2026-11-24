@@ -141,7 +141,37 @@ namespace Gothic.Core.Adapters.Vob
         /// </summary>
         public bool IsBakedIntoWorld { get; set; }
 
+        /// <summary>
+        /// Not in a house or cave (no light mapped polygons around): its light dims by day (StationaryLightsService).
+        /// </summary>
+        public bool IsOutdoor { get; set; }
+
+        /// <summary>
+        /// Under a light mapped ceiling (house, cave, sewer): it doesn't light outdoor surfaces - the candles in a house
+        /// glowed on its outside walls, the walls had no shadow for them.
+        /// </summary>
+        public bool IsIndoor { get; set; }
+
+        /// <summary>
+        /// A spell's light (VisualFxLight): it casts a shadow before the lamps (StationaryLightsService).
+        /// </summary>
+        public bool IsSpellLight { get; set; }
+
         public int AffectedRendererCount => _affectedRenderers.Count;
+
+        public IReadOnlyList<MeshRenderer> AffectedRenderers => _affectedRenderers;
+
+        /// <summary>
+        /// The Unity light (objects/NPCs, shadows) - off for lights far from the camera (StationaryLightsService).
+        /// The pool's slot lights the world either way.
+        /// </summary>
+        public void SetUnityLightEnabled(bool isEnabled)
+        {
+            if (!_unityLight)
+                _unityLight = GetComponent<Light>();
+            if (_unityLight.enabled != isEnabled)
+                _unityLight.enabled = isEnabled;
+        }
 
         /// <summary>
         /// Color the pool writes into the shader slot it hands out (linear space).

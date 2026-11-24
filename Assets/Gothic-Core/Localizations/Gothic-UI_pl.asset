@@ -465,6 +465,28 @@ MonoBehaviour:
       dr\u0105\u017Cek, gdy jest otwarty)"
     m_Metadata:
       m_Items: []
+  - m_Id: 196594145456431104
+    m_Localized: Cienie
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957056
+    m_Localized: "Dynamiczne cienie s\u0142o\u0144ca, ksi\u0119\u017Cyca i \u015Bwiate\u0142.
+      Twarde lub wy\u0142\u0105czone na s\u0142absze komputery"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957057
+    m_Localized: "Wy\u0142.|Twarde|\u015Arednie|Mi\u0119kkie"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647115460608
+    m_Localized: "Zasi\u0119g cieni"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Localized: "Ile lamp i ognisk rzuca cienie i jak daleko. Zmniejsz na s\u0142abszych
+      komputerach"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

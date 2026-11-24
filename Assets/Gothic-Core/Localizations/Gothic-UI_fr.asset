@@ -463,6 +463,28 @@ MonoBehaviour:
     m_Localized: avec le corps|fondu
     m_Metadata:
       m_Items: []
+  - m_Id: 196594145456431104
+    m_Localized: Ombres
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957056
+    m_Localized: "Ombres dynamiques du soleil, de la lune et des lumi\xE8res. Dures
+      ou d\xE9sactiv\xE9es pour les PC plus lents"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196594145510957057
+    m_Localized: Non|Dures|Moyennes|Douces
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647115460608
+    m_Localized: "Port\xE9e des ombres"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 196653647161597952
+    m_Localized: "Combien de lampes et de feux projettent des ombres, et jusqu'o\xF9.
+      \xC0 r\xE9duire sur les PC plus lents"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

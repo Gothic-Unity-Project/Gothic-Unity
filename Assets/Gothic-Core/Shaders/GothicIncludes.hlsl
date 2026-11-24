@@ -29,6 +29,16 @@ float CalcMipLevel(float2 uv)
     return max(0.0, 0.5 * log2(delta_max_sqr));
 }
 
+// Lamps and fires: a bit stronger than their Gothic color - the light sum stops at 1 (GothicClampLight), so pools
+// next to each other don't burn out.
+#define STATIONARY_LIGHT_STRENGTH 1.4
+
+// 1 at the light, 0 at its range: 1 - (d/R)² keeps the pool's middle bright (linear 1 - d/R faded at once).
+float StationaryLightFalloff(float distanceSqr, float oneOverRangeSqr)
+{
+    return saturate(1.0 - distanceSqr * oneOverRangeSqr) * STATIONARY_LIGHT_STRENGTH;
+}
+
 float CustomDistanceAttenuation(float distanceSqr, float rcpSqrRange)
 {
     return 1 - saturate(distanceSqr * rcpSqrRange);
@@ -82,6 +92,13 @@ half3 SunAndAmbientDiffuse(float3 normal, half3 vertexShadowmap)
 {
     half diffuseDot = saturate(dot(normal, -_SunDirection));
     return saturate(diffuseDot * _SunColor * vertexShadowmap + _AmbientColor);
+}
+
+// The sun's part of SunAndAmbientDiffuse - per vertex; the fragment adds the ambient after the sun's shadow
+// (GothicSunAndAmbient in GothicShadows.hlsl).
+half3 SunDiffuse(float3 normal, half3 vertexShadowmap)
+{
+    return saturate(dot(normal, -_SunDirection)) * _SunColor * vertexShadowmap;
 }
 
 // Apply underwater color tinting when flag is enabled

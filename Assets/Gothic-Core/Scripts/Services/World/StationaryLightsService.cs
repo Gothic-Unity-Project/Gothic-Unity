@@ -8,6 +8,7 @@ using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using Reflex.Attributes;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.World
@@ -67,10 +68,78 @@ namespace Gothic.Core.Services.World
         /// </summary>
         private const float _poolMaxDistance = 80f;
 
+        /// <summary>
+        /// Dynamic point light shadows (GD3D11-like): the lights closest to the camera (lamps, fires with a runtime slot)
+        /// become shadow casting URP lights; the shaders light them through URP with their cube shadow and the pool skips
+        /// them (w &lt; 0 in the slot). URP reaches every object in their range - the pool only the renderers a light
+        /// gathered, Khorinis' market stayed dark under its lamps. Every one renders its surroundings 6 times, so only
+        /// a few; baked lights (in the lightmaps) never - the walls would get them twice.
+        /// </summary>
+        // Option "Shadow range" (slider): from 4 lights within 20 m to 12 within 50 m. Every one draws its surroundings
+        // 6 times per frame - with 40 the frame rate tanked.
+        private const int _minShadowLights = 4;
+        private const int _maxShadowLights = 12;
+        private const float _minShadowLightDistance = 20f;
+        private const float _maxShadowLightDistance = 50f;
+        private float ShadowRange => Mathf.Clamp01(_configService.GetGothicOption(Constants.IniNames.ShadowRange,
+            Constants.IniNames.ShadowRangeDefaultValue));
+        private int ShadowLightCount => Mathf.RoundToInt(Mathf.Lerp(_minShadowLights, _maxShadowLights, ShadowRange));
+        private float ShadowLightMaxDistance => Mathf.Lerp(_minShadowLightDistance, _maxShadowLightDistance, ShadowRange);
+        // Geometry closer to the light than this casts no shadow: the lamp's cage casts its bars, not the flame's own
+        // mesh around the light.
+        private const float _shadowLightNearPlane = 0.05f;
+        private readonly HashSet<StationaryLight> _shadowLights = new();
+        // Their Unity lights - GothicShadowLightsFeature finds them among URP's visible lights every frame.
+        private readonly HashSet<Light> _shadowUnityLights = new();
+
+        public bool HasShadowLights => _shadowUnityLights.Count > 0;
+
+        private bool _isNoLightShadowsLogged;
+
+        /// <summary>
+        /// Option "Shadows" (0 off, 1 hard, 2 medium, 3 soft) - 0 while the active URP asset renders no point light
+        /// shadows (Quest's Performant, Balanced): the shaders then compile GothicShadowedLights away, a light picked
+        /// for a shadow anyway went dark (the pool skips it, nothing else lit it).
+        /// </summary>
+        private int ShadowOption
+        {
+            get
+            {
+                var pipeline = UniversalRenderPipeline.asset;
+                if (pipeline == null || !pipeline.supportsAdditionalLightShadows)
+                {
+                    if (!_isNoLightShadowsLogged)
+                        Logger.Log($"[StationaryLights] No lamp shadows: '{(pipeline ? pipeline.name : "none")}' " +
+                                   "renders no additional light shadows.", LogCat.Vob);
+                    _isNoLightShadowsLogged = true;
+                    return 0;
+                }
+                _isNoLightShadowsLogged = false;
+                return _configService.Gothic.GetInt(Constants.IniNames.Shadows, Constants.IniNames.ShadowsDefaultValue);
+            }
+        }
+
+        // The ShadowOption the moving shadow lights (torch, spells) were last set up with - a quality level switch
+        // changes it without an option event.
+        private int _appliedDynamicShadowOption = -1;
+
+        public bool IsShadowLight(Light light) => _shadowUnityLights.Contains(light);
+
+        /// <summary>
+        /// Only lights this close (m, minus their range) keep their Unity light enabled - URP takes 256 visible lights,
+        /// the city has ~770: turning the head pushed a lamp out of them, its light and shadow vanished. The Unity
+        /// light only lights objects/NPCs (and casts the shadow); the pool lights the world, also beyond this.
+        /// </summary>
+        private const float _unityLightMaxDistance = 40f;
+        private readonly HashSet<StationaryLight> _wantedShadowLights = new();
+        private readonly List<(float Distance, StationaryLight Light)> _shadowCandidates = new();
+
         private HashSet<long> _lightMappedCells = new();
         private readonly Stack<int> _freeRuntimeSlots = new();
         // Who drives the hero light now - the last ClaimHeroLight wins, only it may update or release the slot.
         private object _heroLightOwner;
+        // The hero light's Unity light (torch, Light spell) - a dynamic shadow light while the option is on.
+        private Light _heroUnityLight;
         private readonly HashSet<StationaryLight> _pooledLights = new();
         // Pooled lights in reach with their reach (distance to the camera minus range), sorted closest first.
         private readonly List<(float Reach, StationaryLight Light)> _pooledSorted = new();
@@ -150,6 +219,9 @@ namespace Gothic.Core.Services.World
             }
         }
 
+        // Lights a renderer's material gets: 16 in _StationaryLightIndices (plants), 16 more in _StationaryLightIndices2.
+        private const int MaxAffectingLights = 16;
+
         private void UpdateRenderer(MeshRenderer renderer)
         {
             if (!renderer)
@@ -158,10 +230,23 @@ namespace Gothic.Core.Services.World
             }
 
             var rendererLights = _lightsPerRenderer[renderer];
+            // The shader takes 32 lights (16 on plants): the shadow casting ones first, then the closest. In slot order
+            // a big world chunk (Khorinis' market) didn't get the lamps right above it.
+            if (rendererLights.Count > MaxAffectingLights)
+            {
+                var center = renderer.bounds.center;
+                rendererLights.Sort((a, b) =>
+                {
+                    var aShadow = _shadowLights.Contains(a);
+                    if (aShadow != _shadowLights.Contains(b))
+                        return aShadow ? -1 : 1;
+                    return (a.CachedPosition - center).sqrMagnitude.CompareTo((b.CachedPosition - center).sqrMagnitude);
+                });
+            }
 
             var nonAllocMaterials = _rendererMaterials;
             var indicesMatrix = Matrix4x4.identity;
-            renderer.GetSharedMaterials(nonAllocMaterials);
+            GetOwnedMaterials(renderer, nonAllocMaterials);
             for (var i = 0; i < Mathf.Min(16, rendererLights.Count); i++)
             {
                 indicesMatrix[i / 4, i % 4] = rendererLights[i].Index;
@@ -220,6 +305,11 @@ namespace Gothic.Core.Services.World
         {
             GlobalEventDispatcher.LoadingSceneLoaded.AddListener(ClearWorldLightmaps);
             GlobalEventDispatcher.MainMenuSceneLoaded.AddListener(ClearWorldLightmaps);
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener((key, _) =>
+            {
+                if (key == Constants.IniNames.Shadows || key == Constants.IniNames.ShadowRange)
+                    RefreshShadowLights();
+            });
         }
 
         /// <summary>
@@ -307,7 +397,6 @@ namespace Gothic.Core.Services.World
         public bool IsWorldLit(Renderer renderer) => _worldLitRenderers.Contains(renderer);
         // Lightmap light per cell (ToCell) of the light mapped world polygons, sampled at their centers by WorldMeshBuilder.
         private readonly Dictionary<long, Color> _lightmapCells = new();
-        private MaterialPropertyBlock _vobLightBlock;
 
         /// <summary>
         /// The lightmap light of the world's light mapped polygons per cell (rgb summed, w = polygon count).
@@ -378,16 +467,35 @@ namespace Gothic.Core.Services.World
             if (!light.HasValue)
                 return;
 
-            _vobLightBlock ??= new MaterialPropertyBlock();
             var tint = new Vector4(light.Value.r, light.Value.g, light.Value.b, 1f);
             foreach (var renderer in renderers)
             {
                 if (renderer is MeshRenderer meshRenderer && IsWorldChunk(meshRenderer))
                     continue;
-                renderer.GetPropertyBlock(_vobLightBlock);
-                _vobLightBlock.SetVector(_vobLightTintShaderId, tint);
-                renderer.SetPropertyBlock(_vobLightBlock);
+                // Into the renderer's own materials (UpdateRenderer writes its light indices there too), not a
+                // MaterialPropertyBlock: the SRP batcher skips renderers with one, ~1900 VOBs in Khorinis were drawn
+                // one by one in every pass (with the shadows: sun cascades, lamp cubes).
+                GetOwnedMaterials(renderer, _rendererMaterials);
+                foreach (var material in _rendererMaterials)
+                    if (material.HasProperty(_vobLightTintShaderId))
+                        material.SetVector(_vobLightTintShaderId, tint);
                 _worldLitRenderers.Add(renderer);
+            }
+        }
+
+        /// <summary>
+        /// The renderer's materials this service writes per-renderer values into (light indices, world-light tint).
+        /// Every VOB and chunk renderer has its own (mesh builders); the loading material is the one shared exception,
+        /// left in place when a mesh failed to build - writing there would light every renderer still using it.
+        /// </summary>
+        private static void GetOwnedMaterials(Renderer renderer, List<Material> materials)
+        {
+            renderer.GetSharedMaterials(materials);
+            // Backwards and without a lambda: called for hundreds of renderers at once (GC spikes on Quest).
+            for (var i = materials.Count - 1; i >= 0; i--)
+            {
+                if (materials[i] == null || materials[i] == Constants.LoadingMaterial)
+                    materials.RemoveAt(i);
             }
         }
 
@@ -495,6 +603,15 @@ namespace Gothic.Core.Services.World
                 if (light != null && light.Index >= 0)
                     light.DetachSlot();
             _pooledLights.Clear();
+            _shadowLights.Clear();
+            _shadowUnityLights.Clear();
+            // The hero's torch outlives the world - else it kept its shadow and ForcePixel without being in the list.
+            foreach (var light in _dynamicShadowLights)
+                ResetShadow(light);
+            _dynamicShadowLights.Clear();
+            _dynamicShadowNearPlanes.Clear();
+            _isDynamicShadowCapLogged = false;
+            _heroUnityLight = null;
             _poolPeak = 0;
             _isPoolDirty = true;
 
@@ -508,8 +625,14 @@ namespace Gothic.Core.Services.World
         /// The owner (a burning torch, a Light spell) takes the hero light - there's one slot, so the previous owner's
         /// light goes dark (its updates are ignored from now on, IsHeroLightOwner tells it).
         /// </summary>
-        public void ClaimHeroLight(object owner)
+        public void ClaimHeroLight(object owner, Light unityLight = null)
         {
+            if (_heroUnityLight != null && _heroUnityLight != unityLight)
+                RemoveDynamicShadowLight(_heroUnityLight);
+            _heroUnityLight = unityLight;
+            // The torch's own stick and the hand would hide the flame - geometry closer than this casts nothing.
+            if (unityLight != null)
+                AddDynamicShadowLight(unityLight, _heroShadowNearPlane);
             if (_heroLightOwner != null && !ReferenceEquals(_heroLightOwner, owner))
                 Logger.Log($"[StationaryLights] Hero light taken over by {owner} from {_heroLightOwner}", LogCat.Vob);
             _heroLightOwner = owner;
@@ -529,8 +652,13 @@ namespace Gothic.Core.Services.World
             if (HeroLightIndex < 0 || _lightPositionsAndAttenuation == null)
                 return true; // world not loaded yet
 
+            // w < 0: a shadow casting light, the shaders light it through URP (GothicShadowedLights).
+            var attenuation = 1f / (rangeMeters * rangeMeters);
+            var isShadowed = _heroUnityLight != null && _shadowUnityLights.Contains(_heroUnityLight);
             _lightPositionsAndAttenuation[HeroLightIndex] = new Vector4(
-                worldPosition.x, worldPosition.y, worldPosition.z, 1f / (rangeMeters * rangeMeters));
+                worldPosition.x, worldPosition.y, worldPosition.z, isShadowed ? -attenuation : attenuation);
+            // Alpha 0: the hero's light reaches indoor and outdoor surfaces.
+            linearColor.a = 0f;
             _lightColors[HeroLightIndex] = linearColor;
             UploadGlobalLightArrays();
             return true;
@@ -545,6 +673,9 @@ namespace Gothic.Core.Services.World
             if (!IsHeroLightOwner(owner))
                 return;
             _heroLightOwner = null;
+            if (_heroUnityLight != null)
+                RemoveDynamicShadowLight(_heroUnityLight);
+            _heroUnityLight = null;
             if (HeroLightIndex < 0 || _lightPositionsAndAttenuation == null)
                 return;
 
@@ -573,6 +704,21 @@ namespace Gothic.Core.Services.World
         /// Gothic bakes a static light into the world's vertex light outdoors (we render that already) and into
         /// lightmaps indoors (caves, houses - we don't). Only lights next to light mapped polygons are worth a slot.
         /// </summary>
+        /// <summary>
+        /// Light mapped polygons in the 2 m column right above (2 to 8 m up): a roof or a ceiling - the position is
+        /// indoors (house, cave, sewer). Walls next to it don't count (Khorinis' street lamps stand next to light mapped
+        /// walls, the sewers' lamps below the open market).
+        /// </summary>
+        public bool HasLightMappedCeiling(Vector3 position)
+        {
+            for (var up = 1; up <= 4; up++)
+            {
+                if (_lightMappedCells.Contains(ToCell(position + Vector3.up * (up * _cellSize))))
+                    return true;
+            }
+            return false;
+        }
+
         public bool IsNearLightMappedPolygons(Vector3 position, float rangeMeters)
         {
             if (_lightMappedCells.Count == 0)
@@ -593,6 +739,8 @@ namespace Gothic.Core.Services.World
         /// </summary>
         public void RegisterPooledLight(StationaryLight light)
         {
+            if (light.IsOutdoor)
+                light.Intensity = _outdoorLightFactor;
             if (_pooledLights.Add(light))
                 _isPoolDirty = true;
         }
@@ -611,10 +759,8 @@ namespace Gothic.Core.Services.World
                 return;
             }
 
-            var position = light.CachedPosition;
-            _lightPositionsAndAttenuation[light.Index] = new Vector4(position.x, position.y, position.z,
-                1f / Mathf.Max(0.01f, light.CachedRange * light.CachedRange));
-            _lightColors[light.Index] = light.RuntimeLinearColor;
+            _lightPositionsAndAttenuation[light.Index] = GetSlotPositionAndAttenuation(light);
+            _lightColors[light.Index] = GetSlotColor(light);
             _isUploadDirty = true;
         }
 
@@ -687,13 +833,14 @@ namespace Gothic.Core.Services.World
                     continue;
 
                 var slot = _freeRuntimeSlots.Pop();
-                var position = light.CachedPosition;
-                _lightPositionsAndAttenuation[slot] = new Vector4(position.x, position.y, position.z,
-                    1f / (light.CachedRange * light.CachedRange));
-                _lightColors[slot] = light.RuntimeLinearColor;
                 light.AttachSlot(slot);
+                _lightPositionsAndAttenuation[slot] = GetSlotPositionAndAttenuation(light);
+                _lightColors[slot] = GetSlotColor(light);
                 _isUploadDirty = true;
             }
+
+            UpdateShadowLights(camPos);
+            UpdateUnityLights(camPos);
 
             if (_wantedLights.Count > _poolPeak)
             {
@@ -706,6 +853,8 @@ namespace Gothic.Core.Services.World
 
         private void FreeSlot(StationaryLight light)
         {
+            if (_shadowLights.Remove(light))
+                SetLightShadow(light, false);
             var slot = light.Index;
             light.DetachSlot();
             if (slot <= HeroLightIndex || slot >= _lightPositionsAndAttenuation.Length)
@@ -715,6 +864,258 @@ namespace Gothic.Core.Services.World
             _lightColors[slot] = Vector4.zero;
             _freeRuntimeSlots.Push(slot);
             _isUploadDirty = true;
+        }
+
+        private void UpdateUnityLights(Vector3 cameraPosition)
+        {
+            foreach (var light in _pooledLights)
+            {
+                if (light == null)
+                    continue;
+                var isNear = Vector3.Distance(light.CachedPosition, cameraPosition) - light.CachedRange <=
+                             _unityLightMaxDistance;
+                // A shadow casting light farther away needs its Unity light for the shadow.
+                light.SetUnityLightEnabled(isNear || _shadowLights.Contains(light));
+            }
+        }
+
+        /// <summary>
+        /// Outdoor lamps and fires by day: Gothic's lights burn all day, but its bright vertex light hid them. Ours are
+        /// stronger (StationaryLightFalloff) and the sun's shadow leaves 40% - lamps glowed red on shaded walls at noon.
+        /// Night (sky brightness up to _lampFullBrightness) full, noon _lampDayFactor.
+        /// </summary>
+        private const float _lampDayFactor = 0.2f;
+        private const float _lampFullBrightness = 0.35f;
+        private float _outdoorLightFactor = 1f;
+
+        /// <summary>
+        /// SkyService: the world's day light changed (its brightness 0..1, indoor worlds dark). Outdoor lights follow.
+        /// </summary>
+        public void SetDaylight(float brightness)
+        {
+            var factor = Mathf.Lerp(1f, _lampDayFactor, Mathf.InverseLerp(_lampFullBrightness, 1f, brightness));
+            if (Mathf.Abs(factor - _outdoorLightFactor) < 0.02f)
+                return;
+
+            _outdoorLightFactor = factor;
+            if (_lightColors == null)
+                return;
+            foreach (var light in _pooledLights)
+            {
+                if (light == null || !light.IsOutdoor)
+                    continue;
+                // The Unity light lights objects/NPCs and the shadow casting lamps' pools.
+                light.Intensity = factor;
+                if (light.Index > HeroLightIndex && light.Index < _lightColors.Length)
+                {
+                    _lightColors[light.Index] = GetSlotColor(light);
+                    _isUploadDirty = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The slot's color; its alpha marks an indoor light (StationaryLighting.hlsl: no light on outdoor surfaces).
+        /// </summary>
+        private Color GetSlotColor(StationaryLight light)
+        {
+            var color = light.IsOutdoor ? light.RuntimeLinearColor * _outdoorLightFactor : light.RuntimeLinearColor;
+            color.a = light.IsIndoor ? 1f : 0f;
+            return color;
+        }
+
+        /// <summary>
+        /// Position and 1/range² of a slot - negative for a shadow casting light (the shaders look up its shadow).
+        /// </summary>
+        private Vector4 GetSlotPositionAndAttenuation(StationaryLight light)
+        {
+            var position = light.CachedPosition;
+            var attenuation = 1f / Mathf.Max(0.01f, light.CachedRange * light.CachedRange);
+            return new Vector4(position.x, position.y, position.z,
+                _shadowLights.Contains(light) ? -attenuation : attenuation);
+        }
+
+        /// <summary>
+        /// The _maxShadowLights pooled lights closest to the camera cast shadows (option "Shadows" not off), the rest
+        /// not. Runs with the pool's rebalance (camera moved 2 m or every 2 s).
+        /// </summary>
+        private void UpdateShadowLights(Vector3 cameraPosition)
+        {
+            _shadowUnityLights.RemoveWhere(light => light == null);
+            _dynamicShadowLights.RemoveAll(light => light == null);
+            _shadowCandidates.Clear();
+            _wantedShadowLights.Clear();
+            var maxDistance = ShadowLightMaxDistance;
+            var maxCount = ShadowLightCount;
+            var option = ShadowOption;
+            if (option != _appliedDynamicShadowOption)
+                RefreshDynamicShadowLights();
+            if (option > 0)
+            {
+                foreach (var light in _pooledLights)
+                {
+                    if (light == null || light.Index <= HeroLightIndex || light.IsBakedIntoWorld ||
+                        !light.isActiveAndEnabled)
+                        continue;
+                    var distance = Vector3.Distance(light.CachedPosition, cameraPosition);
+                    if (distance - light.CachedRange > maxDistance)
+                        continue;
+                    // Spell effects (summoning, fire rain) before lamps - they're short and right next to the hero.
+                    _shadowCandidates.Add((light.IsSpellLight ? distance - maxDistance : distance, light));
+                }
+                _shadowCandidates.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+                for (var i = 0; i < _shadowCandidates.Count && i < maxCount; i++)
+                    _wantedShadowLights.Add(_shadowCandidates[i].Light);
+            }
+
+            _shadowCandidates.Clear();
+            foreach (var light in _shadowLights)
+                if (light == null || !_wantedShadowLights.Contains(light))
+                    _shadowCandidates.Add((0f, light));
+            foreach (var (_, light) in _shadowCandidates)
+            {
+                _shadowLights.Remove(light);
+                if (light != null)
+                    SetLightShadow(light, false);
+            }
+
+            foreach (var light in _wantedShadowLights)
+                if (_shadowLights.Add(light))
+                    SetLightShadow(light, true);
+        }
+
+        /// <summary>
+        /// Option "Shadows" changed: the shadow lights follow at once (off: none).
+        /// </summary>
+        public void RefreshShadowLights()
+        {
+            RefreshDynamicShadowLights();
+            var cam = Camera.main;
+            if (cam == null || _lightPositionsAndAttenuation == null)
+                return;
+            foreach (var light in _shadowLights)
+                if (light != null)
+                    SetLightShadow(light, true);
+            UpdateShadowLights(cam.transform.position);
+        }
+
+        /// <summary>
+        /// Moving lights that cast shadows: the hero's torch / Light spell (ClaimHeroLight) and spell projectiles
+        /// (VRSpellThrow). URP renders their cube shadow every frame; the shaders light the world with them through
+        /// URP (GothicShadowLightsFeature) - before, a projectile's light only reached NPCs and objects.
+        /// Up to _maxDynamicShadowLights at once, more stay plain lights.
+        /// </summary>
+        private const int _maxDynamicShadowLights = 4;
+        private const float _heroShadowNearPlane = 0.2f;
+        private const float _dynamicShadowNearPlane = 0.15f;
+        private readonly List<Light> _dynamicShadowLights = new();
+        private readonly Dictionary<Light, float> _dynamicShadowNearPlanes = new();
+        private bool _isDynamicShadowCapLogged;
+
+        public void AddDynamicShadowLight(Light light, float nearPlane = _dynamicShadowNearPlane)
+        {
+            if (light == null || _dynamicShadowLights.Contains(light))
+                return;
+            _dynamicShadowLights.RemoveAll(other => other == null);
+            if (_dynamicShadowLights.Count >= _maxDynamicShadowLights)
+            {
+                // The hero's torch / Light spell lights the hero's surroundings the whole time - it takes the place of
+                // the oldest projectile. A 5th projectile stays a plain light.
+                var evicted = light == _heroUnityLight
+                    ? _dynamicShadowLights.Find(other => other != _heroUnityLight)
+                    : null;
+                if (evicted == null)
+                {
+                    if (!_isDynamicShadowCapLogged)
+                        Logger.Log($"[StationaryLights] {_maxDynamicShadowLights} moving shadow lights already - " +
+                                   $"'{light.name}' casts no shadow (logged once per world).", LogCat.Vob);
+                    _isDynamicShadowCapLogged = true;
+                    return;
+                }
+                RemoveDynamicShadowLight(evicted);
+            }
+
+            _dynamicShadowLights.Add(light);
+            _dynamicShadowNearPlanes[light] = nearPlane;
+            ApplyDynamicShadow(light);
+        }
+
+        public void RemoveDynamicShadowLight(Light light)
+        {
+            if (light == null || !_dynamicShadowLights.Remove(light))
+                return;
+            _dynamicShadowNearPlanes.Remove(light);
+            _shadowUnityLights.Remove(light);
+            ResetShadow(light);
+        }
+
+        private static void ResetShadow(Light light)
+        {
+            if (light == null)
+                return;
+            light.shadows = LightShadows.None;
+            light.renderMode = LightRenderMode.Auto;
+        }
+
+        private void RefreshDynamicShadowLights()
+        {
+            _appliedDynamicShadowOption = ShadowOption;
+            _dynamicShadowLights.RemoveAll(light => light == null);
+            foreach (var light in _dynamicShadowLights)
+                ApplyDynamicShadow(light);
+        }
+
+        private void ApplyDynamicShadow(Light light)
+        {
+            var option = ShadowOption;
+            var isOn = option > 0;
+            light.shadows = !isOn ? LightShadows.None : option == 1 ? LightShadows.Hard : LightShadows.Soft;
+            light.renderMode = isOn ? LightRenderMode.ForcePixel : LightRenderMode.Auto;
+            light.shadowNearPlane = _dynamicShadowNearPlanes.TryGetValue(light, out var nearPlane)
+                ? nearPlane
+                : _dynamicShadowNearPlane;
+            if (isOn)
+            {
+                light.GetUniversalAdditionalLightData().softShadowQuality =
+                    option == 2 ? SoftShadowQuality.Low : SoftShadowQuality.High;
+                _shadowUnityLights.Add(light);
+            }
+            else
+            {
+                _shadowUnityLights.Remove(light);
+            }
+        }
+
+        private void SetLightShadow(StationaryLight light, bool isOn)
+        {
+            var unityLight = light.GetComponent<Light>();
+            if (unityLight == null)
+                return;
+
+            var option = ShadowOption;
+            unityLight.shadows = !isOn ? LightShadows.None : option == 1 ? LightShadows.Hard : LightShadows.Soft;
+            if (isOn)
+                _shadowUnityLights.Add(unityLight);
+            else
+                _shadowUnityLights.Remove(unityLight);
+            // URP's 8 lights per object: the shadow casting ones first.
+            unityLight.renderMode = isOn ? LightRenderMode.ForcePixel : LightRenderMode.Auto;
+            unityLight.shadowNearPlane = _shadowLightNearPlane;
+            if (isOn)
+            {
+                var lightData = unityLight.GetUniversalAdditionalLightData();
+                lightData.softShadowQuality = option == 2 ? SoftShadowQuality.Low : SoftShadowQuality.High;
+            }
+
+            if (light.Index > HeroLightIndex && light.Index < _lightPositionsAndAttenuation.Length)
+            {
+                _lightPositionsAndAttenuation[light.Index] = GetSlotPositionAndAttenuation(light);
+                _isUploadDirty = true;
+            }
+            // Its renderers re-sort their lights (UpdateRenderer: shadow casting ones first).
+            foreach (var renderer in light.AffectedRenderers)
+                if (renderer != null)
+                    _dirtiedMeshes.Add(renderer);
         }
 
         private void UploadGlobalLightArrays()

@@ -856,22 +856,22 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         /// <summary>
         /// The SingleMesh shader only samples _MainTex. A 1x1 texture with the material's color gives the same look.
-        /// Cached per color, as every VOB using it shares the very same material.
+        /// The texture is cached per color; the material is per renderer, as the light services write each renderer's
+        /// lights and world-light tint into it (a shared one lit every X mark like the last one). Same shader variant,
+        /// so they still batch.
         /// </summary>
         private Material GetUntexturedMaterial(System.Drawing.Color color)
         {
             var unityColor = new Color32(color.R, color.G, color.B, color.A);
-            if (_multiTypeCacheService.UntexturedMaterials.TryGetValue(unityColor, out var material))
-                return material;
+            if (!_multiTypeCacheService.UntexturedTextures.TryGetValue(unityColor, out var texture))
+            {
+                texture = new Texture2D(1, 1);
+                texture.SetPixel(0, 0, unityColor);
+                texture.Apply();
+                _multiTypeCacheService.UntexturedTextures[unityColor] = texture;
+            }
 
-            var texture = new Texture2D(1, 1);
-            texture.SetPixel(0, 0, unityColor);
-            texture.Apply();
-
-            material = new Material(Constants.ShaderSingleMeshLit) { mainTexture = texture };
-            _multiTypeCacheService.UntexturedMaterials[unityColor] = material;
-
-            return material;
+            return new Material(Constants.ShaderSingleMeshLit) { mainTexture = texture };
         }
 
         protected Material GetWaterMaterial()

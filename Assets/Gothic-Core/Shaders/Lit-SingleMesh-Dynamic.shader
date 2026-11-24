@@ -110,5 +110,40 @@ Shader "Lit/SingleMesh-Dynamic"
             }
             ENDHLSL
         }
+
+        // Highlighted (hovered by the hand) or faded objects keep their shadow - the swap to this shader dropped it.
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            AlphaToMask Off
+            Blend Off
+            Cull Off
+
+            HLSLPROGRAM
+            #pragma vertex GothicShadowVert
+            #pragma fragment GothicShadowFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+            #pragma editor_sync_compilation
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_ST;
+                float _FocusBrightness;
+                float _Alpha;
+                float _Fatness;
+            CBUFFER_END
+
+            #define GOTHIC_SHADOW_FATNESS
+            #include "GothicIncludes.hlsl"
+            #include "GothicShadowCaster.hlsl"
+            ENDHLSL
+        }
     }
 }
