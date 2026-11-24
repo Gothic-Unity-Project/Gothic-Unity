@@ -1,3 +1,4 @@
+using Gothic.VR.Adapters.Player;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
 using Gothic.VR.Services;
@@ -8,14 +9,13 @@ using RingConstants = Gothic.VR.VRConstants.FavoritesRing;
 namespace Gothic.VR.Domain.Player
 {
     /// <summary>
-    /// The favorites ring's open/close gesture, owned by VrFavoritesService: both hands empty and above the eyes, both
-    /// triggers held for GestureSeconds (a haptic tick per third). The triggers have to be let go before the next
-    /// toggle.
+    /// The favorites ring's open/close gesture, owned by VrFavoritesService: both hands empty, open (no grip - climbing
+    /// a ledge grips it) and above the eyes for GestureSeconds, a haptic tick per third. A hand holding the backpack
+    /// counts as empty, like before (open the ring to put an item in quickly). No button: holding both triggers up
+    /// there felt like forever. The hands have to come down before the next toggle.
     /// </summary>
     public class VrFavoritesGestureDomain
     {
-
-
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly IVrInput _vrInput;
         [Inject] private readonly VrHapticsService _hapticsService;
@@ -34,17 +34,17 @@ namespace Gothic.VR.Domain.Player
         {
             var left = _vrPlayerService.GetHandModelGo(VrHandSide.Left);
             var right = _vrPlayerService.GetHandModelGo(VrHandSide.Right);
-            var leftTrigger = _vrInput.GetButton(VrHandSide.Left, VrButton.Trigger).IsActive;
-            var rightTrigger = _vrInput.GetButton(VrHandSide.Right, VrButton.Trigger).IsActive;
+            var areHandsUp = head != null && left != null && right != null &&
+                             left.transform.position.y > head.position.y + RingConstants.GestureHeightAboveEyes &&
+                             right.transform.position.y > head.position.y + RingConstants.GestureHeightAboveEyes;
 
-            if (!leftTrigger || !rightTrigger)
+            // After a toggle the hands have to come down first - else the ring would flip every GestureSeconds.
+            if (!areHandsUp)
                 _isGestureLatched = false;
 
-            var isGesture = head != null && left != null && right != null && leftTrigger && rightTrigger &&
+            var isGesture = areHandsUp && !isBlocked &&
                             _vrPlayerService.GrabbedItemLeft == null && _vrPlayerService.GrabbedItemRight == null &&
-                            left.transform.position.y > head.position.y + RingConstants.GestureHeightAboveEyes &&
-                            right.transform.position.y > head.position.y + RingConstants.GestureHeightAboveEyes &&
-                            !isBlocked;
+                            IsHandOpen(VrHandSide.Left) && IsHandOpen(VrHandSide.Right);
             if (_isGestureLatched)
             {
                 _gestureTime = 0f;
@@ -52,8 +52,7 @@ namespace Gothic.VR.Domain.Player
                 return false;
             }
 
-            // A hand dipping below the eyes or a trigger flickering for a moment
-            // doesn't start the hold again - it took much longer than GestureSeconds.
+            // A hand dipping below the eyes for a moment doesn't start the hold again.
             if (!isGesture)
             {
                 _gestureBrokenTime += Time.deltaTime;
@@ -83,6 +82,26 @@ namespace Gothic.VR.Domain.Player
             _hapticsService.Vibrate(VrHandSide.Left, VrHapticPreset.Success);
             _hapticsService.Vibrate(VrHandSide.Right, VrHapticPreset.Success);
             return true;
+        }
+
+        /// <summary>
+        /// No grip, or the grip holds the backpack.
+        /// </summary>
+        private bool IsHandOpen(VrHandSide side)
+        {
+            if (!_vrInput.GetButton(side, VrButton.Grip).IsActive)
+                return true;
+
+            var rig = _vrPlayerService.Rig;
+            if (rig == null)
+                return false;
+            foreach (var hand in rig.HandGrabbers)
+            {
+                if (hand.HandSide == side && hand.Held != null &&
+                    hand.Held.GetComponentInParent<VRBackpack>() != null)
+                    return true;
+            }
+            return false;
         }
     }
 }

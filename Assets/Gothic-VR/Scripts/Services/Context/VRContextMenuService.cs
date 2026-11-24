@@ -161,7 +161,7 @@ namespace Gothic.VR.Services.Context
             rows.Add((CreateToggleLabel(gameMenu, "THROWABLE_SPELLS", "throwableSpells"),
                 CreateToggleChoice(gameMenu, "THROWABLE_SPELLS", VRConstants.IniNames.ThrowableSpells,
                     VRConstants.ThrowableSpellsDefaultValue)));
-            // Off = the favorites ring (both hands up, both triggers) doesn't open.
+            // Off = the favorites ring (both empty hands up for 1.5 s) doesn't open.
             rows.Add((CreateToggleLabel(gameMenu, "FAVORITES_RING", "favoritesRing"),
                 CreateToggleChoice(gameMenu, "FAVORITES_RING", VRConstants.IniNames.FavoritesRing,
                     VRConstants.FavoritesRingDefaultValue)));

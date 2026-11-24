@@ -506,7 +506,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176264
-    m_Localized: "Beide leeren H\xE4nde \xFCber den Kopf + beide Trigger: Favoriten-Ring"
+    m_Localized: "Beide leeren H\xE4nde 1,5 s \xFCber den Kopf: Favoriten-Ring"
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176265
@@ -562,7 +562,7 @@ MonoBehaviour:
     m_Localized: "Projektilzauber: die leere Hand h\xE4lt ihren Trigger, ausholen
       und loslassen zum Werfen. H\xE4ltst du den Trigger der Runenhand und zeigst
       auf einen Gegner, wird er anvisiert. Zauber w\xE4hlst du im Favoriten-Ring:
-      beide leeren H\xE4nde \xFCber den Kopf, beide Trigger halten."
+      beide leeren H\xE4nde 1,5 s \xFCber den Kopf halten."
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176277
@@ -588,11 +588,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 193531983462522882
-    m_Localized: "Beide leeren H\xE4nde \xFCber den Kopf heben und kurz beide Trigger
-      halten: der Ring \xF6ffnet oder schlie\xDFt sich. Greifen nimmt einen Zauber
-      (bereit zum Wirken), eine Waffe oder einen Gegenstand in die Hand. L\xE4sst
-      du einen Gegenstand an einem Platz los, kommt er hinein. Abschalten unter Immersion:
-      \"Favoriten-Ring\"."
+    m_Localized: "Beide leeren, offenen H\xE4nde 1,5 s \xFCber den Kopf halten (es
+      vibriert): der Ring \xF6ffnet oder schlie\xDFt sich. Der Rucksack darf in einer
+      Hand bleiben. Greifen nimmt einen Zauber (bereit zum Wirken), eine Waffe oder
+      einen Gegenstand in die Hand. L\xE4sst du einen Gegenstand an einem Platz los,
+      kommt er hinein. Abschalten unter Immersion: \"Favoriten-Ring\"."
     m_Metadata:
       m_Items: []
   references:

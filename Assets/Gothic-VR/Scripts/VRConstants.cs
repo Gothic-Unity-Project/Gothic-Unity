@@ -44,7 +44,7 @@ namespace Gothic.VR
             public const string ScrollsSingleUse = "scrollsSingleUse";
             // 1 = projectile spells (firebolt, ...) are thrown with a swing (default), 0 = they are cast like other spells.
             public const string ThrowableSpells = "throwableSpells";
-            // 1 = the favorites ring opens with the gesture (both hands up, both triggers), 0 = off.
+            // 1 = the favorites ring opens with the gesture (both empty hands up for 1.5 s), 0 = off.
             public const string FavoritesRing = "favoritesRing";
             // 1 = G2: sneaking, NPCs whose pickpocket dialog option would show carry a purse; grabbing it is that
             // option (default), 0 = G2 only has the dialog. G1's purse is the engine's steal window, always on.
@@ -335,8 +335,8 @@ namespace Gothic.VR
             // Meters the hands must be above the eyes for the gesture.
             public const float GestureHeightAboveEyes = 0.1f;
 
-            // Seconds both triggers are held for the open/close gesture.
-            public const float GestureSeconds = 1f;
+            // Seconds both empty, open hands are held up for the open/close gesture (no button).
+            public const float GestureSeconds = 1.5f;
 
             // A broken gesture shorter than this (s) keeps the hold time.
             public const float GestureGraceSeconds = 0.3f;
