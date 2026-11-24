@@ -519,7 +519,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176264
-    m_Localized: 'Both empty hands above your head for 1.5 s: favorites ring'
+    m_Localized: 'Both empty hands above your head + both triggers: favorites ring'
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176265
@@ -574,8 +574,8 @@ MonoBehaviour:
   - m_Id: 193347490894176276
     m_Localized: 'Projectile spells: the empty hand holds its trigger, swing and
       let go to throw. Hold the rune hand''s trigger and point at an enemy to lock
-      on. Choose spells in the favorites ring: hold both empty hands above your head
-      for 1.5 s.'
+      on. Choose spells in the favorites ring: both empty hands above your head,
+      hold both triggers.'
     m_Metadata:
       m_Items: []
   - m_Id: 193347490894176277
@@ -601,10 +601,10 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 193531983462522882
-    m_Localized: 'Hold both empty, open hands above your head for 1.5 s (it vibrates):
-      the ring opens or closes. The backpack may stay in one hand. Grip takes a spell
-      (ready to cast), a weapon or an item into your hand. Let go of an item at a
-      slot to put it in. Switch it off in Immersion: "Favorites ring".'
+    m_Localized: 'Raise both empty hands above your head and hold both triggers for
+      a moment: the ring opens or closes. Grip takes a spell (ready to cast), a weapon
+      or an item into your hand. Let go of an item at a slot to put it in. Switch
+      it off in Immersion: "Favorites ring".'
     m_Metadata:
       m_Items: []
   references:

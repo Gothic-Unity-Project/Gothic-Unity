@@ -34,7 +34,7 @@ namespace Gothic.VR.Adapters.Player
     /// selection (hold the magic key, the equipped runes/scrolls circle the hero) in VR, plus the equipped weapons,
     /// favorite items and the money. What it holds and the put-in rules are VrFavoritesService's; this shows it and
     /// handles the hands. Its slot visuals are VRFavoritesRingSlotViews.
-    /// - Open/close: both empty, open hands raised above the head for 1.5 s (VrFavoritesGestureDomain).
+    /// - Open/close: both hands empty and raised above the head, both triggers held (VrFavoritesGestureDomain).
     ///   Loading a game closes it.
     /// - A carousel around the player at eye level, the slot looked at selected: at most 8 spells; the
     ///   equipped melee weapon and bow/crossbow (Gothic's one of each); up to 3 favorite items (a torch, a key, potions, food) and the trade currency
