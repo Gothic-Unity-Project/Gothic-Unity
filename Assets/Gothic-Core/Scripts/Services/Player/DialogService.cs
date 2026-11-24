@@ -43,6 +43,13 @@ namespace Gothic.Core.Manager
         private const float _heroQueueActionTimeout = 30f;
         private bool _isHeroQueueRunning;
 
+        /// <summary>
+        /// A dialog is open or the hero's queue is about to open one (a mob's _S1 queued AI_ProcessInfos). Like the
+        /// engine, no mob is used then: a second grab at a bed started a new mob dialog that destroyed the open one's
+        /// anchor - with the dialog box on it - and every dialog after failed (Bartok turned to the hero, said nothing).
+        /// </summary>
+        public bool IsBusy => _gameStateService.Dialogs.IsInDialog || _isHeroQueueRunning;
+
         private readonly DialogHeroHoldDomain _heroHoldDomain = new DialogHeroHoldDomain().Inject();
 
         /// <summary>
@@ -61,6 +68,8 @@ namespace Gothic.Core.Manager
         /// </summary>
         private void StopDialogOnUnloadGame()
         {
+            // The hero queue's coroutine stops with the scene without its finally - the flag would block mobs (IsBusy).
+            _isHeroQueueRunning = false;
             var dialogNpc = _gameStateService.Dialogs.CurrentDialogNpc;
             if (!_gameStateService.Dialogs.IsInDialog || dialogNpc == null)
                 return;
@@ -433,6 +442,16 @@ namespace Gothic.Core.Manager
         /// </summary>
         public void PrepareMobDialog(GameObject anchor)
         {
+            // The open dialog's box hangs on the old anchor - end it first (moves the box away), or it's destroyed
+            // with the anchor and every later dialog fails. MobInteractionService doesn't get here while busy.
+            var openDialogNpc = _gameStateService.Dialogs.CurrentDialogNpc;
+            if (_gameStateService.Dialogs.IsInDialog && openDialogNpc != null)
+            {
+                Logger.LogWarning("[MobDialog] A new mob dialog while one is open - closing the open one.",
+                    LogCat.Dialog);
+                StopDialog(openDialogNpc);
+            }
+
             if (MobDialogAnchor != null)
                 Object.Destroy(MobDialogAnchor);
 

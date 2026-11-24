@@ -62,6 +62,13 @@ namespace Gothic.Core.Services.Vobs
             if (loader.Container.Vob is not IInteractiveObject mob || vm == null)
                 return;
 
+            // While talking (or a mob dialog is about to open) no mob is used - VR grabs fire repeatedly.
+            if (_dialogService.IsBusy)
+            {
+                Logger.Log($"[MobInteractionService] {loader.gameObject.name} ignored - a dialog is open", LogCat.Vob);
+                return;
+            }
+
             // Touching a fireplace/torch lights it or puts it out until its mob routine switches (FireService).
             if (mob is IFire && _fireService.TryToggle(loader.gameObject))
                 return;
