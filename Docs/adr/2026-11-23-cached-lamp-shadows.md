@@ -11,7 +11,7 @@ With URP's shadows only the few lamps closest to the player cast a shadow (Docs/
 
 1. **Our own cache of cube shadows for the pooled lamps and fires.** Every lamp and fire in reach (the light pool, up to 256 lights, not lights baked into lightmaps, not moving spell lights) gets its surroundings drawn once into six faces: the distance to the nearest wall or VOB. The world shader looks it up for these lights. Not chosen: more URP shadow lights (too slow), the roof rule alone (decision 3 of the first ADR; it can't stop light going through a wall).
 2. **Only static things are in the cache.** The world mesh and VOBs cast; NPCs, items and the hero move and don't. The few lamps closest to the player keep URP's shadow, where NPCs and the hero cast.
-3. **A light is drawn again only when the colliders around it change** (a VOB loads or unloads nearby). Steady state costs nothing; a new light costs about 0.4 ms of CPU once (3 per frame at most).
+3. **A light is drawn again only when the colliders around it change** (a VOB loads or unloads nearby). To notice that, the colliders around 4 drawn lights are counted every frame (a physics sphere query each) - steady state is cheap, not free. A new light costs about 0.4 ms of CPU once; new lights are drawn within 0.75 ms of CPU per frame (at least 1, at most 4). Not chosen: a fixed number per frame - walking through a town kept refilling the queue. A "VOB loaded here" signal instead of counting is a follow-up.
 4. **PC only, with the "Shadows" option on.** Quest's shaders compile the lookup away.
 
 ## Consequences

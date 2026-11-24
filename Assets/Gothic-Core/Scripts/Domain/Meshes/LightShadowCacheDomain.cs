@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using Gothic.Core.Const;
 using Gothic.Core.Logging;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using Logger = Gothic.Core.Logging.Logger;
+using Object = UnityEngine.Object;
 
 namespace Gothic.Core.Domain.Meshes
 {
@@ -31,7 +33,11 @@ namespace Gothic.Core.Domain.Meshes
         /// </summary>
         public const int Capacity = 256;
 
-        private const int _rendersPerFrame = 3;
+        // CPU time per frame for drawing queued lights (ms): walking through a town keeps refilling the queue - a fixed
+        // 3 lights per frame cost ~1.2 ms of an 11 ms PCVR frame. At least one light per frame, at most
+        // _maxRendersPerFrame (the GPU side isn't timed).
+        private const double _renderBudgetMs = 0.75;
+        private const int _maxRendersPerFrame = 4;
         private const int _checksPerFrame = 4;
         // Same as StationaryLightsService's shadow near plane: the lamp's cage casts its bars, not the flame's own mesh.
         private const float _nearPlane = 0.05f;
@@ -46,6 +52,15 @@ namespace Gothic.Core.Domain.Meshes
             { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
         private static readonly Vector3[] _faceUp =
             { Vector3.up, Vector3.up, Vector3.forward, Vector3.forward, Vector3.up, Vector3.up };
+
+        private struct Draw
+        {
+            public MeshRenderer Renderer;
+            public Material Material;
+            public int Submesh;
+            public int Pass;
+            public Bounds Bounds;
+        }
 
         private sealed class Entry
         {
@@ -81,6 +96,11 @@ namespace Gothic.Core.Domain.Meshes
         private readonly Collider[] _colliders = new Collider[_maxColliders];
         private readonly HashSet<MeshRenderer> _casters = new();
         private readonly List<Material> _materials = new();
+        // The light's draw calls, gathered once and tested per face (bounds and materials are native calls).
+        private readonly List<Draw> _draws = new();
+        // The world chunks' bounds - static, read once per world instead of once per light.
+        private readonly List<(MeshRenderer Renderer, Bounds Bounds)> _chunkBounds = new();
+        private readonly HashSet<int> _overflowLoggedKeys = new();
         private readonly Dictionary<Material, int> _passIndices = new();
         private readonly Plane[] _planes = new Plane[6];
         private readonly int _casterLayerMask =
@@ -161,6 +181,8 @@ namespace Gothic.Core.Domain.Meshes
             for (var i = Capacity - 1; i >= 0; i--)
                 _freeSlots.Push(i);
             _passIndices.Clear();
+            _chunkBounds.Clear();
+            _overflowLoggedKeys.Clear();
             if (_atlas == null)
                 BindEmptyAtlas();
         }
@@ -223,7 +245,7 @@ namespace Gothic.Core.Domain.Meshes
         }
 
         /// <summary>
-        /// Per frame: draws up to _rendersPerFrame queued lights (closest first); with nothing queued it checks a few
+        /// Per frame: draws queued lights (closest first) within _renderBudgetMs; with nothing queued it checks a few
         /// drawn ones for new or gone colliders around them. Keys whose shadow appeared land in renderedKeys.
         /// </summary>
         public void Render(IReadOnlyCollection<MeshRenderer> worldChunks, List<int> renderedKeys)
@@ -247,7 +269,9 @@ namespace Gothic.Core.Domain.Meshes
             }
 
             var rendered = 0;
-            while (rendered < _rendersPerFrame && _renderQueue.Count > 0)
+            var start = Stopwatch.GetTimestamp();
+            while (rendered < _maxRendersPerFrame && _renderQueue.Count > 0 &&
+                   (rendered == 0 || ElapsedMs(start) < _renderBudgetMs))
             {
                 var entry = _renderQueue[0];
                 _renderQueue.RemoveAt(0);
@@ -269,10 +293,20 @@ namespace Gothic.Core.Domain.Meshes
                     LogCat.Mesh);
         }
 
+        private static double ElapsedMs(long start)
+        {
+            return (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
+        }
+
         private int CountColliders(Entry entry)
         {
-            return Physics.OverlapSphereNonAlloc(entry.Position, entry.Range, _colliders, _casterLayerMask,
+            var count = Physics.OverlapSphereNonAlloc(entry.Position, entry.Range, _colliders, _casterLayerMask,
                 QueryTriggerInteraction.Ignore);
+            // A full buffer: some VOBs cast no cached shadow, and a change around the light goes unnoticed.
+            if (count == _maxColliders && _overflowLoggedKeys.Add(entry.Key))
+                Logger.LogWarning($"[LightShadowCache] {_maxColliders}+ colliders within {entry.Range:0.#} m of the " +
+                                  $"light at {entry.Position} - some VOBs cast no cached shadow.", LogCat.Mesh);
+            return count;
         }
 
         private void GatherCasters(Entry entry, IReadOnlyCollection<MeshRenderer> worldChunks)
@@ -280,9 +314,16 @@ namespace Gothic.Core.Domain.Meshes
             _casters.Clear();
             var rangeSqr = entry.Range * entry.Range;
             // World chunks: by their bounds - a chunk of noCollDet polygons (bushes) has no collider.
-            foreach (var chunk in worldChunks)
+            if (_chunkBounds.Count != worldChunks.Count)
             {
-                if (chunk != null && chunk.enabled && chunk.bounds.SqrDistance(entry.Position) <= rangeSqr)
+                _chunkBounds.Clear();
+                foreach (var chunk in worldChunks)
+                    if (chunk != null)
+                        _chunkBounds.Add((chunk, chunk.bounds));
+            }
+            foreach (var (chunk, bounds) in _chunkBounds)
+            {
+                if (chunk != null && chunk.enabled && bounds.SqrDistance(entry.Position) <= rangeSqr)
                     _casters.Add(chunk);
             }
 
@@ -293,6 +334,25 @@ namespace Gothic.Core.Domain.Meshes
                 if (_colliders[i].TryGetComponent<MeshRenderer>(out var renderer) &&
                     renderer.shadowCastingMode != ShadowCastingMode.Off && renderer.gameObject.activeInHierarchy)
                     _casters.Add(renderer);
+            }
+
+            _draws.Clear();
+            foreach (var renderer in _casters)
+            {
+                var bounds = renderer.bounds;
+                renderer.GetSharedMaterials(_materials);
+                for (var submesh = 0; submesh < _materials.Count; submesh++)
+                {
+                    var material = _materials[submesh];
+                    if (material == null)
+                        continue;
+                    var pass = GetPassIndex(material);
+                    if (pass >= 0)
+                        _draws.Add(new Draw
+                        {
+                            Renderer = renderer, Material = material, Submesh = submesh, Pass = pass, Bounds = bounds
+                        });
+                }
             }
         }
 
@@ -312,6 +372,11 @@ namespace Gothic.Core.Domain.Meshes
 
             var position = entry.Position;
             var range = Mathf.Max(entry.Range, _nearPlane * 2f);
+            // Not run through GL.GetGPUProjectionMatrix on purpose: CommandBuffer.SetViewProjectionMatrices converts the
+            // projection for the graphics API itself (clip z range, reversed z, the y flip when drawing into a render
+            // texture) - URP draws its own shadow maps the same way (ShadowUtils.RenderShadowSlice). Converting it here
+            // too would flip the faces on D3D/Vulkan. The texture rows then follow OpenGL's convention on every API,
+            // which StationaryLightCachedShadow expects (checked: GPU readback vs. raycasts, 89-99% of directions).
             var projection = Matrix4x4.Perspective(90f, 1f, _nearPlane, range);
             _cmd.Clear();
             _cmd.SetGlobalVector(_cacheLightShaderId, new Vector4(position.x, position.y, position.z, 1f / range));
@@ -328,25 +393,16 @@ namespace Gothic.Core.Domain.Meshes
                 // 1 = nothing in the light's range.
                 _cmd.ClearRenderTarget(true, true, Color.white);
                 _cmd.SetViewProjectionMatrices(view, projection);
-                foreach (var renderer in _casters)
+                foreach (var draw in _draws)
                 {
-                    if (renderer == null || !GeometryUtility.TestPlanesAABB(_planes, renderer.bounds))
-                        continue;
-                    renderer.GetSharedMaterials(_materials);
-                    for (var submesh = 0; submesh < _materials.Count; submesh++)
-                    {
-                        var material = _materials[submesh];
-                        if (material == null)
-                            continue;
-                        var pass = GetPassIndex(material);
-                        if (pass >= 0)
-                            _cmd.DrawRenderer(renderer, material, submesh, pass);
-                    }
+                    if (draw.Renderer != null && GeometryUtility.TestPlanesAABB(_planes, draw.Bounds))
+                        _cmd.DrawRenderer(draw.Renderer, draw.Material, draw.Submesh, draw.Pass);
                 }
                 _cmd.CopyTexture(_faceTarget, 0, 0, _atlas, entry.Slot * 6 + face, 0);
             }
 
             Graphics.ExecuteCommandBuffer(_cmd);
+            _draws.Clear();
             _renderedTotal++;
         }
 
