@@ -39,6 +39,18 @@ namespace Gothic.VR.Adapters.Player
         private readonly Dictionary<(string, string), string> _missingAnimationFallbacks = new();
 
         /// <summary>
+        /// Crouched and standing still: the hero kneels like at a chest in Gothic (G1/G2 HUMANS.MDS). Bodies without
+        /// it sneak (S_SNEAK).
+        /// </summary>
+        public const string KneelAnimation = "S_CHESTSMALL_S0";
+        public const string SneakAnimation = "S_SNEAK";
+
+        /// <summary>
+        /// The player moved (walk/run/sneak loop, not idle) in the last Update.
+        /// </summary>
+        public bool IsMoving { get; private set; }
+
+        /// <summary>
         /// The animator of a newly built body.
         /// </summary>
         public void Bind(VRHeroBodyAnimator animator)
@@ -49,9 +61,11 @@ namespace Gothic.VR.Adapters.Player
 
         /// <summary>
         /// Picks and plays this frame's animation and advances the animator. body: the placed body (its yaw and
-        /// facing), scale: its scale (the walk/run loops' real speed).
+        /// facing), scale: its scale (the walk/run loops' real speed), isKneeling: crouched and standing still for a
+        /// moment (VRHeroBody) - the kneel pose instead of the sneak pose.
         /// </summary>
-        public void Update(NpcContainer hero, Transform body, IVrRig rig, float scale, bool isCrouching)
+        public void Update(NpcContainer hero, Transform body, IVrRig rig, float scale, bool isCrouching,
+            bool isKneeling)
         {
             if (_animator == null || !_animator.IsValid)
                 return;
@@ -70,12 +84,14 @@ namespace Gothic.VR.Adapters.Player
 
             var bodyState = _swimPose.GetBodyState(rig, hero.Props.BodyState);
             var isMoving = speed >= _idleSpeed;
+            IsMoving = isMoving;
             var isBackwards = local.z < -_backwardsShare * speed;
             var isTurning = Mathf.Abs(_bodyYawSpeed) >= _turnAnimationSpeed;
 
             var animation = _swimPose.GetAnimation(_animator, bodyState, speed, isMoving, isBackwards, isTurning,
                     _bodyYawSpeed < 0f)
-                ?? GetWalkAnimation(rig, velocity, speed, local, isMoving, isBackwards, isTurning, isCrouching);
+                ?? GetWalkAnimation(rig, velocity, speed, local, isMoving, isBackwards, isTurning, isCrouching,
+                    isKneeling);
 
             if (!_animator.HasAnimation(animation))
             {
@@ -121,13 +137,16 @@ namespace Gothic.VR.Adapters.Player
         /// On land: falling, sneaking, idle/turning on the spot, walking backwards, strafing, walking/running.
         /// </summary>
         private string GetWalkAnimation(IVrRig rig, Vector3 velocity, float speed, Vector3 local, bool isMoving,
-            bool isBackwards, bool isTurning, bool isCrouching)
+            bool isBackwards, bool isTurning, bool isCrouching, bool isKneeling)
         {
             if (rig != null && !rig.IsGrounded && velocity.y < -1f && !_swimPose.IsInWater &&
                 _animator.HasAnimation(_fallAnimation))
                 return _fallAnimation;
+            // Kneeling holds the pose through a short push (VRHeroBody ends it once the player really moves).
+            if (isCrouching && (isKneeling || !isMoving))
+                return isKneeling && _animator.HasAnimation(KneelAnimation) ? KneelAnimation : SneakAnimation;
             if (isCrouching)
-                return !isMoving ? "S_SNEAK" : isBackwards ? "S_SNEAKBL" : "S_SNEAKL";
+                return isBackwards ? "S_SNEAKBL" : "S_SNEAKL";
             if (!isMoving)
                 return isTurning ? (_bodyYawSpeed < 0f ? "T_RUNTURNL" : "T_RUNTURNR") : _idleAnimation;
             if (isBackwards)
