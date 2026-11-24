@@ -202,8 +202,8 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             // Crouched = sneaking.
-            // Lying or standing up (the VR hero body's fall camera lowers the head) isn't sneaking - an NPC asked "why are you
-            // sneaking around" while the hero got up.
+            // Lying or standing up (the VR hero body's fall camera lowers the head) isn't sneaking - an NPC asked "why
+            // are you sneaking around" while the hero got up.
             // Like the engine (OpenGothic Npc::canSneak) only with the sneak
             // talent - without it a crouching hero just walks: guards turn to him, Lukis hears him coming.
             if (_rig.IsCrouching && !_vrPlayerService.IsHeroBodyDown &&
