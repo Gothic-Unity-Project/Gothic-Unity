@@ -128,7 +128,7 @@ namespace Gothic.Core.Services.Meshes
             GameObject parent = null, GameObject rootGo = null, bool useTextureArray = true,
             bool allowUntextured = false)
         {
-            if (!allowUntextured && !HasMeshes(mdl.Mesh))
+            if (!allowUntextured && !HasTexturedMeshes(mdl.Mesh))
             {
                 return null;
             }
@@ -168,7 +168,7 @@ namespace Gothic.Core.Services.Meshes
             Vector3 position = default, Quaternion rotation = default,
             GameObject parent = null, GameObject rootGo = null, bool useTextureArray = true)
         {
-            if (!HasMeshes(mdm))
+            if (!HasTexturedMeshes(mdm))
             {
                 return null;
             }
@@ -195,7 +195,7 @@ namespace Gothic.Core.Services.Meshes
         /// <summary>
         /// The model has something to draw: at least one textured mesh or attachment.
         /// </summary>
-        public static bool HasMeshes(IModelMesh mdm)
+        public static bool HasTexturedMeshes(IModelMesh mdm)
         {
             // Check if there are completely empty elements without any texture.
             // G1: e.g. Harp, Flute, and WASH_SLOT (usage moved to a FreePoint within daedalus functions)

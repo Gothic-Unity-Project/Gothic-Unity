@@ -1104,7 +1104,7 @@ namespace Gothic.Core.Domain.Vobs
                 // A mob whose model is only an untextured helper (G1/G2 REPAIR_PLANK: ZM_REP_HIDDEN and the slot
                 // ZS_POS0) is invisible in the original, but its slots are where the NPC stands. Without them
                 // Wld_IsMobAvailable said no, so Fellan in Khorinis' harbour never hammered at his hut.
-                var isHiddenMob = !isDigSpot && vob is IInteractiveObject && !MeshService.HasMeshes(mdl.Mesh);
+                var isHiddenMob = !isDigSpot && vob is IInteractiveObject && !MeshService.HasTexturedMeshes(mdl.Mesh);
                 var isUntextured = isDigSpot || isHiddenMob;
                 var ret = _meshService.CreateVob(meshName, mdl, parent: parent, rootGo: go,
                     useTextureArray: !isUntextured, allowUntextured: isUntextured);
