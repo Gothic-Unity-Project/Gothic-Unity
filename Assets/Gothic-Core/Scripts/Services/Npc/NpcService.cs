@@ -773,7 +773,7 @@ namespace Gothic.Core.Services.Npc
                     continue;
                 // Followers, guides and summons stay with the hero: the reset would teleport them to a waypoint. The
                 // NPC talking to the hero (Marvin's "set time" during a dialog) keeps its dialog.
-                if (IsWithHero(npc, partyAivar, summonPartyAivar) || IsInDialogWithHero(npc))
+                if (IsWithHero(npc, partyAivar, summonPartyAivar) || _gameStateService.Dialogs.IsTalkingTo(npc))
                 {
                     _timeSkipResets.Remove(npc);
                     keptCount++;
@@ -810,12 +810,6 @@ namespace Gothic.Core.Services.Npc
             if (partyAivar >= 0 && npc.Instance.GetAiVar(partyAivar) != 0)
                 return true;
             return summonPartyAivar >= 0 && npc.Instance.GetAiVar(summonPartyAivar) != 0;
-        }
-
-        private bool IsInDialogWithHero(NpcContainer npc)
-        {
-            var dialogs = _gameStateService.Dialogs;
-            return dialogs.IsInDialog && dialogs.CurrentDialogNpc == npc;
         }
 
         /// <summary>

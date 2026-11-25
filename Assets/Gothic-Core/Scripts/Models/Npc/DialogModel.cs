@@ -37,6 +37,14 @@ namespace Gothic.Core.Models.Npc
         /// </summary>
         public InfoInstance ExitInfo;
 
+        /// <summary>
+        /// The hero is in a dialog with this NPC.
+        /// </summary>
+        public bool IsTalkingTo(NpcContainer npc)
+        {
+            return IsInDialog && npc != null && CurrentDialogNpc == npc;
+        }
+
         public void Dispose()
         {
             IsInDialog = false;
