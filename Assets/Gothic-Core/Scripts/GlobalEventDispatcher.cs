@@ -40,6 +40,12 @@ namespace Gothic.Core
         public static readonly UnityEvent<DateTime> GameTimeMinuteChangeCallback = new();
         public static readonly UnityEvent<DateTime> GameTimeHourChangeCallback = new();
 
+        /// <summary>
+        /// The game time jumped while a world runs (Wld_SetTime: the hero slept, a night with Nadja; Marvin's
+        /// "set time"). Not raised while a world loads (its STARTUP_* scripts set the time).
+        /// </summary>
+        public static readonly UnityEvent GameTimeSkipped = new();
+
         public static readonly UnityEvent<GameObject> MusicZoneEntered = new();
         public static readonly UnityEvent<GameObject> MusicZoneExited = new();
         public static readonly UnityEvent<string, string> LevelChangeTriggered = new();

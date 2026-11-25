@@ -37,6 +37,15 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void OnGameTimeMinuteChanged(DateTime now)
         {
+            RecalculateAllNpcRoutines();
+        }
+
+        /// <summary>
+        /// Every NPC's routine for the time right now: at each game minute and right after a time jump
+        /// (NpcService.ResetNpcsAfterTimeSkip).
+        /// </summary>
+        public void RecalculateAllNpcRoutines()
+        {
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
                 // e.g. Hero and monsters have no daily routines.

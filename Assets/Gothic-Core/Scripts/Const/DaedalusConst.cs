@@ -48,6 +48,7 @@ namespace Gothic.Core.Const
         public const string SpellBad = "SPELL_BAD";
         public const string AivEnemyOverride = "AIV_ENEMYOVERRIDE";
         public const string AivLastHitByRangedWeapon = "AIV_LASTHITBYRANGEDWEAPON";
+        public const string AivPartyMember = "AIV_PARTYMEMBER";
         public const string AivMmPartyMember = "AIV_MM_PARTYMEMBER";
         public const string NpcTalentMage = "NPC_TALENT_MAGE";
         public const string NpcAttackFinishDistance = "NPC_ATTACK_FINISH_DISTANCE";

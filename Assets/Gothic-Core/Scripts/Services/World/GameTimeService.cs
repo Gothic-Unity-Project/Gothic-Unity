@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
+using Gothic.Core.Logging;
 using Gothic.Core.Manager;
 using Gothic.Core.Services.Config;
 using Reflex.Attributes;
 using UnityEngine;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Services.World
 {
@@ -35,6 +37,9 @@ namespace Gothic.Core.Services.World
         private static readonly float _oneIngameSecond = 0.06944f;
         private DateTime _time = new(1, 1, 1, 15, 0, 0);
         private Coroutine _timeTickCoroutineHandler;
+        // From the loading scene until the world runs (WorldSceneLoaded): the world's STARTUP_* scripts run meanwhile.
+        private bool _isWorldLoading;
+        private bool _isTimeSkipWhileLoadingLogged;
 
 
         public void Init()
@@ -58,6 +63,9 @@ namespace Gothic.Core.Services.World
 
         private void PreWorldLoaded()
         {
+            _isWorldLoading = true;
+            _isTimeSkipWhileLoadingLogged = false;
+
             // Pause Coroutine until next world is loaded.
             if (_timeTickCoroutineHandler != null)
             {
@@ -67,6 +75,7 @@ namespace Gothic.Core.Services.World
 
         private void PostWorldLoaded()
         {
+            _isWorldLoading = false;
             _timeTickCoroutineHandler = _unityMonoService.StartCoroutine(TimeTick());
         }
 
@@ -152,6 +161,10 @@ namespace Gothic.Core.Services.World
             _minutesInHour = minute;
         }
 
+        /// <summary>
+        /// Wld_SetTime and Marvin's "set time". Raises GameTimeSkipped only while a world runs: a jump while the world
+        /// loads (G2's STARTUP_* scripts call Wld_SetTime) isn't one for anybody - every NPC starts fresh anyway.
+        /// </summary>
         public void SetTime(int hour, int minute)
         {
             // From G2: Setzt die Uhrzeit auf hour:min. hour kann größer als 23 sein, um zum nächsten Tag zu springen.
@@ -162,6 +175,19 @@ namespace Gothic.Core.Services.World
             
             if (daysToAdd > 0)
                 _time = _time.AddDays(daysToAdd);
+
+            if (_isWorldLoading)
+            {
+                if (!_isTimeSkipWhileLoadingLogged)
+                {
+                    _isTimeSkipWhileLoadingLogged = true;
+                    Logger.Log($"[GameTime] Time set to {_time:HH:mm} while the world loads - " +
+                               "no GameTimeSkipped (NPCs start fresh anyway).", LogCat.Loading);
+                }
+                return;
+            }
+
+            GlobalEventDispatcher.GameTimeSkipped.Invoke();
         }
 
         public float GetSkyTime()

@@ -491,6 +491,25 @@ namespace Gothic.Core.Services.Npc
             return false;
         }
 
+        /// <summary>
+        /// The hero's company: guides and followers (escort states), party members (AIV_PARTYMEMBER: Mordrag leading
+        /// the hero) and his summons (AIV_MM_PARTYMEMBER). An AIV_* constant the scripts don't have counts as unset.
+        /// </summary>
+        public bool IsHeroCompanion(NpcInstance npc)
+        {
+            if (npc == null)
+                return false;
+            if (IsInEscortState(npc))
+                return true;
+            return IsAiVarSet(npc, DaedalusConst.AivPartyMember) || IsAiVarSet(npc, DaedalusConst.AivMmPartyMember);
+        }
+
+        private bool IsAiVarSet(NpcInstance npc, string aivarName)
+        {
+            var symbol = _gameStateService.GothicVm.GetSymbolByName(aivarName);
+            return symbol != null && npc.GetAiVar(symbol.GetInt(0)) != 0;
+        }
+
         private bool CanSenseNpcQuietly(NpcInstance self, NpcInstance other, VmGothicEnums.NpcSenses senses,
             bool freeLOS, float range, float senseRangeMeters)
         {
