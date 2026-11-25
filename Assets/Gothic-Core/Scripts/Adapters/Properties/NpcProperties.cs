@@ -30,9 +30,11 @@ namespace Gothic.Core.Adapters.Properties
         // The mesh of the used item in its slot (DEF_INSERT_ITEM: the food, the mob's item). Only this object goes when
         // the item is put away - never the rest of the slot, a drawn weapon in the same hand stays.
         public GameObject UsedItemGo;
-        // Meshes a model script created (DEF_CREATE_ITEM, e.g. the smith's hammer at the anvil, both drumsticks of
-        // T_PAUKE). They go together with the used item (DEF_DESTROY_ITEM, the item put away).
-        public List<GameObject> CreatedItemGos = new();
+        // Items a model script created (DEF_CREATE_ITEM/DEF_EXCHANGE_ITEM, e.g. the smith's hammer at the anvil, both
+        // drumsticks of T_PAUKE): the mesh and the item added to the NPC's inventory for it (-1: none was added).
+        // DEF_DESTROY_ITEM or putting them away removes both, DEF_REMOVE_ITEM only the mesh. Not saved: an item added
+        // mid-animation stays in the saved inventory and the hand is empty after loading, like the original.
+        public List<(GameObject Go, int ItemIndex)> CreatedItems = new();
         public bool HasItemEquipped;
         public int CurrentItem = -1;
         // We need to start with an "invalid" value as >0< is an allowed state value like in >t_Potion_Stand_2_S0<

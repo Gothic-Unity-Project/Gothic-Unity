@@ -888,9 +888,13 @@ namespace Gothic.Core.Adapters.Animations
                         _npcService.ExchangeItem(NpcData, eventTag.Slots.Item1, eventTag.Item);
                         break;
                     case EventType.ItemDestroy:
-                    case EventType.ItemRemove:
-                        // Only the item meshes we put in go - a drawn weapon in the same hand stays.
+                        // Only the item meshes we put in go - a drawn weapon in the same hand stays. The items the
+                        // model script created leave the NPC's inventory too.
                         _npcService.DestroyUsedItemMesh(NpcData);
+                        break;
+                    case EventType.ItemRemove:
+                        // Like ItemDestroy, but the created items stay in the NPC's inventory.
+                        _npcService.DestroyUsedItemMesh(NpcData, isInventoryKept: true);
                         break;
                     case EventType.TorchInventory:
                         // TODO - I assume this means: if torch is in inventory, then put it out. But not really sure. Need a NPC with real usage of it to predict right.
