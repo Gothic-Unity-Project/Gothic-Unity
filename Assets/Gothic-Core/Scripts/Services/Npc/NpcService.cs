@@ -901,7 +901,9 @@ namespace Gothic.Core.Services.Npc
         /// The NPC is no longer the user of its mob: no mob, no slot, the not-in-use state (-1), standing, and the
         /// mob's own animation stops (MobAnimationService). The one place where a mob usage ends - after the last back
         /// transition of AI_UseMob(-1), at AI_StandUp(Quick), at death and when the NPC starts over (culled,
-        /// re-enabled: AiHandler).
+        /// re-enabled: AiHandler). The last user who was in one of the mob's states leaves it at -1 (Wld_GetMobState
+        /// reads 0, a save doesn't keep it) - a smith killed at the anvil frees it. An NPC only walking there
+        /// doesn't touch it (a lever the hero switched keeps its state).
         /// </summary>
         public void ReleaseMob(NpcContainer npc)
         {
@@ -909,7 +911,12 @@ namespace Gothic.Core.Services.Npc
             if (prefabProps == null)
                 return;
 
-            _mobAnimationService.Stop(prefabProps.CurrentInteractable, npc);
+            var mob = prefabProps.CurrentInteractable;
+            _mobAnimationService.Stop(mob, npc);
+
+            if (mob != null && npc.Props.CurrentInteractableStateId >= 0 &&
+                !_vobService.GetOtherMobUsers(mob, npc).Any())
+                mob.MobState = -1;
 
             prefabProps.CurrentInteractable = null;
             prefabProps.CurrentInteractableSlot = null;

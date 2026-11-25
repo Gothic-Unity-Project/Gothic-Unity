@@ -13,7 +13,7 @@ format keeps). Scripts read it with `Wld_GetMobState` (never below 0).
 | Who | Writes `MobState` when |
 |---|---|
 | `UseMob` (`AI_UseMob`) | each finished transition of its user moves the state one step towards the target (`UpdateState`), a linked mover is opened/closed |
-| `AiHandler` (`LeaveMobToStartOver`) | an NPC starts over at its routine waypoint (culled out, re-enabled): -1 |
+| `NpcService.ReleaseMob` | the last NPC still in one of the mob's states leaves it without `AI_UseMob(-1)` (`AI_StandUp`, death, starting over when culled or re-enabled): -1 |
 | `MobInteractionService` | the hero uses a lever/wheel with a target: 0 -> 1 triggers, 1 -> 0 untriggers (the trigger branch) |
 | `VRMobHinge` (VR) | the hand opens (1) or closes (0) a door or chest lid |
 | `MobStatesSaveSection` | a loaded game restores the states > 0 (section `core.mobStates`, per world, by type and position) |
@@ -27,9 +27,10 @@ An NPC uses a mob while `NpcPrefabProperties.CurrentInteractable` is the mob and
 before walking there, so two NPCs don't pick the same one (`VobService.GetOtherMobUsers`, a mob with several slots
 takes several).
 
-The usage ends in one place: `NpcService.ReleaseMob` clears mob, slot, state and body state and stops the mob's
-animation. It runs after `AI_UseMob(-1)`'s last back transition, at `AI_StandUp(Quick)` (`StandUp`), at death
-(`NpcDeathDomain.Die`: a killed smith frees his anvil) and when the NPC starts over (`AiHandler`).
+The usage ends in one place: `NpcService.ReleaseMob` clears mob, slot, state and body state, stops the mob's
+animation and, for the last user, sets the mob's state to -1. It runs after `AI_UseMob(-1)`'s last back transition,
+at `AI_StandUp(Quick)` (`StandUp`), at death (`NpcDeathDomain.Die`: a killed smith frees his anvil) and when the NPC
+starts over (`AiHandler`).
 
 The hero doesn't set `CurrentInteractable`. He uses a mob through `MobInteractionService` (the VR grab,
 `VRMobUseService`): its condition function, then either the item swap of crafting mobs, the mob's dialog

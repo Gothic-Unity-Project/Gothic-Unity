@@ -883,9 +883,6 @@ namespace Gothic.Core.Adapters.Npc
             if (Properties.CurrentInteractableStateId < 0)
                 return;
 
-            if (PrefabProps.CurrentInteractable != null)
-                PrefabProps.CurrentInteractable.MobState = -1;
-
             _npcService.ReleaseMob(NpcData);
         }
 
