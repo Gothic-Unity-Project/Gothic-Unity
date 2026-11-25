@@ -886,7 +886,7 @@ namespace Gothic.Core.Adapters.Animations
                         break;
                     case EventType.ItemDestroy:
                     case EventType.ItemRemove:
-                        // The slot is cleared too - a stale one could later delete a drawn weapon.
+                        // Only the item meshes we put in go - a drawn weapon in the same hand stays.
                         _npcService.DestroyUsedItemMesh(NpcData);
                         break;
                     case EventType.TorchInventory:
