@@ -65,9 +65,6 @@ namespace Gothic.Core.Services.Npc
         private Queue<NpcContainer> _objectToReEnableQueue = new();
         // NPCs to start over after the hero slept - culled ones when they show up again.
         private readonly HashSet<NpcContainer> _timeSkipResets = new();
-        // From the loading scene until the world runs (WorldSceneLoaded): the world's STARTUP_* scripts run meanwhile.
-        private bool _isWorldLoading;
-        private bool _isTimeSkipWhileLoadingLogged;
 
         private DaedalusVm _vm => _gameStateService.GothicVm;
 
@@ -91,12 +88,6 @@ namespace Gothic.Core.Services.Npc
             // An armor change of an already built NPC swaps its body mesh (G2 Greg in the farmer clothes).
             GlobalEventDispatcher.NpcVisualBodyChanged.AddListener(_initializerDomain.RebuildBody);
             GlobalEventDispatcher.GameTimeSkipped.AddListener(ResetNpcsAfterTimeSkip);
-            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() =>
-            {
-                _isWorldLoading = true;
-                _isTimeSkipWhileLoadingLogged = false;
-            });
-            GlobalEventDispatcher.WorldSceneLoaded.AddListener(() => _isWorldLoading = false);
         }
 
         public void ClearQueues()
@@ -738,22 +729,11 @@ namespace Gothic.Core.Services.Npc
         /// every living NPC starts over like after culling: routines are recalculated for the new time, visible NPCs
         /// reset one per frame (no spawning into each other), culled ones when they show up again. Dead and knocked
         /// out NPCs, the hero's followers and summons and his dialog partner stay as they are.
-        /// A jump while the world loads (G2's STARTUP_* scripts call Wld_SetTime) is ignored: every NPC starts fresh
-        /// anyway, and the marks would never be used up.
+        /// A jump while the world loads (G2's STARTUP_* scripts call Wld_SetTime) doesn't come here: GameTimeService
+        /// doesn't raise GameTimeSkipped then (every NPC starts fresh anyway, and the marks would never be used up).
         /// </summary>
         private void ResetNpcsAfterTimeSkip()
         {
-            if (_isWorldLoading)
-            {
-                if (!_isTimeSkipWhileLoadingLogged)
-                {
-                    _isTimeSkipWhileLoadingLogged = true;
-                    Logger.Log("[TimeSkipReset] Time skipped while the world loads - NPCs start fresh, no reset.",
-                        LogCat.Ai);
-                }
-                return;
-            }
-
             _npcRoutineService.RecalculateAllNpcRoutines();
 
             var partyAivar = GetAiVarIndex(DaedalusConst.AivPartyMember);
