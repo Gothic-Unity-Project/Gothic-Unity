@@ -953,7 +953,7 @@ namespace Gothic.Core.Adapters.Animations
 
                 var clip = _audioService.GetRandomSoundClip(sfx.Name);
                 PrefabProps.NpcSound.clip = clip;
-                PrefabProps.NpcSound.maxDistance = sfx.Range.ToMeter();
+                PrefabProps.NpcSound.maxDistance = _audioService.GetSfxRangeMeters(sfx.Name, sfx.Range.ToMeter());
                 PrefabProps.NpcSound.Play();
             }
         }
