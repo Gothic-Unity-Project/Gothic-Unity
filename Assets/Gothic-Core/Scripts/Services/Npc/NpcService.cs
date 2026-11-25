@@ -1036,8 +1036,8 @@ namespace Gothic.Core.Services.Npc
             var countBefore = _npcInventoryService.ExtNpcHasItems(npc, itemIndex);
             if (countBefore <= 0)
             {
-                Logger.LogWarning($"[NpcService] {npcName}: the created '{itemName}' isn't in the inventory any " +
-                                  "more (sold or stolen from the hand) - nothing removed.", LogCat.Npc);
+                Logger.Log($"[NpcService] {npcName}: the created '{itemName}' isn't in the inventory any " +
+                             "more (sold or stolen from the hand) - nothing removed.", LogCat.Npc);
                 return;
             }
 
