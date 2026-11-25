@@ -539,7 +539,10 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Skeleton of the given model script - used by AnimationSystem to build its stream handles and job data.
+        /// Skeleton of the given model script - used by AnimationSystem to build its stream handles and job data, and
+        /// by MobAnimationService for the nodes of a mob. A model can keep its hierarchy inside its .MDL (hierarchy
+        /// and mesh in one file) instead of an .MDH, like VobInitializerDomain builds such meshes. Once cached here,
+        /// GetTrack finds the skeleton under the same name.
         /// </summary>
         [CanBeNull]
         public AnimationSkeleton GetSkeleton(string mdsName)
@@ -549,7 +552,8 @@ namespace Gothic.Core.Services.Npc
                 return null;
             }
 
-            var mdh = _resourceCacheService.TryGetModelHierarchy(mdsName, false);
+            var mdh = _resourceCacheService.TryGetModelHierarchy(mdsName, false) ??
+                      _resourceCacheService.TryGetModel(mdsName, false)?.Hierarchy;
             return mdh == null ? null : GetSkeleton(mdsName, mdh);
         }
 

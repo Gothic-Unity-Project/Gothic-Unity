@@ -60,6 +60,7 @@ namespace Gothic.Core.Services
         [Inject] private readonly NpcNavMeshService _npcNavMeshService;
         [Inject] private readonly NpcWaterService _npcWaterService;
         [Inject] private readonly ParticleService _particleService;
+        [Inject] private readonly MobAnimationService _mobAnimationService;
         [Inject] private readonly DialogService _dialogService;
         [Inject] private readonly GameEndingService _gameEndingService;
         
@@ -116,6 +117,7 @@ namespace Gothic.Core.Services
             _npcNavMeshService.Init();
             _npcWaterService.Init();
             _particleService.Init();
+            _mobAnimationService.Init();
             _dialogService.Init();
             _saveGameService.Init();
             _gameEndingService.Init();

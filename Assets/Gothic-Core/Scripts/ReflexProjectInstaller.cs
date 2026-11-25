@@ -90,6 +90,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(TouchDamageService));
             containerBuilder.AddSingleton(typeof(MobInteractionService));
             containerBuilder.AddSingleton(typeof(MobLockService));
+            containerBuilder.AddSingleton(typeof(MobAnimationService));
             containerBuilder.AddSingleton(typeof(ParticleService));
             
             // Player
