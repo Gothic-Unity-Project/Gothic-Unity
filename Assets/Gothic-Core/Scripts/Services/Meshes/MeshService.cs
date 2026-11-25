@@ -192,7 +192,10 @@ namespace Gothic.Core.Services.Meshes
             return !mrm.Materials.All(m => m.Texture.IsEmpty());
         }
 
-        private static bool HasMeshes(IModelMesh mdm)
+        /// <summary>
+        /// The model has something to draw: at least one textured mesh or attachment.
+        /// </summary>
+        public static bool HasMeshes(IModelMesh mdm)
         {
             // Check if there are completely empty elements without any texture.
             // G1: e.g. Harp, Flute, and WASH_SLOT (usage moved to a FreePoint within daedalus functions)

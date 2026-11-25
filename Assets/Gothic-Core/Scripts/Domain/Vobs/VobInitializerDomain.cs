@@ -1068,6 +1068,19 @@ namespace Gothic.Core.Domain.Vobs
                 collider.enabled = false;
         }
 
+        /// <summary>
+        /// Only its slots count: nothing is drawn, and the hero can't focus or grab it (the helper mesh would be an
+        /// invisible plank on the wall).
+        /// </summary>
+        private static void HideHelperMob(GameObject go)
+        {
+            foreach (var renderer in go.GetComponentsInChildren<Renderer>(true))
+                renderer.forceRenderingOff = true;
+
+            foreach (var collider in go.GetComponentsInChildren<Collider>(true))
+                collider.enabled = false;
+        }
+
         private GameObject BuildDefaultMesh(IVirtualObject vob, GameObject parent)
         {
             var go = GetPrefab(vob);
@@ -1088,14 +1101,21 @@ namespace Gothic.Core.Domain.Vobs
                 // those on purpose (G1's empty harp or WASH_SLOT), but the X needs its mesh to be diggable. Where the
                 // world hides it (showVisual=FALSE, Newworld's spots) it isn't drawn, like in the original.
                 var isDigSpot = _vmCacheService.IsDigSpot(vob);
+                // A mob whose model is only an untextured helper (G1/G2 REPAIR_PLANK: ZM_REP_HIDDEN and the slot
+                // ZS_POS0) is invisible in the original, but its slots are where the NPC stands. Without them
+                // Wld_IsMobAvailable said no, so Fellan in Khorinis' harbour never hammered at his hut.
+                var isHiddenMob = !isDigSpot && vob is IInteractiveObject && !MeshService.HasMeshes(mdl.Mesh);
+                var isUntextured = isDigSpot || isHiddenMob;
                 var ret = _meshService.CreateVob(meshName, mdl, parent: parent, rootGo: go,
-                    useTextureArray: !isDigSpot, allowUntextured: isDigSpot);
+                    useTextureArray: !isUntextured, allowUntextured: isUntextured);
 
                 // A few objects are broken and have no meshes. We need to destroy them immediately again.
                 if (ret == null)
                     Object.Destroy(go);
                 else if (isDigSpot)
                     SnapDigSpotToLoader(ret);
+                else if (isHiddenMob)
+                    HideHelperMob(ret);
 
                 return ret;
             }
