@@ -186,7 +186,8 @@ namespace Gothic.Core.Services.Vobs
 
                 // The mob works while its dialog is open (the anvil sparks while the hero chooses what to forge), like
                 // for a smith. It rests when the dialog closes, or right after its transition if _S1 opens none
-                // (GlobalEventDispatcher.MobDialogEnded).
+                // (GlobalEventDispatcher.MobDialogEnded). Only after PrepareMobDialog: it ends an old anchor, whose
+                // MobDialogEnded -> StopHeroUse would stop this use at once.
                 _mobAnimationService.StartHeroUse(loader.Container, hero);
 
                 _vmService.CallAsHero(functionName, LogCat.Dialog);
