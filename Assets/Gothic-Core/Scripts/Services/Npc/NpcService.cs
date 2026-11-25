@@ -993,25 +993,51 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         public void CreateItem(NpcContainer npcContainer, string slot, string itemName)
         {
+            PutItemIntoSlot(npcContainer, slot, itemName, false);
+        }
+
+        /// <summary>
+        /// DEF_EXCHANGE_ITEM (animation event ItemExchange): the item in the slot becomes the given one, e.g.
+        /// T_BSFIRE_S0_2_S1 turns the smith's blade into the glowing ITMISWORDRAWHOT, T_PAN_S1_2_S0 puts the fried
+        /// ITFOMUTTON into the left hand. Like OpenGothic: the slot's item goes; is the slot empty (its cooking
+        /// fallback), the used item goes instead. The new item counts as created, so DEF_DESTROY_ITEM or putting it
+        /// away removes it. Only its mesh, like DEF_CREATE_ITEM: the NPC's inventory doesn't change.
+        /// </summary>
+        public void ExchangeItem(NpcContainer npcContainer, string slot, string itemName)
+        {
+            PutItemIntoSlot(npcContainer, slot, itemName, true);
+        }
+
+        private void PutItemIntoSlot(NpcContainer npcContainer, string slot, string itemName, bool isExchange)
+        {
             var npcName = npcContainer.Instance.GetName(NpcNameSlot.Slot0);
+            var eventName = isExchange ? "DEF_EXCHANGE_ITEM" : "DEF_CREATE_ITEM";
             var slotGo = FindSlot(npcContainer, slot);
             if (slotGo == null)
             {
-                Logger.LogWarning($"[NpcService] {npcName}: no slot '{slot}' for DEF_CREATE_ITEM '{itemName}'.",
+                Logger.LogWarning($"[NpcService] {npcName}: no slot '{slot}' for {eventName} '{itemName}'.",
                     LogCat.Npc);
                 return;
             }
 
-            DestroyItemsInSlot(npcContainer, slotGo);
+            var props = npcContainer.Props;
+            var isSlotCleared = DestroyItemsInSlot(npcContainer, slotGo);
+            if (isExchange && !isSlotCleared && DestroyItemGo(props.UsedItemGo))
+            {
+                props.UsedItemGo = null;
+                Logger.Log($"[NpcService] {npcName}: {eventName} '{itemName}' - nothing in '{slot}', the used item " +
+                           "goes instead.", LogCat.Npc);
+            }
+
             var itemGo = _vobService.CreateItemMesh(itemName, slotGo);
             if (itemGo == null)
             {
-                Logger.LogWarning($"[NpcService] {npcName}: no mesh for DEF_CREATE_ITEM '{itemName}' in '{slot}' - " +
+                Logger.LogWarning($"[NpcService] {npcName}: no mesh for {eventName} '{itemName}' in '{slot}' - " +
                                   "nothing created.", LogCat.Npc);
                 return;
             }
 
-            npcContainer.Props.CreatedItemGos.Add(itemGo);
+            props.CreatedItemGos.Add(itemGo);
         }
 
         public void InsertItem(NpcContainer npcContainer, string slot1, string slot2 = "")

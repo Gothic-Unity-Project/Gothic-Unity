@@ -884,6 +884,9 @@ namespace Gothic.Core.Adapters.Animations
                     case EventType.ItemCreate:
                         _npcService.CreateItem(NpcData, eventTag.Slots.Item1, eventTag.Item);
                         break;
+                    case EventType.ItemExchange:
+                        _npcService.ExchangeItem(NpcData, eventTag.Slots.Item1, eventTag.Item);
+                        break;
                     case EventType.ItemDestroy:
                     case EventType.ItemRemove:
                         // Only the item meshes we put in go - a drawn weapon in the same hand stays.
