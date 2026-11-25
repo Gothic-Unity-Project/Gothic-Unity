@@ -166,6 +166,10 @@ namespace Gothic.Core.Adapters.Properties
         // The current state's _End function is running (AI_StartState from inside it must not run it again).
         public bool IsInStateEnd;
 
+        // The start or loop function of a routine state is running: a state it starts with AI_StartState belongs to the
+        // routine too (G2's ZS_GotoBed starts ZS_Sleep) and ends when the routine changes (NpcRoutineService).
+        public bool IsInRoutineStateFunction;
+
         // Time.time of the last knockout - the swing that knocked him out doesn't finish him off (FightService).
         public float KnockedOutTime = float.MinValue;
 

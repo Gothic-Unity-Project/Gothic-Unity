@@ -60,6 +60,14 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
                 return;
             }
 
+            // Like the engine, a state below 0 only leaves the mob in use. The _End of a state whose routine changed
+            // before the NPC got onto its mob (ZS_Smith_Anvil_End: AI_UseMob(BSANVIL, -1)) walked to the nearest one.
+            if (IsStopUsingMob && !NpcContainer.IsUsingMob())
+            {
+                IsFinishedFlag = true;
+                return;
+            }
+
             // Else: We have a new animation where we seek the Mob before walking towards and executing action.
             var container = GetNearestMob();
             _mobContainer = container;

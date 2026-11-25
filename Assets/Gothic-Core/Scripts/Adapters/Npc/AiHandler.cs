@@ -222,7 +222,7 @@ namespace Gothic.Core.Adapters.Npc
                         if (Vob.CurrentStateIndex == 0)
                             return;
 
-                        CallAiFunction(Vob.CurrentStateIndex);
+                        CallStateFunction(Vob.CurrentStateIndex);
                         Properties.CurrentLoopState = LoopState.Loop;
                         _nextLoopTime = 0f;
                         break;
@@ -250,7 +250,7 @@ namespace Gothic.Core.Adapters.Npc
                             break;
                         _nextLoopTime = Time.time + Properties.PerceptionTime;
 
-                        var loopResponse = CallAiFunction(Properties.StateLoop);
+                        var loopResponse = CallStateFunction(Properties.StateLoop);
                         
                         // Some ZS_*_Loop return !=0 when they want to quit.
                         if (loopResponse != _daedalusLoopContinue)
@@ -333,6 +333,23 @@ namespace Gothic.Core.Adapters.Npc
                 {
                     Logger.LogError($"[AiHandler] State end {endFunction} failed: {e.Message}", LogCat.Ai);
                 }
+            }
+        }
+
+        /// <summary>
+        /// The current state's start or loop function. While a routine state's runs, a state it starts with
+        /// AI_StartState belongs to the routine as well (NpcAiService.ExtAiStartState).
+        /// </summary>
+        private int CallStateFunction(int symbolIndex)
+        {
+            Properties.IsInRoutineStateFunction = Vob.CurrentStateIsRoutine;
+            try
+            {
+                return CallAiFunction(symbolIndex);
+            }
+            finally
+            {
+                Properties.IsInRoutineStateFunction = false;
             }
         }
 

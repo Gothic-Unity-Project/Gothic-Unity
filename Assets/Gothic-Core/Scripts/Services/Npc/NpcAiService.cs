@@ -589,9 +589,13 @@ namespace Gothic.Core.Services.Npc
                 }
             }
 
+            // A routine state hands its end time on (engine: the new state keeps it): G2's sleepers lie in ZS_Sleep,
+            // started by the routine's ZS_GotoBed, and get up when the routine changes. Perceptions don't.
+            var isRoutineState = container.Props.IsInRoutineStateFunction;
+
             container.Props.AnimationQueue.Enqueue(new StartState(
                 new AnimationAction(int0: action, int1: endFunction, bool0: stopCurrentState, string0: wayPointName,
-                    instance0: other, instance1: victim),
+                    instance0: other, instance1: victim, bool1: isRoutineState),
                 container));
         }
 
