@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Gothic.Core.Adapters.Properties;
 using Gothic.Core.Adapters.Vob;
@@ -53,6 +54,8 @@ namespace Gothic.Core.Domain.Vobs
 
         // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
         private readonly HashSet<int> _createdEarlyVobIds = new();
+        private readonly HashSet<string> _loggedHelperMobs = new();
+        private readonly HashSet<string> _loggedNoHierarchyMobs = new();
 
 
         /// <summary>
@@ -1045,27 +1048,49 @@ namespace Gothic.Core.Domain.Vobs
         {
             var go = BuildDefaultMesh(vob, parent);
             if (go != null && !vob.ShowVisual)
-                HideVisual(vob, go);
+                HideVisual(go, vob is IInteractiveObject);
 
             return go;
         }
 
         /// <summary>
+        /// Draws nothing: the renderers stay enabled with forceRenderingOff, so their bounds still work (focus, dig
+        /// spots). Colliders are switched off unless keepColliders is set.
         /// showVisual=FALSE (Spacer): like in the engine (OpenGothic ObjVisual::setVisual) the mesh isn't drawn and a
         /// plain vob doesn't collide. Mods place such vobs as interaction anchors on world geometry (DoM: ore piles,
-        /// dig spots, campfires) - a mob stays usable: it keeps its colliders (focus, grab, use) and its nodes. The
-        /// renderers stay enabled, only drawing is off, so their bounds still work (focus, dig spots).
+        /// dig spots, campfires) - a mob stays usable: it keeps its colliders (focus, grab, use) and its nodes.
+        /// A helper mob (only its slots count) loses its colliders too: the hero can't focus or grab it (the helper
+        /// mesh would be an invisible plank on the wall).
         /// </summary>
-        private static void HideVisual(IVirtualObject vob, GameObject go)
+        private static void HideVisual(GameObject go, bool keepColliders)
         {
             foreach (var renderer in go.GetComponentsInChildren<Renderer>(true))
                 renderer.forceRenderingOff = true;
 
-            if (vob is IInteractiveObject)
+            if (keepColliders)
                 return;
 
             foreach (var collider in go.GetComponentsInChildren<Collider>(true))
                 collider.enabled = false;
+        }
+
+        /// <summary>
+        /// Slot nodes (ZS_POS0, ...) are where an NPC stands or uses the mob.
+        /// </summary>
+        private bool HasSlotNodes(ZenKit.IModel mdl, string meshName)
+        {
+            var nodes = mdl.Hierarchy?.Nodes;
+            if (nodes == null)
+            {
+                // Broken or modded models: no hierarchy, so no slots. Warn once per visual, don't fail the world load.
+                if (_loggedNoHierarchyMobs.Add(meshName))
+                    Logger.LogWarning($"[VobInitializer] Model {meshName} has no hierarchy - no slot nodes.",
+                        LogCat.Vob);
+                return false;
+            }
+
+            return nodes.Any(node => node?.Name != null
+                                     && node.Name.StartsWith("ZS_", StringComparison.OrdinalIgnoreCase));
         }
 
         private GameObject BuildDefaultMesh(IVirtualObject vob, GameObject parent)
@@ -1088,14 +1113,28 @@ namespace Gothic.Core.Domain.Vobs
                 // those on purpose (G1's empty harp or WASH_SLOT), but the X needs its mesh to be diggable. Where the
                 // world hides it (showVisual=FALSE, Newworld's spots) it isn't drawn, like in the original.
                 var isDigSpot = _vmCacheService.IsDigSpot(vob);
+                // A mob whose model is only an untextured helper (G1/G2 REPAIR_PLANK: ZM_REP_HIDDEN and the slot
+                // ZS_POS0) is invisible in the original, but its slots are where the NPC stands. Without them
+                // Wld_IsMobAvailable said no, so Fellan in Khorinis' harbour never hammered at his hut.
+                // Only models with slot nodes: G1's empty harp, flute and WASH_SLOT stay skipped on purpose.
+                var isHiddenMob = !isDigSpot && vob is IInteractiveObject && !MeshService.HasTexturedMeshes(mdl.Mesh)
+                                  && HasSlotNodes(mdl, meshName);
+                var isUntextured = isDigSpot || isHiddenMob;
                 var ret = _meshService.CreateVob(meshName, mdl, parent: parent, rootGo: go,
-                    useTextureArray: !isDigSpot, allowUntextured: isDigSpot);
+                    useTextureArray: !isUntextured, allowUntextured: isUntextured);
 
                 // A few objects are broken and have no meshes. We need to destroy them immediately again.
                 if (ret == null)
                     Object.Destroy(go);
                 else if (isDigSpot)
                     SnapDigSpotToLoader(ret);
+                else if (isHiddenMob)
+                {
+                    HideVisual(ret, keepColliders: false);
+                    if (_loggedHelperMobs.Add(meshName))
+                        Logger.LogEditor($"[VobInitializer] Hidden helper mob {meshName} built for its slots.",
+                            LogCat.Vob);
+                }
 
                 return ret;
             }
