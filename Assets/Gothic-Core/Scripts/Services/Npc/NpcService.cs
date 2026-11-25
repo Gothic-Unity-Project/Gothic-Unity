@@ -737,7 +737,7 @@ namespace Gothic.Core.Services.Npc
         /// After sleeping only the time jumped: NPCs kept sleeping, chasing the hero or standing where they were. Now
         /// every living NPC starts over like after culling: routines are recalculated for the new time, visible NPCs
         /// reset one per frame (no spawning into each other), culled ones when they show up again. Dead and knocked
-        /// out NPCs stay as they are.
+        /// out NPCs, the hero's followers and summons and his dialog partner stay as they are.
         /// A jump while the world loads (G2's STARTUP_* scripts call Wld_SetTime) is ignored: every NPC starts fresh
         /// anyway, and the marks would never be used up.
         /// </summary>
@@ -770,8 +770,9 @@ namespace Gothic.Core.Services.Npc
                 // Never built: it starts fresh at its routine when it shows up (InitNpc).
                 if (npc.Go == null)
                     continue;
-                // Followers, guides and summons stay with the hero: the reset would teleport them to a waypoint.
-                if (IsWithHero(npc, partyAivar, summonPartyAivar))
+                // Followers, guides and summons stay with the hero: the reset would teleport them to a waypoint. The
+                // NPC talking to the hero (Marvin's "set time" during a dialog) keeps its dialog.
+                if (IsWithHero(npc, partyAivar, summonPartyAivar) || IsInDialogWithHero(npc))
                 {
                     _timeSkipResets.Remove(npc);
                     keptCount++;
@@ -808,6 +809,12 @@ namespace Gothic.Core.Services.Npc
             if (partyAivar >= 0 && npc.Instance.GetAiVar(partyAivar) != 0)
                 return true;
             return summonPartyAivar >= 0 && npc.Instance.GetAiVar(summonPartyAivar) != 0;
+        }
+
+        private bool IsInDialogWithHero(NpcContainer npc)
+        {
+            var dialogs = _gameStateService.Dialogs;
+            return dialogs.IsInDialog && dialogs.CurrentDialogNpc == npc;
         }
 
         /// <summary>
