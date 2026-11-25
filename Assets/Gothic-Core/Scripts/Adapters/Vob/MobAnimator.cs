@@ -32,6 +32,7 @@ namespace Gothic.Core.Adapters.Vob
         // The mob's node transforms, index == mdh node index (AnimationTrack.BoneToNode). Null if not found.
         private Transform[] _nodes;
         private AnimationEffectPlayer _effectPlayer;
+        private AudioSource _sound;
         private readonly List<NpcContainer> _users = new();
 
         private AnimationTrackInstance _current;
@@ -57,14 +58,14 @@ namespace Gothic.Core.Adapters.Vob
             _mob = mob;
             MapNodes(skeleton);
 
-            var sound = gameObject.AddComponent<AudioSource>();
-            sound.playOnAwake = false;
-            sound.spatialBlend = 1f;
-            sound.rolloffMode = AudioRolloffMode.Linear;
-            sound.minDistance = 0f;
-            _effectPlayer = new AnimationEffectPlayer(transform, transform, sound, isReusingPfx: true).Inject();
+            _sound = gameObject.AddComponent<AudioSource>();
+            _sound.playOnAwake = false;
+            _sound.spatialBlend = 1f;
+            _sound.rolloffMode = AudioRolloffMode.Linear;
+            _sound.minDistance = 0f;
+            _effectPlayer = new AnimationEffectPlayer(transform, transform, _sound, isReusingPfx: true).Inject();
 
-            enabled = false;
+            Rest(isSoundStopped: true);
         }
 
         /// <summary>
@@ -127,7 +128,7 @@ namespace Gothic.Core.Adapters.Vob
             else if (loop != null)
                 StartTrack(loop, isLoop: true);
             else
-                Rest();
+                Rest(isSoundStopped: true);
         }
 
         public void PlayBackAndStop(AnimationTrack backTransition)
@@ -146,7 +147,7 @@ namespace Gothic.Core.Adapters.Vob
             if (backTransition != null)
                 StartTrack(backTransition, isLoop: false);
             else
-                Rest();
+                Rest(isSoundStopped: true);
         }
 
         private void StartTrack(AnimationTrack track, bool isLoop)
@@ -159,8 +160,10 @@ namespace Gothic.Core.Adapters.Vob
 
         /// <summary>
         /// Nothing plays any more: the nodes keep their last pose, the particles fade out, Update is off.
+        /// isSoundStopped: the last user left, so a long clip (FORGE_FIRE) ends with the mob. A transition without
+        /// a user (a lever pull) lets its sound play out.
         /// </summary>
-        private void Rest()
+        private void Rest(bool isSoundStopped)
         {
             _current = null;
             _isCurrentLoop = false;
@@ -168,6 +171,8 @@ namespace Gothic.Core.Adapters.Vob
             _isStopPending = false;
             _pendingBack = null;
             _effectPlayer?.StopAllPfx();
+            if (isSoundStopped && _sound != null)
+                _sound.Stop();
             enabled = false;
         }
 
@@ -219,7 +224,7 @@ namespace Gothic.Core.Adapters.Vob
 
             if (_isStopPending || _nextLoop == null)
             {
-                Rest();
+                Rest(isSoundStopped: _isStopPending);
                 return;
             }
 
@@ -249,7 +254,7 @@ namespace Gothic.Core.Adapters.Vob
             }
 
             if (_users.Count == 0 && _isCurrentLoop)
-                Rest();
+                Rest(isSoundStopped: true);
         }
 
         private void ApplyPose(AnimationTrackInstance instance)
