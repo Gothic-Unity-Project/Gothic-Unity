@@ -79,11 +79,12 @@ namespace Gothic.VR.Adapters.Player
                 main.loop = true;
                 // Default (Local) ignores the parent's scale - the invest level size and the ring's fit wouldn't show.
                 main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+                // Moving with the hand/ring, not left behind in the world - in both modes (the builder simulates in
+                // World: the ring's standing glow smeared into a streak when the hand moved).
+                main.simulationSpace = ParticleSystemSimulationSpace.Local;
                 var emission = ps.emission;
                 if (isGothicMotion)
                 {
-                    // Moving with the hand/ring, not left behind in the world.
-                    main.simulationSpace = ParticleSystemSimulationSpace.Local;
                     if (emission.rateOverTime.constantMax < _minEmissionRate)
                         emission.rateOverTime = _minEmissionRate;
                 }
