@@ -1045,37 +1045,27 @@ namespace Gothic.Core.Domain.Vobs
         {
             var go = BuildDefaultMesh(vob, parent);
             if (go != null && !vob.ShowVisual)
-                HideVisual(vob, go);
+                HideVisual(go, vob is IInteractiveObject);
 
             return go;
         }
 
         /// <summary>
+        /// Draws nothing: the renderers stay enabled with forceRenderingOff, so their bounds still work (focus, dig
+        /// spots). Colliders are switched off unless keepColliders is set.
         /// showVisual=FALSE (Spacer): like in the engine (OpenGothic ObjVisual::setVisual) the mesh isn't drawn and a
         /// plain vob doesn't collide. Mods place such vobs as interaction anchors on world geometry (DoM: ore piles,
-        /// dig spots, campfires) - a mob stays usable: it keeps its colliders (focus, grab, use) and its nodes. The
-        /// renderers stay enabled, only drawing is off, so their bounds still work (focus, dig spots).
+        /// dig spots, campfires) - a mob stays usable: it keeps its colliders (focus, grab, use) and its nodes.
+        /// A helper mob (only its slots count) loses its colliders too: the hero can't focus or grab it (the helper
+        /// mesh would be an invisible plank on the wall).
         /// </summary>
-        private static void HideVisual(IVirtualObject vob, GameObject go)
+        private static void HideVisual(GameObject go, bool keepColliders)
         {
             foreach (var renderer in go.GetComponentsInChildren<Renderer>(true))
                 renderer.forceRenderingOff = true;
 
-            if (vob is IInteractiveObject)
+            if (keepColliders)
                 return;
-
-            foreach (var collider in go.GetComponentsInChildren<Collider>(true))
-                collider.enabled = false;
-        }
-
-        /// <summary>
-        /// Only its slots count: nothing is drawn, and the hero can't focus or grab it (the helper mesh would be an
-        /// invisible plank on the wall).
-        /// </summary>
-        private static void HideHelperMob(GameObject go)
-        {
-            foreach (var renderer in go.GetComponentsInChildren<Renderer>(true))
-                renderer.forceRenderingOff = true;
 
             foreach (var collider in go.GetComponentsInChildren<Collider>(true))
                 collider.enabled = false;
@@ -1115,7 +1105,7 @@ namespace Gothic.Core.Domain.Vobs
                 else if (isDigSpot)
                     SnapDigSpotToLoader(ret);
                 else if (isHiddenMob)
-                    HideHelperMob(ret);
+                    HideVisual(ret, keepColliders: false);
 
                 return ret;
             }
