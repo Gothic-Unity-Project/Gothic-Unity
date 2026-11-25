@@ -5,7 +5,6 @@ using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
-using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
 using Gothic.Core.Services.World;
@@ -256,7 +255,7 @@ namespace Gothic.Core.Services.Npc
             if (props == null || vob == null || vob.Player)
                 return false;
 
-            if (props.IsDead || props.BodyState == VmGothicEnums.BodyState.BsUnconscious)
+            if (npc.IsDown())
                 return false;
 
             if (!vob.CurrentStateValid || !vob.CurrentStateIsRoutine)
