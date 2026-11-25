@@ -55,6 +55,7 @@ namespace Gothic.Core.Domain.Vobs
         // Ids of logic VOBs below lazily loaded VOBs that were created with the world (MarkCreatedEarly).
         private readonly HashSet<int> _createdEarlyVobIds = new();
         private readonly HashSet<string> _loggedHelperMobs = new();
+        private readonly HashSet<string> _loggedNoHierarchyMobs = new();
 
 
         /// <summary>
@@ -1076,10 +1077,20 @@ namespace Gothic.Core.Domain.Vobs
         /// <summary>
         /// Slot nodes (ZS_POS0, ...) are where an NPC stands or uses the mob.
         /// </summary>
-        private static bool HasSlotNodes(ZenKit.IModel mdl)
+        private bool HasSlotNodes(ZenKit.IModel mdl, string meshName)
         {
-            return mdl.Hierarchy.Nodes.Any(node =>
-                node.Name.StartsWith("ZS_", StringComparison.OrdinalIgnoreCase));
+            var nodes = mdl.Hierarchy?.Nodes;
+            if (nodes == null)
+            {
+                // Broken or modded models: no hierarchy, so no slots. Warn once per visual, don't fail the world load.
+                if (_loggedNoHierarchyMobs.Add(meshName))
+                    Logger.LogWarning($"[VobInitializer] Model {meshName} has no hierarchy - no slot nodes.",
+                        LogCat.Vob);
+                return false;
+            }
+
+            return nodes.Any(node => node?.Name != null
+                                     && node.Name.StartsWith("ZS_", StringComparison.OrdinalIgnoreCase));
         }
 
         private GameObject BuildDefaultMesh(IVirtualObject vob, GameObject parent)
@@ -1107,7 +1118,7 @@ namespace Gothic.Core.Domain.Vobs
                 // Wld_IsMobAvailable said no, so Fellan in Khorinis' harbour never hammered at his hut.
                 // Only models with slot nodes: G1's empty harp, flute and WASH_SLOT stay skipped on purpose.
                 var isHiddenMob = !isDigSpot && vob is IInteractiveObject && !MeshService.HasTexturedMeshes(mdl.Mesh)
-                                  && HasSlotNodes(mdl);
+                                  && HasSlotNodes(mdl, meshName);
                 var isUntextured = isDigSpot || isHiddenMob;
                 var ret = _meshService.CreateVob(meshName, mdl, parent: parent, rootGo: go,
                     useTextureArray: !isUntextured, allowUntextured: isUntextured);
