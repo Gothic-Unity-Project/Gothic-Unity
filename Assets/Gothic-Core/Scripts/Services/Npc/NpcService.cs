@@ -1029,6 +1029,13 @@ namespace Gothic.Core.Services.Npc
                            "goes instead.", LogCat.Npc);
             }
 
+            // An exchange to nothing (empty item name) is a plain clear.
+            if (isExchange && string.IsNullOrEmpty(itemName))
+            {
+                Logger.Log($"[NpcService] {npcName}: {eventName} to nothing - '{slot}' cleared.", LogCat.Npc);
+                return;
+            }
+
             var itemGo = _vobService.CreateItemMesh(itemName, slotGo);
             if (itemGo == null)
             {
