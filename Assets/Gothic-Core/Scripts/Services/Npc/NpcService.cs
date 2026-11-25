@@ -994,17 +994,7 @@ namespace Gothic.Core.Services.Npc
         public void CreateItem(NpcContainer npcContainer, string slot, string itemName)
         {
             var npcName = npcContainer.Instance.GetName(NpcNameSlot.Slot0);
-            var item = itemName.IsNullOrEmpty() ? null : _vm.GetSymbolByName(itemName);
-            if (item == null)
-            {
-                Logger.LogWarning($"[NpcService] {npcName}: DEF_CREATE_ITEM item '{itemName}' isn't in the scripts - " +
-                                  "nothing created.", LogCat.Npc);
-                return;
-            }
-
-            var slotGo = npcContainer.PrefabProps?.Bip01 != null
-                ? npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(slot)
-                : null;
+            var slotGo = FindSlot(npcContainer, slot);
             if (slotGo == null)
             {
                 Logger.LogWarning($"[NpcService] {npcName}: no slot '{slot}' for DEF_CREATE_ITEM '{itemName}'.",
@@ -1013,9 +1003,15 @@ namespace Gothic.Core.Services.Npc
             }
 
             DestroyItemsInSlot(npcContainer, slotGo);
-            var itemGo = _vobService.CreateItemMesh(item.Index, slotGo);
-            if (itemGo != null)
-                npcContainer.Props.CreatedItemGos.Add(itemGo);
+            var itemGo = _vobService.CreateItemMesh(itemName, slotGo);
+            if (itemGo == null)
+            {
+                Logger.LogWarning($"[NpcService] {npcName}: no mesh for DEF_CREATE_ITEM '{itemName}' in '{slot}' - " +
+                                  "nothing created.", LogCat.Npc);
+                return;
+            }
+
+            npcContainer.Props.CreatedItemGos.Add(itemGo);
         }
 
         public void InsertItem(NpcContainer npcContainer, string slot1, string slot2 = "")
@@ -1033,9 +1029,24 @@ namespace Gothic.Core.Services.Npc
                 Logger.LogWarning($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: an item was " +
                                   $"still in the hand - replaced by the new one in '{slot1}'", LogCat.Npc);
 
-            var slotGo = npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(slot1);
+            var slotGo = FindSlot(npcContainer, slot1);
+            if (slotGo == null)
+            {
+                Logger.LogWarning($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: no slot " +
+                                  $"'{slot1}' for DEF_INSERT_ITEM - nothing inserted.", LogCat.Npc);
+                return;
+            }
 
             props.UsedItemGo = _vobService.CreateItemMesh(props.CurrentItem, slotGo);
+        }
+
+        private static GameObject FindSlot(NpcContainer npcContainer, string slot)
+        {
+            var bip01 = npcContainer.PrefabProps?.Bip01;
+            if (bip01 == null || string.IsNullOrEmpty(slot))
+                return null;
+
+            return bip01.gameObject.FindChildRecursively(slot);
         }
     }
 }

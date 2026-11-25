@@ -256,24 +256,36 @@ namespace Gothic.Core.Services.Vobs
                 return null; // no item
             }
             var item = _vmCacheService.TryGetItemData(itemId);
+            if (item == null)
+            {
+                Logger.LogWarning($"Symbol {itemId} is no item instance - no item mesh created.", LogCat.Vob);
+                return null;
+            }
 
             return _initializerDomain.CreateItemMesh(item, parentGo, default);
         }
 
         /// <summary>
         /// Create item with mesh only. No special handling like grabbing etc.
-        /// e.g. used for NPCs drinking beer mesh in their hand.
+        /// e.g. used for an item a model script puts into an NPC's hand (DEF_CREATE_ITEM). Returns null when no mesh
+        /// was built.
         /// </summary>
-        public void CreateItemMesh(string itemName, GameObject parentGo)
+        public GameObject CreateItemMesh(string itemName, GameObject parentGo)
         {
-            if (itemName == "")
+            if (string.IsNullOrEmpty(itemName))
             {
-                return;
+                return null;
             }
 
             var item = _vmCacheService.TryGetItemData(itemName);
+            if (item == null)
+            {
+                Logger.LogWarning($"'{itemName}' is no item instance in the scripts - no item mesh created.",
+                    LogCat.Vob);
+                return null;
+            }
 
-            _initializerDomain.CreateItemMesh(item, parentGo, default);
+            return _initializerDomain.CreateItemMesh(item, parentGo, default);
         }
 
         /// <summary>
