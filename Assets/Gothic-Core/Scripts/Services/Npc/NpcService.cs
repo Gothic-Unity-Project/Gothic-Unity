@@ -900,17 +900,23 @@ namespace Gothic.Core.Services.Npc
         /// An item the NPC holds from AI_UseItemToState (food, a torch, ...) is put away: its mesh in the slot goes,
         /// the item state resets. Like the engine's clearState/AI_StandUp - an NPC interrupted while eating (aggro)
         /// kept the apple, and the next AI_UseItemToState put a second one into its hand.
+        /// The items a model script created go like with DEF_DESTROY_ITEM, out of the inventory too - a smith
+        /// interrupted at the anvil would collect a hammer each time.
         /// </summary>
         public void RemoveUsedItemFromHand(NpcContainer npcContainer)
         {
             var props = npcContainer?.Props;
             if (props == null)
                 return;
-            if (string.IsNullOrEmpty(props.UsedItemSlot) && !props.HasItemEquipped && props.ItemAnimationState < 0)
+            if (props.UsedItemGo == null && props.CreatedItems.Count == 0 && !props.HasItemEquipped &&
+                props.ItemAnimationState < 0)
                 return;
 
+            var slotName = props.UsedItemGo != null && props.UsedItemGo.transform.parent != null
+                ? props.UsedItemGo.transform.parent.name
+                : string.Empty;
             Logger.Log($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)} puts away the item in " +
-                       $"'{props.UsedItemSlot}' (state {props.ItemAnimationState})", LogCat.Npc);
+                       $"'{slotName}' (state {props.ItemAnimationState})", LogCat.Npc);
 
             DestroyUsedItemMesh(npcContainer);
             props.ItemAnimationState = -1;
@@ -924,30 +930,203 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Only the used item's mesh in its slot goes (an ItemRemove/ItemDestroy animation event); the item state
-        /// stays. Returns whether a mesh was destroyed.
+        /// Only the used item's mesh goes (an ItemRemove/ItemDestroy animation event), and the items a model script
+        /// created (the smith's hammer); the item state stays. Only these objects - a drawn weapon in the same slot
+        /// stays. Like the engine's clearSlot, the created items also leave the NPC's inventory (DEF_DESTROY_ITEM,
+        /// put away) unless isInventoryKept (DEF_REMOVE_ITEM). The used item's inventory never changes here.
+        /// Returns whether a mesh was destroyed.
         /// </summary>
-        public bool DestroyUsedItemMesh(NpcContainer npcContainer)
+        public bool DestroyUsedItemMesh(NpcContainer npcContainer, bool isInventoryKept = false)
         {
             var props = npcContainer?.Props;
-            if (props == null || string.IsNullOrEmpty(props.UsedItemSlot))
+            if (props == null)
                 return false;
 
-            var destroyed = false;
-            var slotGo = npcContainer.PrefabProps?.Bip01 != null
-                ? npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(props.UsedItemSlot)
-                : null;
-            if (slotGo != null)
+            var destroyed = DestroyItemGo(props.UsedItemGo);
+            props.UsedItemGo = null;
+
+            foreach (var createdItem in props.CreatedItems)
             {
-                for (var i = slotGo.transform.childCount - 1; i >= 0; i--)
-                {
-                    Object.Destroy(slotGo.transform.GetChild(i).gameObject);
-                    destroyed = true;
-                }
+                destroyed |= DestroyItemGo(createdItem.Go);
+                if (!isInventoryKept)
+                    RemoveCreatedItemFromInventory(npcContainer, createdItem.ItemIndex);
+            }
+            props.CreatedItems.Clear();
+
+            return destroyed;
+        }
+
+        /// <summary>
+        /// A slot holds one item, like the engine's slots: the used and created item meshes in it go. Other children
+        /// of the slot (a drawn weapon) stay. A created item also leaves the inventory (the engine's clearSlot with
+        /// remove) - an item replaced by the next DEF_CREATE_ITEM too, else a replayed animation piles them up.
+        /// Returns whether a mesh was destroyed.
+        /// </summary>
+        private bool DestroyItemsInSlot(NpcContainer npcContainer, GameObject slotGo)
+        {
+            var props = npcContainer.Props;
+            var destroyed = false;
+            if (props.UsedItemGo != null && props.UsedItemGo.transform.parent == slotGo.transform)
+            {
+                destroyed = DestroyItemGo(props.UsedItemGo);
+                props.UsedItemGo = null;
             }
 
-            props.UsedItemSlot = string.Empty;
+            for (var i = props.CreatedItems.Count - 1; i >= 0; i--)
+            {
+                var createdItem = props.CreatedItems[i];
+                // Items in other slots stay. One already gone (the NPC's body was destroyed) is forgotten as well.
+                if (createdItem.Go != null && createdItem.Go.transform.parent != slotGo.transform)
+                    continue;
+
+                destroyed |= DestroyItemGo(createdItem.Go);
+                RemoveCreatedItemFromInventory(npcContainer, createdItem.ItemIndex);
+                props.CreatedItems.RemoveAt(i);
+            }
+
             return destroyed;
+        }
+
+        /// <summary>
+        /// Like the engine (OpenGothic Npc::tickTimedEvt: addItem, then putToSlot), an item a model script puts into
+        /// the hand is in the NPC's inventory while he holds it - the trade screen and pickpocketing see it (buying
+        /// Harad's hot blade, an original exploit). Through the NPC's packed inventory (NpcInventoryService), like
+        /// CreateInvItems. A save taken mid-animation keeps the item in the inventory, like the original.
+        /// Returns the added item's index, -1 when nothing was added.
+        /// </summary>
+        private int AddCreatedItemToInventory(NpcContainer npcContainer, string itemName, string eventName)
+        {
+            var npc = npcContainer.Instance;
+            var npcName = npc.GetName(NpcNameSlot.Slot0);
+            var item = _vmCacheService.TryGetItemData(itemName);
+            if (item == null)
+            {
+                Logger.LogWarning($"[NpcService] {npcName}: {eventName} '{itemName}' is no item - not added to the " +
+                                  "inventory.", LogCat.Npc);
+                return -1;
+            }
+
+            var countBefore = _npcInventoryService.ExtNpcHasItems(npc, item.Index);
+            _npcInventoryService.ExtCreateInvItems(npc, item.Index, 1);
+            var countAfter = _npcInventoryService.ExtNpcHasItems(npc, item.Index);
+            if (countAfter != countBefore + 1)
+            {
+                Logger.LogWarning($"[NpcService] {npcName}: {eventName} '{itemName}' wasn't added to the inventory " +
+                                  $"({countBefore} -> {countAfter}) - only its mesh is in the hand.", LogCat.Npc);
+                return -1;
+            }
+
+            Logger.LogEditor($"[NpcService] {npcName}: {eventName} '{itemName}' added to the inventory " +
+                             $"({countAfter} now).", LogCat.Npc);
+            return item.Index;
+        }
+
+        /// <summary>
+        /// A created item leaves the hand for good: the one added for it leaves the inventory, once. If it is no longer
+        /// there (sold or stolen while in the hand), nothing goes - the original's "infinite steel" from Harad stays.
+        /// </summary>
+        private void RemoveCreatedItemFromInventory(NpcContainer npcContainer, int itemIndex)
+        {
+            if (itemIndex < 0)
+                return;
+
+            var npc = npcContainer.Instance;
+            var npcName = npc.GetName(NpcNameSlot.Slot0);
+            var itemName = _vm.GetSymbolByIndex(itemIndex)?.Name ?? itemIndex.ToString();
+            var countBefore = _npcInventoryService.ExtNpcHasItems(npc, itemIndex);
+            if (countBefore <= 0)
+            {
+                Logger.Log($"[NpcService] {npcName}: the created '{itemName}' isn't in the inventory any " +
+                             "more (sold or stolen from the hand) - nothing removed.", LogCat.Npc);
+                return;
+            }
+
+            _npcInventoryService.ExtRemoveInvItems(npc, itemIndex, 1);
+            var countAfter = _npcInventoryService.ExtNpcHasItems(npc, itemIndex);
+            if (countAfter != countBefore - 1)
+            {
+                Logger.LogWarning($"[NpcService] {npcName}: the created '{itemName}' wasn't removed from the " +
+                                  $"inventory ({countBefore} -> {countAfter}).", LogCat.Npc);
+                return;
+            }
+
+            Logger.LogEditor($"[NpcService] {npcName}: the created '{itemName}' removed from the inventory " +
+                             $"({countAfter} left).", LogCat.Npc);
+        }
+
+        private static bool DestroyItemGo(GameObject itemGo)
+        {
+            if (itemGo == null)
+                return false;
+
+            Object.Destroy(itemGo);
+            return true;
+        }
+
+        /// <summary>
+        /// DEF_CREATE_ITEM (animation event ItemCreate): the model script puts a new item into a slot, e.g.
+        /// T_BSANVIL_S0_2_S1 the hammer ITMW_1H_MACE_L_04 into the smith's right hand (the hot blade comes from the
+        /// mob, ItemInsert), T_PAUKE_STAND_2_S0 a drumstick into each hand. Like the engine, the item is added to the
+        /// NPC's inventory (+1) while in the hand. DEF_DESTROY_ITEM or putting it away removes the mesh and the item,
+        /// DEF_REMOVE_ITEM only the mesh.
+        /// </summary>
+        public void CreateItem(NpcContainer npcContainer, string slot, string itemName)
+        {
+            PutItemIntoSlot(npcContainer, slot, itemName, false);
+        }
+
+        /// <summary>
+        /// DEF_EXCHANGE_ITEM (animation event ItemExchange): the item in the slot becomes the given one, e.g.
+        /// T_BSFIRE_S0_2_S1 turns the smith's blade into the glowing ITMISWORDRAWHOT, T_PAN_S1_2_S0 puts the fried
+        /// ITFOMUTTON into the left hand. Like OpenGothic: the slot's item goes; is the slot empty (its cooking
+        /// fallback), the used item's mesh goes instead. A created item in the slot leaves the inventory (the
+        /// engine's clearSlot with remove; the used item's inventory doesn't change), the new item is added (+1) and
+        /// counts as created, like DEF_CREATE_ITEM.
+        /// </summary>
+        public void ExchangeItem(NpcContainer npcContainer, string slot, string itemName)
+        {
+            PutItemIntoSlot(npcContainer, slot, itemName, true);
+        }
+
+        private void PutItemIntoSlot(NpcContainer npcContainer, string slot, string itemName, bool isExchange)
+        {
+            var npcName = npcContainer.Instance.GetName(NpcNameSlot.Slot0);
+            var eventName = isExchange ? "DEF_EXCHANGE_ITEM" : "DEF_CREATE_ITEM";
+            var slotGo = FindSlot(npcContainer, slot);
+            if (slotGo == null)
+            {
+                Logger.LogWarning($"[NpcService] {npcName}: no slot '{slot}' for {eventName} '{itemName}'.",
+                    LogCat.Npc);
+                return;
+            }
+
+            var props = npcContainer.Props;
+            var isSlotCleared = DestroyItemsInSlot(npcContainer, slotGo);
+            if (isExchange && !isSlotCleared && DestroyItemGo(props.UsedItemGo))
+            {
+                props.UsedItemGo = null;
+                Logger.Log($"[NpcService] {npcName}: {eventName} '{itemName}' - nothing in '{slot}', the used item " +
+                           "goes instead.", LogCat.Npc);
+            }
+
+            // An exchange to nothing (empty item name) is a plain clear.
+            if (isExchange && string.IsNullOrEmpty(itemName))
+            {
+                Logger.Log($"[NpcService] {npcName}: {eventName} to nothing - '{slot}' cleared.", LogCat.Npc);
+                return;
+            }
+
+            var itemGo = _vobService.CreateItemMesh(itemName, slotGo);
+            if (itemGo == null)
+            {
+                Logger.LogWarning($"[NpcService] {npcName}: no mesh for {eventName} '{itemName}' in '{slot}' - " +
+                                  "nothing created.", LogCat.Npc);
+                return;
+            }
+
+            // Only an item with a mesh is added: the hand shows what the trade screen and pickpocketing offer.
+            var itemIndex = AddCreatedItemToInventory(npcContainer, itemName, eventName);
+            props.CreatedItems.Add((itemGo, itemIndex));
         }
 
         public void InsertItem(NpcContainer npcContainer, string slot1, string slot2 = "")
@@ -957,16 +1136,32 @@ namespace Gothic.Core.Services.Npc
                 throw new Exception("Slot 2 is set but not yet handled by InsertItem as AnimationEvent.");
             }
 
-            // The slot holds one used item, like the engine's state item - a new one replaces, never adds.
-            if (DestroyUsedItemMesh(npcContainer))
+            // The NPC holds one used item, like the engine's state item - a new one replaces, never adds.
+            var props = npcContainer.Props;
+            var isReplaced = DestroyItemGo(props.UsedItemGo);
+            props.UsedItemGo = null;
+            if (isReplaced)
                 Logger.LogWarning($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: an item was " +
                                   $"still in the hand - replaced by the new one in '{slot1}'", LogCat.Npc);
 
-            var slotGo = npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(slot1);
+            var slotGo = FindSlot(npcContainer, slot1);
+            if (slotGo == null)
+            {
+                Logger.LogWarning($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: no slot " +
+                                  $"'{slot1}' for DEF_INSERT_ITEM - nothing inserted.", LogCat.Npc);
+                return;
+            }
 
-            _vobService.CreateItemMesh(npcContainer.Props.CurrentItem, slotGo);
+            props.UsedItemGo = _vobService.CreateItemMesh(props.CurrentItem, slotGo);
+        }
 
-            npcContainer.Props.UsedItemSlot = slot1;
+        private static GameObject FindSlot(NpcContainer npcContainer, string slot)
+        {
+            var bip01 = npcContainer.PrefabProps?.Bip01;
+            if (bip01 == null || string.IsNullOrEmpty(slot))
+                return null;
+
+            return bip01.gameObject.FindChildRecursively(slot);
         }
     }
 }
