@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Gothic.Core.Domain.Audio;
 using Gothic.Core.Logging;
@@ -39,6 +40,13 @@ namespace Gothic.Core.Manager
         private static readonly TimeSpan _musicDayEnd = TimeSpan.FromHours(21);
 
         private readonly SoundDomain _soundDomain = new SoundDomain().Inject();
+
+        // Animation sounds that carry further than their *eventSFX range (R:). Finite list, all others keep theirs.
+        private static readonly Dictionary<string, float> _sfxRangeOverridesMeters =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                { "HAMMER", 24f }
+            };
 
         private AudioSource _scriptSoundSource;
 
@@ -167,6 +175,20 @@ namespace Gothic.Core.Manager
         public void SetScriptSoundSource(AudioSource audioSource)
         {
             _scriptSoundSource = audioSource;
+        }
+
+        /// <summary>
+        /// Range (m) in which an animation sound (*eventSFX) is audible: the override of the few sounds that carry
+        /// further than Gothic's range, else Gothic's own.
+        /// Chosen in play: Fellan's hammering (R:1000 = 10 m) must reach Alwin's sheep pen ~18 m away (his quest asks
+        /// whether you hear it); 60 m was heard across the harbour, 24 m reaches the pen. Unity's linear rolloff is
+        /// quiet long before Gothic's range is felt; a general rolloff change is a follow-up.
+        /// </summary>
+        public float GetSfxRangeMeters(string sfxName, float gothicRangeMeters)
+        {
+            return _sfxRangeOverridesMeters.TryGetValue(sfxName, out var overrideMeters)
+                ? overrideMeters
+                : gothicRangeMeters;
         }
 
         /// <summary>
