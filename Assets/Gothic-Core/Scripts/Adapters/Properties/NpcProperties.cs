@@ -170,7 +170,8 @@ namespace Gothic.Core.Adapters.Properties
         public bool IsInStateEnd;
 
         // The start or loop function of a routine state is running: a state it starts with AI_StartState belongs to the
-        // routine too (G2's ZS_GotoBed starts ZS_Sleep) and ends when the routine changes (NpcRoutineService).
+        // routine too (G2's ZS_GotoBed starts ZS_Sleep) and ends when the routine changes (NpcRoutineService). False
+        // while a perception runs inside it (NpcAiService.ExecutePerception): a reaction never belongs to the routine.
         public bool IsInRoutineStateFunction;
 
         // Time.time of the last knockout - the swing that knocked him out doesn't finish him off (FightService).

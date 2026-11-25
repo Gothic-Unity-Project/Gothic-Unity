@@ -182,6 +182,11 @@ namespace Gothic.Core.Services.Npc
             // won't undo damage already done to the VM by an external further down the call chain,
             // but it stops this specific call from cascading further and gives a clear, attributable
             // log instead of an anonymous NullReferenceException.
+            //
+            // A perception's AI_StartState is a reaction, also when it runs from inside the NPC's own routine state
+            // function (Npc_SendSinglePerc(self, self, ...)): it doesn't belong to the routine (ExtAiStartState).
+            var wasInRoutineStateFunction = properties.IsInRoutineStateFunction;
+            properties.IsInRoutineStateFunction = false;
             using (new VmGlobalsScope(_gameStateService.GothicVm, self, other, victim, item))
             {
                 try
@@ -203,6 +208,10 @@ namespace Gothic.Core.Services.Npc
                     Logger.LogError($"Perception '{type}' (self={self?.GetName(NpcNameSlot.Slot0)}) threw: " +
                                     $"{e.Message}", LogCat.Ai);
                     return null;
+                }
+                finally
+                {
+                    properties.IsInRoutineStateFunction = wasInRoutineStateFunction;
                 }
             }
         }
@@ -1585,8 +1594,18 @@ namespace Gothic.Core.Services.Npc
                 return;
             }
 
-            using (new VmGlobalsScope(vm, receiver.Instance, other, victim, item))
-                ExtAiStartState(receiver.Instance, perceptionFunction, true, "");
+            // A reaction, also when sent from inside the receiver's own routine state function (see ExecutePerception).
+            var wasInRoutineStateFunction = receiver.Props.IsInRoutineStateFunction;
+            receiver.Props.IsInRoutineStateFunction = false;
+            try
+            {
+                using (new VmGlobalsScope(vm, receiver.Instance, other, victim, item))
+                    ExtAiStartState(receiver.Instance, perceptionFunction, true, "");
+            }
+            finally
+            {
+                receiver.Props.IsInRoutineStateFunction = wasInRoutineStateFunction;
+            }
         }
 
         public void ExtSetTrueGuild(NpcInstance npc, int guild)
