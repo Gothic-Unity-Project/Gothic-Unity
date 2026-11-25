@@ -219,8 +219,7 @@ namespace Gothic.Core.Services.Npc
             var newRoutine = props.RoutineCurrent;
 
             // The same state at the same spot (Bilgot: TA_Sit_Campfire 08-23 and 23-08) goes on, no standing up.
-            if (previousRoutine != null && newRoutine != null && previousRoutine.Action == newRoutine.Action &&
-                string.Equals(previousRoutine.Waypoint, newRoutine.Waypoint, StringComparison.OrdinalIgnoreCase))
+            if (previousRoutine != null && previousRoutine.IsSameActivity(newRoutine))
                 return;
 
             if (!IsRoutineStateRunning(npc))
@@ -263,7 +262,9 @@ namespace Gothic.Core.Services.Npc
             if (!vob.CurrentStateValid || !vob.CurrentStateIsRoutine)
                 return false;
 
-            // A state change is on its way already (AI_StartState queued or about to start).
+            // A state change is on its way already (AI_StartState queued or about to start). If the routine state
+            // queued it for itself (G2 ZS_GotoBed -> ZS_Sleep), the new entry wins once it's due
+            // (AiHandler.StartNextRoutine drops a routine next state whose entry has ended).
             if (vob.NextStateValid || props.HasQueued<StartState>())
                 return false;
 

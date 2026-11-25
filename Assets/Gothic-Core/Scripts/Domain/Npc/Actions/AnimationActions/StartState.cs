@@ -1,4 +1,5 @@
 using Gothic.Core.Models.Container;
+using Gothic.Core.Models.Npc;
 using Gothic.Core.Const;
 using Gothic.Core.Services;
 using ZenKit.Daedalus;
@@ -16,9 +17,12 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         private NpcInstance _victim => Action.Instance1;
         // Queued by the start/loop function of a routine state (G2 ZS_GotoBed -> ZS_Sleep): part of the routine.
         private bool _isRoutineState => Action.Bool1;
-        
+        // The routine entry it was queued under: walking to bed can outlast it (AiHandler.StartNextRoutine).
+        private readonly RoutineData _routineEntry;
+
         public StartState(AnimationAction action, NpcContainer npcContainer) : base(action, npcContainer)
         {
+            _routineEntry = _isRoutineState ? Props?.RoutineCurrent : null;
         }
 
         public override void Start()
@@ -38,7 +42,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // Like Gothic's isRtnState: started by AI_StartState, not by the daily routine (a save game continues it) -
             // unless the routine state itself started it, then it ends with the routine entry like the engine's.
             Vob.NextStateIsRoutine = _isRoutineState;
-            
+            Props.NextStateRoutine = _routineEntry;
+
             ai.ClearState(_callEndFunction);
 
             Props.IsStateTimeActive = true;

@@ -19,6 +19,9 @@ namespace Gothic.Core.Adapters.Properties
         public List<RoutineData> Routines = new();
         public RoutineData RoutinePrevious;
         public RoutineData RoutineCurrent;
+        // The entry a routine next state (Vob.NextStateIsRoutine, G2 ZS_GotoBed -> ZS_Sleep) was queued under. Has it
+        // ended before the state starts, the new entry starts instead (AiHandler.StartNextRoutine).
+        public RoutineData NextStateRoutine;
 
         // WayNet
         public WayPoint CurrentWayPoint;

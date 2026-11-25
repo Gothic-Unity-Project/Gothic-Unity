@@ -22,5 +22,5 @@ In the original game each routine entry has an end time. When the time passes it
 
 - Smiths, cooks, sleepers, bench sitters and guards with several entries follow their schedule while the player watches.
 - NPCs out of sight behave as before: they appear at their new spot when they come into view.
-- A routine change while the NPC is in the middle of switching to another activity is skipped; that activity then runs until it ends by itself or the next routine change.
+- A routine change while the NPC is in the middle of switching to a reaction (talking, fighting) waits: the NPC takes the new entry when the reaction is over. If the routine itself started the switch (on the way to bed before lying down), the new entry starts instead once the NPC gets there - he doesn't lie down for hours under the old entry.
 - Saved games: an activity the routine started (now also sleeping) isn't continued after loading, the NPC starts its routine entry again.
