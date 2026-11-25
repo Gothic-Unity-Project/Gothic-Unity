@@ -25,6 +25,8 @@ namespace Gothic.Core.Services.World
 
         // A room floor polygon: its normal at most ~45 degrees from up/down.
         private const float _floorMinNormalY = 0.7f;
+        // Below this normal.y a floor triangle is sloped: its cells also mark the buckets above and below.
+        private const float _levelFloorNormalY = 0.98f;
         // Huge floor polygons are marked up to 20 m per axis.
         private const int _maxFloorCellsPerAxis = 40;
 
@@ -74,6 +76,9 @@ namespace Gothic.Core.Services.World
             if (normal.sqrMagnitude <= 0f || Mathf.Abs(normal.normalized.y) <= _floorMinNormalY)
                 return;
 
+            // A slope changes the height within a cell: a standing point can land in the bucket above or below.
+            var isSloped = Mathf.Abs(normal.normalized.y) < _levelFloorNormalY;
+
             var min = corners[0];
             var max = corners[0];
             foreach (var corner in corners)
@@ -98,6 +103,11 @@ namespace Gothic.Core.Services.World
                             continue;
 
                         floorCells[ToFloorCell(new Vector3(center.x, y, center.y))] = sector;
+                        if (isSloped)
+                        {
+                            floorCells[ToFloorCell(new Vector3(center.x, y + FloorCellSize, center.y))] = sector;
+                            floorCells[ToFloorCell(new Vector3(center.x, y - FloorCellSize, center.y))] = sector;
+                        }
                         break;
                     }
                 }
