@@ -27,6 +27,9 @@ namespace Gothic.Core.Adapters.Properties
         // NPC items/talents/...
         public List<ItemInstance> EquippedItems = new();
         public string UsedItemSlot;
+        // The slot of an item a model script created (DEF_CREATE_ITEM, e.g. the smith's hammer at the anvil). It goes
+        // together with the used item (DEF_DESTROY_ITEM, the item put away).
+        public string CreatedItemSlot;
         public bool HasItemEquipped;
         public int CurrentItem = -1;
         // We need to start with an "invalid" value as >0< is an allowed state value like in >t_Potion_Stand_2_S0<

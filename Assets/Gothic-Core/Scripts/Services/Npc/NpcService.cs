@@ -906,7 +906,8 @@ namespace Gothic.Core.Services.Npc
             var props = npcContainer?.Props;
             if (props == null)
                 return;
-            if (string.IsNullOrEmpty(props.UsedItemSlot) && !props.HasItemEquipped && props.ItemAnimationState < 0)
+            if (string.IsNullOrEmpty(props.UsedItemSlot) && string.IsNullOrEmpty(props.CreatedItemSlot) &&
+                !props.HasItemEquipped && props.ItemAnimationState < 0)
                 return;
 
             Logger.Log($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)} puts away the item in " +
@@ -924,18 +925,32 @@ namespace Gothic.Core.Services.Npc
         }
 
         /// <summary>
-        /// Only the used item's mesh in its slot goes (an ItemRemove/ItemDestroy animation event); the item state
-        /// stays. Returns whether a mesh was destroyed.
+        /// Only the used item's mesh in its slot goes (an ItemRemove/ItemDestroy animation event), and an item a model
+        /// script created (the smith's hammer); the item state stays. Returns whether a mesh was destroyed.
         /// </summary>
         public bool DestroyUsedItemMesh(NpcContainer npcContainer)
         {
             var props = npcContainer?.Props;
-            if (props == null || string.IsNullOrEmpty(props.UsedItemSlot))
+            if (props == null)
+                return false;
+
+            var destroyed = DestroySlotMeshes(npcContainer, props.UsedItemSlot);
+            props.UsedItemSlot = string.Empty;
+
+            destroyed |= DestroySlotMeshes(npcContainer, props.CreatedItemSlot);
+            props.CreatedItemSlot = string.Empty;
+
+            return destroyed;
+        }
+
+        private static bool DestroySlotMeshes(NpcContainer npcContainer, string slot)
+        {
+            if (string.IsNullOrEmpty(slot))
                 return false;
 
             var destroyed = false;
             var slotGo = npcContainer.PrefabProps?.Bip01 != null
-                ? npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(props.UsedItemSlot)
+                ? npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(slot)
                 : null;
             if (slotGo != null)
             {
@@ -946,8 +961,38 @@ namespace Gothic.Core.Services.Npc
                 }
             }
 
-            props.UsedItemSlot = string.Empty;
             return destroyed;
+        }
+
+        /// <summary>
+        /// DEF_CREATE_ITEM (animation event ItemCreate): the model script puts a new item into a slot, e.g.
+        /// T_BSANVIL_S0_2_S1 the hammer ITMW_1H_MACE_L_04 into the smith's right hand (the hot blade comes from the
+        /// mob, ItemInsert). Only its mesh - the NPC's inventory doesn't change. Gone with DEF_DESTROY_ITEM.
+        /// </summary>
+        public void CreateItem(NpcContainer npcContainer, string slot, string itemName)
+        {
+            var npcName = npcContainer.Instance.GetName(NpcNameSlot.Slot0);
+            var item = itemName.IsNullOrEmpty() ? null : _vm.GetSymbolByName(itemName);
+            if (item == null)
+            {
+                Logger.LogWarning($"[NpcService] {npcName}: DEF_CREATE_ITEM item '{itemName}' isn't in the scripts - " +
+                                  "nothing created.", LogCat.Npc);
+                return;
+            }
+
+            var slotGo = npcContainer.PrefabProps?.Bip01 != null
+                ? npcContainer.PrefabProps.Bip01.gameObject.FindChildRecursively(slot)
+                : null;
+            if (slotGo == null)
+            {
+                Logger.LogWarning($"[NpcService] {npcName}: no slot '{slot}' for DEF_CREATE_ITEM '{itemName}'.",
+                    LogCat.Npc);
+                return;
+            }
+
+            DestroySlotMeshes(npcContainer, npcContainer.Props.CreatedItemSlot);
+            _vobService.CreateItemMesh(item.Index, slotGo);
+            npcContainer.Props.CreatedItemSlot = slot;
         }
 
         public void InsertItem(NpcContainer npcContainer, string slot1, string slot2 = "")
@@ -958,7 +1003,10 @@ namespace Gothic.Core.Services.Npc
             }
 
             // The slot holds one used item, like the engine's state item - a new one replaces, never adds.
-            if (DestroyUsedItemMesh(npcContainer))
+            var props = npcContainer.Props;
+            var isReplaced = DestroySlotMeshes(npcContainer, props.UsedItemSlot);
+            props.UsedItemSlot = string.Empty;
+            if (isReplaced)
                 Logger.LogWarning($"[NpcService] {npcContainer.Instance.GetName(NpcNameSlot.Slot0)}: an item was " +
                                   $"still in the hand - replaced by the new one in '{slot1}'", LogCat.Npc);
 

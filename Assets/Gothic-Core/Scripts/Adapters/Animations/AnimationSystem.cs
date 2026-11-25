@@ -881,6 +881,9 @@ namespace Gothic.Core.Adapters.Animations
                     case EventType.ItemInsert:
                         _npcService.InsertItem(NpcData, eventTag.Slots.Item1, eventTag.Slots.Item2);
                         break;
+                    case EventType.ItemCreate:
+                        _npcService.CreateItem(NpcData, eventTag.Slots.Item1, eventTag.Item);
+                        break;
                     case EventType.ItemDestroy:
                     case EventType.ItemRemove:
                         // The slot is cleared too - a stale one could later delete a drawn weapon.
