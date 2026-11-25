@@ -267,8 +267,7 @@ namespace Gothic.Core.Services.Npc
             if (vob.NextStateValid || props.HasQueued<StartState>())
                 return false;
 
-            var dialogs = _gameStateService.Dialogs;
-            if (dialogs.IsInDialog && dialogs.CurrentDialogNpc == npc)
+            if (_gameStateService.Dialogs.IsTalkingTo(npc))
                 return false;
 
             return _npcMeshCullingService.IsAwake(npc);
