@@ -798,10 +798,7 @@ namespace Gothic.Core.Adapters.Npc
                 if (PrefabProps.CurrentInteractable != null)
                     PrefabProps.CurrentInteractable.MobState = -1;
 
-                PrefabProps.CurrentInteractable = null;
-                PrefabProps.CurrentInteractableSlot = null;
-                Properties.CurrentInteractableStateId = -1;
-                Properties.BodyState = VmGothicEnums.BodyState.BsStand;
+                _npcService.ReleaseMob(NpcData);
             }
 
             // WayNet handling

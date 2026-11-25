@@ -897,6 +897,23 @@ namespace Gothic.Core.Services.Npc
         }
         
         /// <summary>
+        /// The NPC is no longer the user of its mob: no mob, no slot, the not-in-use state (-1), standing. The one place
+        /// where a mob usage ends - after the last back transition of AI_UseMob(-1), at AI_StandUp(Quick) and when the
+        /// NPC starts over (AiHandler.ReEnableNpc).
+        /// </summary>
+        public void ReleaseMob(NpcContainer npc)
+        {
+            var prefabProps = npc?.PrefabProps;
+            if (prefabProps == null)
+                return;
+
+            prefabProps.CurrentInteractable = null;
+            prefabProps.CurrentInteractableSlot = null;
+            npc.Props.CurrentInteractableStateId = -1;
+            npc.Props.BodyState = VmGothicEnums.BodyState.BsStand;
+        }
+
+        /// <summary>
         /// An item the NPC holds from AI_UseItemToState (food, a torch, ...) is put away: its mesh in the slot goes,
         /// the item state resets. Like the engine's clearState/AI_StandUp - an NPC interrupted while eating (aggro)
         /// kept the apple, and the next AI_UseItemToState put a second one into its hand.

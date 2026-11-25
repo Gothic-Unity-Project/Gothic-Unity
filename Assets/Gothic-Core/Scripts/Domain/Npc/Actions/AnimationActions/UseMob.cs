@@ -15,6 +15,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     public class UseMob : AbstractWalkAnimationAction2
     {
         [Inject] private readonly NpcHelperService _npcHelperService;
+        [Inject] private readonly NpcService _npcService;
 
         private const string _mobTransitionAnimationString = "T_{0}{1}{2}_2_{3}";
         private const string _mobLoopAnimationString = "S_{0}{1}S{2}";
@@ -191,10 +192,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // Mobsi isn't in use any longer
             if (Props.CurrentInteractableStateId == -1)
             {
-                PrefabProps.CurrentInteractable = null;
-                PrefabProps.CurrentInteractableSlot = null;
+                _npcService.ReleaseMob(NpcContainer);
                 Props.CurrentItem = -1;
-                Props.BodyState = VmGothicEnums.BodyState.BsStand;
 
                 PhysicsService.EnablePhysicsForNpc(PrefabProps);
             }

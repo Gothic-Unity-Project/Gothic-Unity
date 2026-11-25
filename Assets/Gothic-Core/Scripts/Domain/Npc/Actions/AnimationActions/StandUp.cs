@@ -17,12 +17,7 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
         {
             // Ends the mob usage. After AI_StandUp's back transitions the NPC already stands; AI_StandUpQuick pops.
             if (PrefabProps.CurrentInteractable != null)
-            {
-                PrefabProps.CurrentInteractable = null;
-                PrefabProps.CurrentInteractableSlot = null;
-                Props.CurrentInteractableStateId = -1;
-                Props.BodyState = VmGothicEnums.BodyState.BsStand;
-            }
+                _npcService.ReleaseMob(NpcContainer);
 
             // Like the engine's AI_StandUp, an item in the hand (food, beer) is put away - B_FullStop on aggro
             // left it there.
