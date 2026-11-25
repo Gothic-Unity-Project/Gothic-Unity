@@ -765,7 +765,8 @@ namespace Gothic.Core.Services.Npc
             {
                 if (npc?.Props == null || npc.Vob == null || npc.Vob.Player)
                     continue;
-                if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+                // Dead or knocked out (a magically frozen NPC isn't down: it starts over too).
+                if (npc.IsDown())
                     continue;
                 // Never built: it starts fresh at its routine when it shows up (InitNpc).
                 if (npc.Go == null)
