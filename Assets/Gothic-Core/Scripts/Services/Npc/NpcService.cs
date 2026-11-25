@@ -54,6 +54,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly NpcLookService _npcLookService;
         [Inject] private readonly NpcRoutineService _npcRoutineService;
+        [Inject] private readonly NpcHelperService _npcHelperService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -736,8 +737,6 @@ namespace Gothic.Core.Services.Npc
         {
             _npcRoutineService.RecalculateAllNpcRoutines();
 
-            var partyAivar = GetAiVarIndex(DaedalusConst.AivPartyMember);
-            var summonPartyAivar = GetAiVarIndex(DaedalusConst.AivMmPartyMember);
             var visibleCount = 0;
             var culledCount = 0;
             var keptCount = 0;
@@ -753,7 +752,7 @@ namespace Gothic.Core.Services.Npc
                     continue;
                 // Followers, guides and summons stay with the hero: the reset would teleport them to a waypoint. The
                 // NPC talking to the hero (Marvin's "set time" during a dialog) keeps its dialog.
-                if (IsWithHero(npc, partyAivar, summonPartyAivar) || _gameStateService.Dialogs.IsTalkingTo(npc))
+                if (_npcHelperService.IsHeroCompanion(npc.Instance) || _gameStateService.Dialogs.IsTalkingTo(npc))
                 {
                     _timeSkipResets.Remove(npc);
                     keptCount++;
@@ -777,27 +776,6 @@ namespace Gothic.Core.Services.Npc
 
             Logger.Log($"[TimeSkipReset] Time skipped - resetting {visibleCount} visible NPC(s), " +
                        $"{culledCount} culled ones when they show up, keeping {keptCount} with the hero.", LogCat.Ai);
-        }
-
-        /// <summary>
-        /// Guides and followers (escort states), party members (AIV_PARTYMEMBER: Mordrag leading the hero) and the
-        /// hero's summons (AIV_MM_PARTYMEMBER).
-        /// </summary>
-        private static bool IsWithHero(NpcContainer npc, int partyAivar, int summonPartyAivar)
-        {
-            if (NpcHelperService.IsInEscortState(npc.Instance))
-                return true;
-            if (partyAivar >= 0 && npc.Instance.GetAiVar(partyAivar) != 0)
-                return true;
-            return summonPartyAivar >= 0 && npc.Instance.GetAiVar(summonPartyAivar) != 0;
-        }
-
-        /// <summary>
-        /// The index of an AIV_* constant, or -1 when the scripts don't have it.
-        /// </summary>
-        private int GetAiVarIndex(string aivarName)
-        {
-            return _vm.GetSymbolByName(aivarName)?.GetInt(0) ?? -1;
         }
 
         public void ReEnableNpc(NpcContainer npcData)
