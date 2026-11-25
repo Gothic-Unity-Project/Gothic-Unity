@@ -126,15 +126,6 @@ namespace Gothic.Core.Services.World
             return true;
         }
 
-            var steps = Vector3Int.Min(Vector3Int.CeilToInt((max - min) / FloorCellSize),
-                Vector3Int.one * _maxFloorCellsPerAxis);
-            for (var x = 0; x <= steps.x; x++)
-                for (var y = 0; y <= steps.y; y++)
-                    for (var z = 0; z <= steps.z; z++)
-                        floorCells[ToFloorCell(min + Vector3.Min(new Vector3(x, y, z) * FloorCellSize, max - min))] =
-                            sector;
-        }
-
         /// <summary>
         /// Floor cells (ToFloorCell) of the rooms and their sector. Set by the world mesh builder on every world load.
         /// </summary>
