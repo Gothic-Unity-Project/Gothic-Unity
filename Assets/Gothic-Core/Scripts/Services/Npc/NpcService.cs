@@ -53,6 +53,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly NpcLookService _npcLookService;
+        [Inject] private readonly NpcRoutineService _npcRoutineService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -62,6 +63,8 @@ namespace Gothic.Core.Services.Npc
 
         private readonly NearestFirstQueue<NpcLoader> _objectsToInitQueue = new();
         private Queue<NpcContainer> _objectToReEnableQueue = new();
+        // NPCs to start over after the hero slept - culled ones when they show up again.
+        private readonly HashSet<NpcContainer> _timeSkipResets = new();
 
         private DaedalusVm _vm => _gameStateService.GothicVm;
 
@@ -84,12 +87,14 @@ namespace Gothic.Core.Services.Npc
             GlobalEventDispatcher.CreateNpc.AddListener(CreateVobNpc);
             // An armor change of an already built NPC swaps its body mesh (G2 Greg in the farmer clothes).
             GlobalEventDispatcher.NpcVisualBodyChanged.AddListener(_initializerDomain.RebuildBody);
+            GlobalEventDispatcher.GameTimeSkipped.AddListener(ResetNpcsAfterTimeSkip);
         }
 
         public void ClearQueues()
         {
             _objectsToInitQueue.Clear();
             _objectToReEnableQueue.Clear();
+            _timeSkipResets.Clear();
         }
 
         public int CountQueuedWithin(Vector3 center, float radius)
@@ -172,7 +177,10 @@ namespace Gothic.Core.Services.Npc
                 {
                     var npcData = _objectToReEnableQueue.Dequeue();
                     // If we walked to an NPC in our game, the NPC will be re-enabled and Routines get reset.
-                    npcData.PrefabProps?.AiHandler?.ReEnableNpc();
+                    if (_timeSkipResets.Remove(npcData))
+                        npcData.PrefabProps?.AiHandler?.ResetAfterTimeSkip();
+                    else
+                        npcData.PrefabProps?.AiHandler?.ReEnableNpc();
                     yield return _frameSkipperService.TrySkipToNextFrameCoroutine();
                 }
             }
@@ -716,6 +724,37 @@ namespace Gothic.Core.Services.Npc
             return true;
         }
         
+        /// <summary>
+        /// After sleeping only the time jumped: NPCs kept sleeping, chasing the hero or standing where they were. Now
+        /// every living NPC starts over like after culling: routines are recalculated for the new time, visible NPCs
+        /// reset one per frame (no spawning into each other), culled ones when they show up again. Dead and knocked
+        /// out NPCs stay as they are.
+        /// </summary>
+        private void ResetNpcsAfterTimeSkip()
+        {
+            _npcRoutineService.RecalculateAllNpcRoutines();
+
+            var visibleCount = 0;
+            foreach (var npc in _multiTypeCacheService.NpcCache)
+            {
+                if (npc?.Props == null || npc.Vob == null || npc.Vob.Player)
+                    continue;
+                if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
+                    continue;
+                if (!_timeSkipResets.Add(npc))
+                    continue;
+
+                if (npc.Go != null && npc.Go.activeInHierarchy)
+                {
+                    _objectToReEnableQueue.Enqueue(npc);
+                    visibleCount++;
+                }
+            }
+
+            Logger.Log($"[TimeSkipReset] Time skipped - resetting {visibleCount} visible NPC(s), " +
+                       $"{_timeSkipResets.Count - visibleCount} culled ones when they show up.", LogCat.Ai);
+        }
+
         public void ReEnableNpc(NpcContainer npcData)
         {
             _objectToReEnableQueue.Enqueue(npcData);

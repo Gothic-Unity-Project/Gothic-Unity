@@ -153,7 +153,7 @@ namespace Gothic.Core.Domain.Marvin
         }
 
         /// <summary>
-        /// NPC routines follow with the next game minute tick (NpcRoutineService.OnGameTimeMinuteChanged).
+        /// NPCs start over at their routine for the new time (GameTimeSkipped, NpcService.ResetNpcsAfterTimeSkip).
         /// </summary>
         public bool SetTime(int hour, int minute)
         {

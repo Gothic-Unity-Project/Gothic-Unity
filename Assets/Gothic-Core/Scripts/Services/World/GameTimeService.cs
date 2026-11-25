@@ -162,6 +162,8 @@ namespace Gothic.Core.Services.World
             
             if (daysToAdd > 0)
                 _time = _time.AddDays(daysToAdd);
+
+            GlobalEventDispatcher.GameTimeSkipped.Invoke();
         }
 
         public float GetSkyTime()
