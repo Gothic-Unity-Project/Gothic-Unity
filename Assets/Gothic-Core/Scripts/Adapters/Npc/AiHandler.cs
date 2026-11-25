@@ -223,7 +223,10 @@ namespace Gothic.Core.Adapters.Npc
                             return;
 
                         CallStateFunction(Vob.CurrentStateIndex);
-                        Properties.CurrentLoopState = LoopState.Loop;
+                        // The start function can end its own state at once (Npc_ExchangeRoutine(self, ...) inside a
+                        // ZS_*: NpcRoutineService sets None) - looping would drop that change.
+                        if (Properties.CurrentLoopState == LoopState.Start)
+                            Properties.CurrentLoopState = LoopState.Loop;
                         _nextLoopTime = 0f;
                         break;
                     case LoopState.Loop:
