@@ -16,6 +16,7 @@ In the original game each routine entry has an end time. When the time passes it
 3. **A new routine set by the story (a quest changes where an NPC lives) ends the current routine activity right away.** Like a change by time. An NPC in a dialog changes after the dialog. Not chosen: waiting for the old entry's end time like the reference engine, because an NPC sitting on a bench would ignore its new task for hours.
 4. **Two entries in a row with the same activity at the same spot don't interrupt.** Bilgot sits at the campfire from 08:00 to 23:00 and from 23:00 to 08:00; he doesn't stand up and sit down again at 23:00. Not chosen: restarting the activity like the reference engine, because it shows as a pointless stand up and sit down.
 5. **Ending to use an object that the NPC isn't using does nothing.** If the routine changes while the smith is still walking to the anvil, he doesn't walk to an anvil just to step back from it. The reference engine does the same.
+6. **After a time jump (sleeping, Marvin's "set time") this rule stays out of the way.** The routines are recalculated for the new time, but the NPCs near the hero start over at their new spots anyway ([After a time jump every NPC starts over](2026-11-25-time-skip-npc-reset.md)). Not chosen: both at once - an NPC would begin to get up or walk off, and a few frames later the start-over cuts that off and puts it on its spot.
 
 ## Consequences
 

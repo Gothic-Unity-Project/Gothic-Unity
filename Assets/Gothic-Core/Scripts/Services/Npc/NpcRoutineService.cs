@@ -39,14 +39,16 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void OnGameTimeMinuteChanged(DateTime now)
         {
-            RecalculateAllNpcRoutines();
+            RecalculateAllNpcRoutines(endRoutineStates: true);
         }
 
         /// <summary>
         /// Every NPC's routine for the time right now: at each game minute and right after a time jump
         /// (NpcService.ResetNpcsAfterTimeSkip).
         /// </summary>
-        public void RecalculateAllNpcRoutines()
+        /// <param name="endRoutineStates">False after a time jump: the time-skip reset starts the visible NPCs over
+        /// itself, an _End started here would be cut off by it half-way.</param>
+        public void RecalculateAllNpcRoutines(bool endRoutineStates)
         {
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
@@ -54,7 +56,7 @@ namespace Gothic.Core.Services.Npc
                 if (npc.Props == null || npc.Props.Routines.Count == 0)
                     continue;
 
-                CalculateCurrentRoutine(npc.Instance);
+                CalculateCurrentRoutine(npc.Instance, endRoutineStates);
             }
         }
 
@@ -148,7 +150,8 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Based on time of the day, we need to calculate routine.
         /// </summary>
-        public bool CalculateCurrentRoutine(NpcInstance npc)
+        /// <param name="endRoutineState">On a change, end the visible NPC's routine state (EndRoutineState).</param>
+        public bool CalculateCurrentRoutine(NpcInstance npc, bool endRoutineState = true)
         {
             var npcProps = npc.GetUserData().Props;
             var previousRoutine = npcProps.RoutineCurrent;
@@ -195,7 +198,8 @@ namespace Gothic.Core.Services.Npc
             if (changed)
             {
                 _npcMeshCullingService.NotifyNpcRoutineChanged(npc.GetUserData());
-                EndRoutineState(npc.GetUserData(), previousRoutine);
+                if (endRoutineState)
+                    EndRoutineState(npc.GetUserData(), previousRoutine);
             }
 
             return changed;
