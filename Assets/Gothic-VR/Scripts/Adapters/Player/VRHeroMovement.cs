@@ -202,8 +202,8 @@ namespace Gothic.VR.Adapters.Player
                 return;
 
             // Crouched = sneaking.
-            // Lying or standing up (the VR hero body's fall camera lowers the head) isn't sneaking - an NPC asked "why are you
-            // sneaking around" while the hero got up.
+            // Lying or standing up (the VR hero body's fall camera lowers the head) isn't sneaking - an NPC asked "why
+            // are you sneaking around" while the hero got up.
             // Like the engine (OpenGothic Npc::canSneak) only with the sneak
             // talent - without it a crouching hero just walks: guards turn to him, Lukis hears him coming.
             if (_rig.IsCrouching && !_vrPlayerService.IsHeroBodyDown &&
@@ -213,8 +213,10 @@ namespace Gothic.VR.Adapters.Player
                 return;
             }
 
-            var velocity = _rig.CharacterController.velocity;
-            var speed = new Vector2(velocity.x, velocity.z).magnitude;
+            // The rig's own movement this frame, not CharacterController.velocity: that is only the last Move() of the
+            // frame, and the XRI rig's ground snap (XriRig.SnapToGround) moves straight down after the walk - the
+            // hero stayed BS_STAND while walking, so NPCs never heard him behind their backs.
+            var speed = isFirstCheck || Time.deltaTime <= 0f ? 0f : horizontalJump / Time.deltaTime;
             var bodyState = speed switch
             {
                 >= _bodyStateRunSpeed => VmGothicEnums.BodyState.BsRun,
