@@ -10,6 +10,7 @@ using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Npc;
 using JetBrains.Annotations;
 using Reflex.Attributes;
+using ZenKit.Daedalus;
 using ZenKit.Vobs;
 using Logger = Gothic.Core.Logging.Logger;
 
@@ -27,6 +28,7 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly AnimationService _animationService;
         [Inject] private readonly AudioService _audioService;
         [Inject] private readonly GameStateService _gameStateService;
+        [Inject] private readonly IMobAnimatorFactory _mobAnimatorFactory;
 
         private const string _mdsExtension = ".MDS";
         private const string _standStateName = "STAND";
@@ -40,6 +42,10 @@ namespace Gothic.Core.Services.Vobs
         // One-shot logs: a model without a hierarchy, an animation a model doesn't have.
         private readonly HashSet<string> _loggedMissingSkeletons = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _loggedMissingTracks = new(StringComparer.OrdinalIgnoreCase);
+
+        // The mob the hero uses while his mob dialog is open (the smithy), see StartHeroUse.
+        private VobContainer _heroMob;
+        private NpcContainer _hero;
 
 
         public void Init()
@@ -61,6 +67,122 @@ namespace Gothic.Core.Services.Vobs
             var visualName = vob.Visual?.Name;
             return !string.IsNullOrEmpty(visualName) &&
                    visualName.EndsWith(_mdsExtension, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The mob's state changed (from -> to, -1 = not used). With a user (an NPC at the mob, the hero at his smithy)
+        /// the transition plays, then the state's loop while the user stays; -1 ends the user's usage (Stop). Without
+        /// a user (the hero pulled a lever) only the transition plays and the mob rests in its last pose.
+        /// A second user of a mob already in the state (or higher) just joins it - the mob goes on for the others.
+        /// </summary>
+        public void OnStateChanged([CanBeNull] VobContainer mob, [CanBeNull] NpcContainer user, int from, int to)
+        {
+            if (!IsAnimated(mob))
+                return;
+
+            if (to < 0)
+            {
+                Stop(mob, user);
+                return;
+            }
+
+            var animator = _mobAnimatorFactory.TryGet(mob);
+            if (user != null && animator != null && HasOtherUser(animator, user) && to <= animator.State)
+            {
+                animator.AddUser(user);
+                return;
+            }
+
+            var visualName = mob.Vob.Visual.Name;
+            var skeleton = GetSkeleton(visualName);
+            if (skeleton == null)
+                return;
+
+            var transition = GetTrack(visualName, GetTransitionName(from, to));
+            var loop = user != null ? GetTrack(visualName, GetLoopName(to)) : null;
+            if (transition == null && loop == null)
+                return;
+
+            animator ??= _mobAnimatorFactory.GetOrCreate(mob, skeleton);
+            if (animator == null)
+                return;
+
+            animator.AddUser(user);
+            animator.Play(to, transition, loop);
+            Logger.LogEditor($"[MobAnimation] {mob.Vob.Name} ({visualName}): {GetStateName(from)} -> " +
+                             $"{GetStateName(to)} by {user?.Instance?.GetName(NpcNameSlot.Slot0) ?? "nobody"}",
+                LogCat.Vob);
+        }
+
+        /// <summary>
+        /// The user doesn't use the mob any more. The last one stops its animation: a running transition ends, the
+        /// transition back plays (T_S1_2_S0, a lever swings back), then the mob rests.
+        /// </summary>
+        public void Stop([CanBeNull] VobContainer mob, [CanBeNull] NpcContainer user)
+        {
+            if (mob == null || user == null)
+                return;
+
+            var animator = _mobAnimatorFactory.TryGet(mob);
+            if (animator == null || !animator.HasUser(user))
+                return;
+
+            animator.RemoveUser(user);
+            if (animator.UserCount > 0)
+                return;
+
+            var state = animator.State;
+            var back = state > 0 ? GetTrack(mob.Vob.Visual.Name, GetTransitionName(state, state - 1)) : null;
+            animator.PlayBackAndStop(back);
+            Logger.LogEditor($"[MobAnimation] {mob.Vob.Name}: last user left - stopping from {GetStateName(state)}.",
+                LogCat.Vob);
+        }
+
+        /// <summary>
+        /// The hero uses a mob with a dialog (the anvil's smithing choices, the grindstone, a rune table): it works
+        /// like for a smith, S0 -> S1 and its loop, until StopHeroUse (the dialog closed). One at a time.
+        /// </summary>
+        public void StartHeroUse([CanBeNull] VobContainer mob, [CanBeNull] NpcContainer hero)
+        {
+            StopHeroUse();
+            if (hero == null || !IsAnimated(mob))
+                return;
+
+            _heroMob = mob;
+            _hero = hero;
+            OnStateChanged(mob, hero, 0, 1);
+        }
+
+        public void StopHeroUse()
+        {
+            if (_heroMob == null)
+                return;
+
+            var mob = _heroMob;
+            var hero = _hero;
+            _heroMob = null;
+            _hero = null;
+            Stop(mob, hero);
+        }
+
+        /// <summary>
+        /// The user still uses the mob: the hero while his mob dialog is open, an NPC while it's there (active, alive,
+        /// the mob is its CurrentInteractable). MobAnimator asks once per loop round.
+        /// </summary>
+        public bool IsStillUsing([CanBeNull] VobContainer mob, [CanBeNull] NpcContainer user)
+        {
+            if (mob == null || user?.Props == null || user.Props.IsDead)
+                return false;
+
+            if (mob == _heroMob && user == _hero)
+                return true;
+
+            return user.Go != null && user.Go.activeInHierarchy && user.PrefabProps?.CurrentInteractable == mob;
+        }
+
+        private static bool HasOtherUser(IMobAnimator animator, NpcContainer user)
+        {
+            return animator.UserCount > (animator.HasUser(user) ? 1 : 0);
         }
 
         /// <summary>

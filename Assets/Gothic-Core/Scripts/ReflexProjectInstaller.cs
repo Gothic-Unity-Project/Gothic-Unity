@@ -124,6 +124,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(VisualFxLightFactory), typeof(IVisualFxLightFactory));
             containerBuilder.AddSingleton(typeof(NpcJumpFallFactory), typeof(INpcJumpFallFactory));
             containerBuilder.AddSingleton(typeof(NpcBurnEffectFactory), typeof(INpcBurnEffectFactory));
+            containerBuilder.AddSingleton(typeof(MobAnimatorFactory), typeof(IMobAnimatorFactory));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));
