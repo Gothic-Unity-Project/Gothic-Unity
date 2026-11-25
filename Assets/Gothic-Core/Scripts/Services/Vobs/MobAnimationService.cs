@@ -51,6 +51,7 @@ namespace Gothic.Core.Services.Vobs
         public void Init()
         {
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(WarmWorldMobs);
+            GlobalEventDispatcher.MobDialogEnded.AddListener(StopHeroUse);
         }
 
         /// <summary>
@@ -166,12 +167,12 @@ namespace Gothic.Core.Services.Vobs
         }
 
         /// <summary>
-        /// The user still uses the mob: the hero while his mob dialog is open, an NPC while it's there (active, alive,
-        /// the mob is its CurrentInteractable). MobAnimator asks once per loop round.
+        /// The user still uses the mob: the hero while his mob dialog is open, an NPC while it's there (active, not
+        /// dead or knocked out, the mob is its CurrentInteractable). MobAnimator asks once per loop round.
         /// </summary>
         public bool IsStillUsing([CanBeNull] VobContainer mob, [CanBeNull] NpcContainer user)
         {
-            if (mob == null || user?.Props == null || user.Props.IsDead)
+            if (mob == null || user?.Props == null || user.IsDown())
                 return false;
 
             if (mob == _heroMob && user == _hero)

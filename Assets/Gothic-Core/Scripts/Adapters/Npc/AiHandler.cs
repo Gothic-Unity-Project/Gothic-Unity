@@ -790,16 +790,7 @@ namespace Gothic.Core.Adapters.Npc
             Properties.CurrentAction = new None(new AnimationAction(), NpcData);
             Properties.StateTime = 0.0f;
 
-            // Mob usage (sitting on a bench, ...) ends with the respawn at the routine waypoint - the routine walks
-            // there and sits down again. Before, the NPC kept its sitting state and sat in the air at the respawn
-            // point.
-            if (Properties.CurrentInteractableStateId >= 0)
-            {
-                if (PrefabProps.CurrentInteractable != null)
-                    PrefabProps.CurrentInteractable.MobState = -1;
-
-                _npcService.ReleaseMob(NpcData);
-            }
+            LeaveMobToStartOver();
 
             // WayNet handling
             // Nothing to do -> Even a despawned NPC (based on culling) needs to stick with its WPs/FPs.
@@ -882,10 +873,29 @@ namespace Gothic.Core.Adapters.Npc
                        $"{(isWeaponDrawn ? ", weapon away" : "")})", LogCat.Ai);
         }
 
+        /// <summary>
+        /// Mob usage (sitting on a bench, ...) ends when the NPC starts over at its routine waypoint (culled out, then
+        /// re-enabled) - the routine walks there and sits down again. Before, the NPC kept its sitting state and sat in
+        /// the air at the respawn point. The mob's own animation (an anvil's sparks) stops with it.
+        /// </summary>
+        private void LeaveMobToStartOver()
+        {
+            if (Properties.CurrentInteractableStateId < 0)
+                return;
+
+            if (PrefabProps.CurrentInteractable != null)
+                PrefabProps.CurrentInteractable.MobState = -1;
+
+            _npcService.ReleaseMob(NpcData);
+        }
+
         public void DisableNpc()
         {
             // Stop all animations and reset to T-Pose
             PrefabProps.AnimationSystem.DisableObject();
+
+            // Culled out, it's moved to its routine waypoint (NpcMeshCullingDomain): it doesn't use its mob any more.
+            LeaveMobToStartOver();
 
             // We need to free the FP. When the NPC is re-enabled, it can walk to it again.
             if (Properties.CurrentFreePoint != null)

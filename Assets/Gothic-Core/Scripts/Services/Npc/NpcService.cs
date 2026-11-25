@@ -53,6 +53,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly NpcLookService _npcLookService;
+        [Inject] private readonly MobAnimationService _mobAnimationService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -897,15 +898,18 @@ namespace Gothic.Core.Services.Npc
         }
         
         /// <summary>
-        /// The NPC is no longer the user of its mob: no mob, no slot, the not-in-use state (-1), standing. The one place
-        /// where a mob usage ends - after the last back transition of AI_UseMob(-1), at AI_StandUp(Quick) and when the
-        /// NPC starts over (AiHandler.ReEnableNpc).
+        /// The NPC is no longer the user of its mob: no mob, no slot, the not-in-use state (-1), standing, and the
+        /// mob's own animation stops (MobAnimationService). The one place where a mob usage ends - after the last back
+        /// transition of AI_UseMob(-1), at AI_StandUp(Quick), at death and when the NPC starts over (culled,
+        /// re-enabled: AiHandler).
         /// </summary>
         public void ReleaseMob(NpcContainer npc)
         {
             var prefabProps = npc?.PrefabProps;
             if (prefabProps == null)
                 return;
+
+            _mobAnimationService.Stop(prefabProps.CurrentInteractable, npc);
 
             prefabProps.CurrentInteractable = null;
             prefabProps.CurrentInteractableSlot = null;
