@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
+using Gothic.Core.Domain.Npc.Actions.AnimationActions;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
+using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Npc;
 using Gothic.Core.Services.Caches;
 using Gothic.Core.Services.Culling;
@@ -31,20 +33,21 @@ namespace Gothic.Core.Services.Npc
 
         /// <summary>
         /// Advance the time-based daily routine of all NPCs - including culled ones, so that the world progresses
-        /// while we're not looking. Visible NPCs pick the new routine up with their next StartNextRoutine().
-        /// For culled NPCs, the culling sphere follows the schedule to the new waypoint.
-        /// FIXME - Original G1 interrupts the current ZS_* state of visible NPCs when their routine changes.
+        /// while we're not looking. CalculateCurrentRoutine() ends the routine state of visible NPCs and moves the
+        /// culling sphere of culled ones to the new waypoint.
         /// </summary>
         private void OnGameTimeMinuteChanged(DateTime now)
         {
-            RecalculateAllNpcRoutines();
+            RecalculateAllNpcRoutines(endRoutineStates: true);
         }
 
         /// <summary>
         /// Every NPC's routine for the time right now: at each game minute and right after a time jump
         /// (NpcService.ResetNpcsAfterTimeSkip).
         /// </summary>
-        public void RecalculateAllNpcRoutines()
+        /// <param name="endRoutineStates">False after a time jump: the time-skip reset starts the visible NPCs over
+        /// itself, an _End started here would be cut off by it half-way.</param>
+        public void RecalculateAllNpcRoutines(bool endRoutineStates)
         {
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
@@ -52,10 +55,7 @@ namespace Gothic.Core.Services.Npc
                 if (npc.Props == null || npc.Props.Routines.Count == 0)
                     continue;
 
-                if (!CalculateCurrentRoutine(npc.Instance))
-                    continue;
-
-                _npcMeshCullingService.NotifyNpcRoutineChanged(npc);
+                CalculateCurrentRoutine(npc.Instance, endRoutineStates);
             }
         }
 
@@ -149,9 +149,11 @@ namespace Gothic.Core.Services.Npc
         /// <summary>
         /// Based on time of the day, we need to calculate routine.
         /// </summary>
-        public bool CalculateCurrentRoutine(NpcInstance npc)
+        /// <param name="endRoutineState">On a change, end the visible NPC's routine state (EndRoutineState).</param>
+        public bool CalculateCurrentRoutine(NpcInstance npc, bool endRoutineState = true)
         {
             var npcProps = npc.GetUserData().Props;
+            var previousRoutine = npcProps.RoutineCurrent;
             var currentTime = _gameTimeService.GetCurrentDateTime();
             var normalizedNow = currentTime.Hour % 24 * 60 + currentTime.Minute;
             RoutineData newRoutine = null;
@@ -193,9 +195,82 @@ namespace Gothic.Core.Services.Npc
             npcProps.RoutineCurrent = newRoutine;
 
             if (changed)
+            {
                 _npcMeshCullingService.NotifyNpcRoutineChanged(npc.GetUserData());
+                if (endRoutineState)
+                    EndRoutineState(npc.GetUserData(), previousRoutine);
+            }
 
             return changed;
+        }
+
+        /// <summary>
+        /// Like the engine, a routine entry ends at its end time (or when Npc_ExchangeRoutine replaces it): the state
+        /// the routine started ends with its _End - Harad leaves the anvil, a sleeper gets up - and the new entry's
+        /// state follows. Before, a visible NPC only moved on when its state ended by itself, and mob states loop
+        /// forever. States of perceptions or other AI_StartState calls (talk, fight, watching the hero) and a dialog
+        /// aren't cut, the NPC takes the new entry when they end. Culled NPCs start it when they come back into view.
+        /// </summary>
+        private void EndRoutineState(NpcContainer npc, RoutineData previousRoutine)
+        {
+            var props = npc.Props;
+            var vob = npc.Vob;
+            var newRoutine = props.RoutineCurrent;
+
+            // The same state at the same spot (Bilgot: TA_Sit_Campfire 08-23 and 23-08) goes on, no standing up.
+            if (previousRoutine != null && previousRoutine.IsSameActivity(newRoutine))
+                return;
+
+            if (!IsRoutineStateRunning(npc))
+                return;
+
+            switch (props.CurrentLoopState)
+            {
+                // The state runs: its _End is queued once the current actions are done (AiHandler LoopState.End), then
+                // the new routine state starts (LoopState.AfterEnd -> StartNextRoutine).
+                case LoopState.Loop:
+                    props.CurrentLoopState = LoopState.End;
+                    break;
+                // Its start function hasn't run yet: start the new entry instead (LoopState.None -> StartNextRoutine).
+                case LoopState.Start:
+                    props.CurrentLoopState = LoopState.None;
+                    break;
+                // None, End, AfterEnd: the NPC takes the new entry with its next StartNextRoutine anyway.
+                default:
+                    return;
+            }
+
+            var newState = newRoutine == null ? "-" : _vm.GetSymbolByIndex(newRoutine.Action)?.Name;
+            Logger.Log($"[Routine] {npc.Instance.GetName(NpcNameSlot.Slot0)}: routine changed - " +
+                       $"{vob.CurrentStateName} ends, next {newState} at {newRoutine?.Waypoint}", LogCat.Ai);
+        }
+
+        /// <summary>
+        /// The visible NPC is in a state of its routine (Gothic's isRtnState) that nothing else is about to replace.
+        /// </summary>
+        private bool IsRoutineStateRunning(NpcContainer npc)
+        {
+            var props = npc.Props;
+            var vob = npc.Vob;
+            if (props == null || vob == null || vob.Player)
+                return false;
+
+            if (npc.IsDown())
+                return false;
+
+            if (!vob.CurrentStateValid || !vob.CurrentStateIsRoutine)
+                return false;
+
+            // A state change is on its way already (AI_StartState queued or about to start). If the routine state
+            // queued it for itself (G2 ZS_GotoBed -> ZS_Sleep), the new entry wins once it's due
+            // (AiHandler.StartNextRoutine drops a routine next state whose entry has ended).
+            if (vob.NextStateValid || props.HasQueued<StartState>())
+                return false;
+
+            if (_gameStateService.Dialogs.IsTalkingTo(npc))
+                return false;
+
+            return _npcMeshCullingService.IsAwake(npc);
         }
     }
 }

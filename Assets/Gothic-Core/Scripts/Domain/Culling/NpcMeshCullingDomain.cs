@@ -215,6 +215,15 @@ namespace Gothic.Core.Domain.Culling
         }
 
         /// <summary>
+        /// The NPC is in visible range (not culled), its AI runs.
+        /// </summary>
+        public bool IsAwake(NpcContainer npcData)
+        {
+            return _indexByInstance.TryGetValue(npcData.Instance, out var index) &&
+                   _states[index] == ObjectState.Enabled;
+        }
+
+        /// <summary>
         /// While culled, the next visibility check needs to happen at the position where the routine schedule
         /// expects the NPC - not where it was culled out.
         /// </summary>

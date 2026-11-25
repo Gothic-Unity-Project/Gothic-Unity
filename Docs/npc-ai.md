@@ -16,6 +16,13 @@ unless a module is named. Decisions: `Docs/adr/2026-10-31-npc-ai-port.md`.
    `VmExternalSupport`, `VmExternalGuard` (no exception crosses into the VM).
 3. The external calls the service of its area, mostly `Services/Npc/NpcAiService`. `AI_*` externals queue an
    action from `Domain/Npc/Actions/AnimationActions/` into `NpcProperties.AnimationQueue`.
+4. The daily routine (`Services/Npc/NpcRoutineService`, every game minute): when a visible NPC's routine entry changes
+   (time or `Npc_ExchangeRoutine`) and its state belongs to the routine (`Vob.CurrentStateIsRoutine`, also states the
+   routine state started itself, e.g. G2 `ZS_GotoBed` -> `ZS_Sleep`), the state ends with its `_End` (`LoopState.End`)
+   and the new entry's state starts. Perception/`AI_StartState` states and the dialog partner are left alone.
+   After a time jump (`GameTimeSkipped`) `NpcService.ResetNpcsAfterTimeSkip` recalculates the routines without
+   ending states (`RecalculateAllNpcRoutines(endRoutineStates: false)`): its reset starts the visible NPCs over.
+   Decisions: `Docs/adr/2026-11-25-routine-change-ends-state.md`.
 
 ## Who owns what
 

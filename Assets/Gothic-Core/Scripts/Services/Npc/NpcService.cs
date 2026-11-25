@@ -735,7 +735,9 @@ namespace Gothic.Core.Services.Npc
         /// </summary>
         private void ResetNpcsAfterTimeSkip()
         {
-            _npcRoutineService.RecalculateAllNpcRoutines();
+            // The reset below owns the visible NPCs: the routine change doesn't end their states as well (it would
+            // start an _End that the reset cuts off a few frames later).
+            _npcRoutineService.RecalculateAllNpcRoutines(endRoutineStates: false);
 
             var visibleCount = 0;
             var culledCount = 0;

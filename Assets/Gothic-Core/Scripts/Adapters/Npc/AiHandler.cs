@@ -222,8 +222,11 @@ namespace Gothic.Core.Adapters.Npc
                         if (Vob.CurrentStateIndex == 0)
                             return;
 
-                        CallAiFunction(Vob.CurrentStateIndex);
-                        Properties.CurrentLoopState = LoopState.Loop;
+                        CallStateFunction(Vob.CurrentStateIndex);
+                        // The start function can end its own state at once (Npc_ExchangeRoutine(self, ...) inside a
+                        // ZS_*: NpcRoutineService sets None) - looping would drop that change.
+                        if (Properties.CurrentLoopState == LoopState.Start)
+                            Properties.CurrentLoopState = LoopState.Loop;
                         _nextLoopTime = 0f;
                         break;
                     case LoopState.Loop:
@@ -250,7 +253,7 @@ namespace Gothic.Core.Adapters.Npc
                             break;
                         _nextLoopTime = Time.time + Properties.PerceptionTime;
 
-                        var loopResponse = CallAiFunction(Properties.StateLoop);
+                        var loopResponse = CallStateFunction(Properties.StateLoop);
                         
                         // Some ZS_*_Loop return !=0 when they want to quit.
                         if (loopResponse != _daedalusLoopContinue)
@@ -333,6 +336,23 @@ namespace Gothic.Core.Adapters.Npc
                 {
                     Logger.LogError($"[AiHandler] State end {endFunction} failed: {e.Message}", LogCat.Ai);
                 }
+            }
+        }
+
+        /// <summary>
+        /// The current state's start or loop function. While a routine state's runs, a state it starts with
+        /// AI_StartState belongs to the routine as well (NpcAiService.ExtAiStartState).
+        /// </summary>
+        private int CallStateFunction(int symbolIndex)
+        {
+            Properties.IsInRoutineStateFunction = Vob.CurrentStateIsRoutine;
+            try
+            {
+                return CallAiFunction(symbolIndex);
+            }
+            finally
+            {
+                Properties.IsInRoutineStateFunction = false;
             }
         }
 
@@ -482,16 +502,24 @@ namespace Gothic.Core.Adapters.Npc
             // reset and the next AI_UseItemToState put a second mesh into the hand.
             _npcService.RemoveUsedItemFromHand(NpcData);
 
+            // The routine state queued it for itself under an entry that has ended meanwhile (G2: the routine changed
+            // while ZS_GotoBed walked to bed - he lay down in ZS_Sleep for hours): the new entry starts instead.
+            if (Vob.NextStateValid && IsNextStateOfEndedRoutine())
+            {
+                var current = Properties.RoutineCurrent;
+                Logger.Log($"[Routine] {NpcInstance.GetName(NpcNameSlot.Slot0)}: {Vob.NextStateName} belongs to an " +
+                           $"ended routine entry - next {Vm.GetSymbolByIndex(current.Action)?.Name} " +
+                           $"at {current.Waypoint}", LogCat.Ai);
+                ClearNextState();
+            }
+
             // We have set some "next" state. Use it instead of going back to daily routine first.
             if (Vob.NextStateValid)
             {
                 StartRoutine(Vob.NextStateIndex, Vob.NextStateIsRoutine);
 
                 // As we use NextStateIndex as new "current" one, we clear it now safely.
-                Vob.NextStateIndex = -1;
-                Vob.NextStateValid = false;
-                Vob.NextStateIsRoutine = false;
-                Vob.NextStateName = string.Empty;
+                ClearNextState();
             }
             // If we have nothing prepared, start daily Routine.
             else
@@ -521,6 +549,26 @@ namespace Gothic.Core.Adapters.Npc
                     // If we don't have a routine, we're a monster.
                     StartRoutine(NpcInstance.StartAiState);
             }
+        }
+
+        /// <summary>
+        /// A routine next state (queued by the routine state itself) whose routine entry has ended before it started.
+        /// The routine change left the NPC alone meanwhile (NpcRoutineService: a state change was on its way).
+        /// </summary>
+        private bool IsNextStateOfEndedRoutine()
+        {
+            var entry = Properties.NextStateRoutine;
+            var current = Properties.RoutineCurrent;
+            return Vob.NextStateIsRoutine && entry != null && current != null && !entry.IsSameActivity(current);
+        }
+
+        private void ClearNextState()
+        {
+            Vob.NextStateIndex = -1;
+            Vob.NextStateValid = false;
+            Vob.NextStateIsRoutine = false;
+            Vob.NextStateName = string.Empty;
+            Properties.NextStateRoutine = null;
         }
 
         public void StartRoutine(int action, string wayPointName)

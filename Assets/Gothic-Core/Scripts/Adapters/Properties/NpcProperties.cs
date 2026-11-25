@@ -19,6 +19,9 @@ namespace Gothic.Core.Adapters.Properties
         public List<RoutineData> Routines = new();
         public RoutineData RoutinePrevious;
         public RoutineData RoutineCurrent;
+        // The entry a routine next state (Vob.NextStateIsRoutine, G2 ZS_GotoBed -> ZS_Sleep) was queued under. Has it
+        // ended before the state starts, the new entry starts instead (AiHandler.StartNextRoutine).
+        public RoutineData NextStateRoutine;
 
         // WayNet
         public WayPoint CurrentWayPoint;
@@ -165,6 +168,11 @@ namespace Gothic.Core.Adapters.Properties
 
         // The current state's _End function is running (AI_StartState from inside it must not run it again).
         public bool IsInStateEnd;
+
+        // The start or loop function of a routine state is running: a state it starts with AI_StartState belongs to the
+        // routine too (G2's ZS_GotoBed starts ZS_Sleep) and ends when the routine changes (NpcRoutineService). False
+        // while a perception runs inside it (NpcAiService.ExecutePerception): a reaction never belongs to the routine.
+        public bool IsInRoutineStateFunction;
 
         // Time.time of the last knockout - the swing that knocked him out doesn't finish him off (FightService).
         public float KnockedOutTime = float.MinValue;

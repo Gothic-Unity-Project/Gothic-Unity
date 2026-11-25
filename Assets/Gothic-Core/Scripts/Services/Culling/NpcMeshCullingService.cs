@@ -42,6 +42,14 @@ namespace Gothic.Core.Services.Culling
         }
 
         /// <summary>
+        /// The NPC is in visible range (not culled), its AI runs.
+        /// </summary>
+        public bool IsAwake(NpcContainer npc)
+        {
+            return _npcDomain.IsAwake(npc);
+        }
+
+        /// <summary>
         /// The NPCs that are awake (in visible range), without the hero. One snapshot per frame shared by all callers
         /// (perception ticks, fight lookups) - no allocation, no scan of the whole world. Read only, don't keep it.
         /// </summary>
