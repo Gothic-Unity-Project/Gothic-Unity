@@ -65,6 +65,9 @@ namespace Gothic.Core.Services.Npc
         private Queue<NpcContainer> _objectToReEnableQueue = new();
         // NPCs to start over after the hero slept - culled ones when they show up again.
         private readonly HashSet<NpcContainer> _timeSkipResets = new();
+        // From the loading scene until the world runs (WorldSceneLoaded): the world's STARTUP_* scripts run meanwhile.
+        private bool _isWorldLoading;
+        private bool _isTimeSkipWhileLoadingLogged;
 
         private DaedalusVm _vm => _gameStateService.GothicVm;
 
@@ -88,6 +91,12 @@ namespace Gothic.Core.Services.Npc
             // An armor change of an already built NPC swaps its body mesh (G2 Greg in the farmer clothes).
             GlobalEventDispatcher.NpcVisualBodyChanged.AddListener(_initializerDomain.RebuildBody);
             GlobalEventDispatcher.GameTimeSkipped.AddListener(ResetNpcsAfterTimeSkip);
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(() =>
+            {
+                _isWorldLoading = true;
+                _isTimeSkipWhileLoadingLogged = false;
+            });
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(() => _isWorldLoading = false);
         }
 
         public void ClearQueues()
@@ -729,30 +738,53 @@ namespace Gothic.Core.Services.Npc
         /// every living NPC starts over like after culling: routines are recalculated for the new time, visible NPCs
         /// reset one per frame (no spawning into each other), culled ones when they show up again. Dead and knocked
         /// out NPCs stay as they are.
+        /// A jump while the world loads (G2's STARTUP_* scripts call Wld_SetTime) is ignored: every NPC starts fresh
+        /// anyway, and the marks would never be used up.
         /// </summary>
         private void ResetNpcsAfterTimeSkip()
         {
+            if (_isWorldLoading)
+            {
+                if (!_isTimeSkipWhileLoadingLogged)
+                {
+                    _isTimeSkipWhileLoadingLogged = true;
+                    Logger.Log("[TimeSkipReset] Time skipped while the world loads - NPCs start fresh, no reset.",
+                        LogCat.Ai);
+                }
+                return;
+            }
+
             _npcRoutineService.RecalculateAllNpcRoutines();
 
             var visibleCount = 0;
+            var culledCount = 0;
             foreach (var npc in _multiTypeCacheService.NpcCache)
             {
                 if (npc?.Props == null || npc.Vob == null || npc.Vob.Player)
                     continue;
                 if (npc.Props.BodyState is VmGothicEnums.BodyState.BsDead or VmGothicEnums.BodyState.BsUnconscious)
                     continue;
-                if (!_timeSkipResets.Add(npc))
+                // Never built: it starts fresh at its routine when it shows up (InitNpc).
+                if (npc.Go == null)
                     continue;
 
-                if (npc.Go != null && npc.Go.activeInHierarchy)
+                _timeSkipResets.Add(npc);
+
+                if (npc.Go.activeInHierarchy)
                 {
-                    _objectToReEnableQueue.Enqueue(npc);
+                    // Marked again by a second jump, or coming into view right now: queued once is enough.
+                    if (!_objectToReEnableQueue.Contains(npc))
+                        _objectToReEnableQueue.Enqueue(npc);
                     visibleCount++;
+                }
+                else
+                {
+                    culledCount++;
                 }
             }
 
             Logger.Log($"[TimeSkipReset] Time skipped - resetting {visibleCount} visible NPC(s), " +
-                       $"{_timeSkipResets.Count - visibleCount} culled ones when they show up.", LogCat.Ai);
+                       $"{culledCount} culled ones when they show up.", LogCat.Ai);
         }
 
         public void ReEnableNpc(NpcContainer npcData)
@@ -920,6 +952,10 @@ namespace Gothic.Core.Services.Npc
             if (isInVisibleRange)
             {
                 var initializedNow = InitNpc(npcLoader.gameObject);
+
+                // Built for the first time: it starts at its routine for the time right now anyway.
+                if (initializedNow)
+                    _timeSkipResets.Remove(npcContainer);
 
                 // If the NPC !wasOutOfDistance (==wasInDistanceAlready), then we spawned our VRPlayer next to the NPC
                 // (e.g. from a save game) and we need to go on with the current routine instead of "resetting" the routine.
