@@ -150,9 +150,8 @@ namespace Gothic.Core.Models.Animations
             if (track.Weight <= 0f || track.BoneCount == 0)
                 return;
 
-            var frame0 = Mathf.Clamp((int)track.Frame, 0, track.FrameCount - 1);
-            var frame1 = Mathf.Min(frame0 + 1, track.FrameCount - 1);
-            var frameBlend = Mathf.Clamp01(track.Frame - frame0);
+            AnimationSampling.GetFrames(track.Frame, track.FrameCount, out var frame0, out var frame1,
+                out var frameBlend);
 
             for (var bone = 0; bone < track.BoneCount; bone++)
             {
@@ -160,42 +159,19 @@ namespace Gothic.Core.Models.Animations
                 if (!handle.IsValid(stream))
                     continue;
 
-                // Keys are hemisphere-aligned at bake time, so the normalized lerp takes the short way.
-                var position = Vector3.Lerp(
-                    positions[frame0 * track.BoneCount + bone], positions[frame1 * track.BoneCount + bone], frameBlend);
-                var rotation = Nlerp(
-                    rotations[frame0 * track.BoneCount + bone], rotations[frame1 * track.BoneCount + bone], frameBlend);
+                AnimationSampling.SampleBone(positions, rotations, track.BoneCount, frame0, frame1, frameBlend, bone,
+                    out var position, out var rotation);
 
                 if (track.Weight < 1f)
                 {
                     // Blend over whatever lower layers (or the rest pose) wrote before us.
                     position = Vector3.Lerp(handle.GetLocalPosition(stream), position, track.Weight);
-                    rotation = Nlerp(handle.GetLocalRotation(stream), rotation, track.Weight);
+                    rotation = AnimationSampling.Nlerp(handle.GetLocalRotation(stream), rotation, track.Weight);
                 }
 
                 handle.SetLocalPosition(stream, position);
                 handle.SetLocalRotation(stream, rotation);
             }
-        }
-
-        /// <summary>
-        /// Normalized lerp instead of slerp: between consecutive .man frames the angles are tiny and for
-        /// blend ramps both endpoints are the same poses - the angular deviation stays invisible, while a
-        /// dot + sqrt replaces the per-bone trigonometry (this runs per bone, per track, per NPC, per frame).
-        /// </summary>
-        private static Quaternion Nlerp(Quaternion from, Quaternion to, float weight)
-        {
-            // Take the short way around - blend sources aren't hemisphere-aligned with each other.
-            var dot = from.x * to.x + from.y * to.y + from.z * to.z + from.w * to.w;
-            var sign = dot < 0f ? -1f : 1f;
-
-            var x = from.x + (to.x * sign - from.x) * weight;
-            var y = from.y + (to.y * sign - from.y) * weight;
-            var z = from.z + (to.z * sign - from.z) * weight;
-            var w = from.w + (to.w * sign - from.w) * weight;
-
-            var scale = 1f / Mathf.Sqrt(x * x + y * y + z * z + w * w);
-            return new Quaternion(x * scale, y * scale, z * scale, w * scale);
         }
     }
 }

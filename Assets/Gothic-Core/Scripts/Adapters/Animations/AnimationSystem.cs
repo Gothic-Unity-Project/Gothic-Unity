@@ -47,13 +47,10 @@ namespace Gothic.Core.Adapters.Animations
 #endif
 
         [Inject] private readonly AnimationService _animationService;
-        [Inject] private readonly AudioService _audioService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcService _npcService;
         [Inject] private readonly ConfigService _configService;
-        [Inject] private readonly Services.Audio.GroundSoundService _groundSoundService;
         [Inject] private readonly NpcWaterService _npcWaterService;
-        [Inject] private readonly Gothic.Core.Services.Meshes.MeshService _meshService;
         [Inject] private readonly Gothic.Core.Services.Caches.VmCacheService _vmCacheService;
 
         // Item states (smoking, drinking): the engine's random item animations every few seconds.
@@ -62,10 +59,8 @@ namespace Gothic.Core.Adapters.Animations
         private const int _maxItemRandomAnis = 4;
         private float _nextItemRandomAniTime;
 
-        // *eventPFX effects that run until their *eventPFXStop (same index). Safety: gone after this time anyway.
-        private readonly Dictionary<int, GameObject> _activePfx = new();
-        private const float _pfxMaxSeconds = 12f;
-        private const float _pfxFadeSeconds = 8f;
+        // Plays the *eventSFX/*eventPFX of the tracks (created in Start, after the injection).
+        private AnimationEffectPlayer _effectPlayer;
 
 
         // Initial bone pose is needed to reset culled-out NPCs to an idle starting state.
@@ -143,6 +138,9 @@ namespace Gothic.Core.Adapters.Animations
             _bones = bones.ToArray();
             _initialMeshBonePos = _bones.Select(i => i.localPosition).ToArray();
             _initialMeshBoneRot = _bones.Select(i => i.localRotation).ToArray();
+
+            _effectPlayer = new AnimationEffectPlayer(Go.transform, transform, PrefabProps.NpcSound, isReusingPfx: false)
+                .Inject();
 
             CreateGraph();
             ResizeRootCollider();
@@ -488,7 +486,7 @@ namespace Gothic.Core.Adapters.Animations
         public void DisableObject()
         {
             _trackInstances.Clear();
-            StopAllPfx();
+            _effectPlayer?.StopAllPfx();
 
             // Forget the last animated pose - the NPC restarts from an idle rest state when culled in again.
             if (_posePositions.IsCreated)
@@ -861,7 +859,7 @@ namespace Gothic.Core.Adapters.Animations
 
                 ApplyEventTags(trackInstance);
                 ApplySfxEvents(trackInstance);
-                ApplyPfxEvents(trackInstance);
+                _effectPlayer.ApplyPfxEvents(trackInstance);
                 ApplyMorphEvents(trackInstance);
             }
         }
@@ -924,38 +922,11 @@ namespace Gothic.Core.Adapters.Animations
 
         private void ApplySfxEvents(AnimationTrackInstance trackInstance)
         {
-            var sfxEvents = trackInstance.GetPendingSoundEffects();
-            if (sfxEvents == null)
+            if (!_effectPlayer.ApplySfxEvents(trackInstance))
                 return;
 
-            if (sfxEvents.Count > 0)
-            {
-                LastSfxEventAnimation = trackInstance.AnimationName;
-                LastSfxEventTime = Time.time;
-            }
-
-            foreach (var sfx in sfxEvents)
-            {
-                // A step - its sound by the ground below (RUN_EARTH, RUN_STONE), on top of the other sounds (it mustn't
-                // cut a swing or a scream). Skipped if the player turned footsteps off (Gothic.ini footstepSounds).
-                if (sfx.Name.StartsWith(Domain.Audio.GroundSoundDomain.GroundEventPrefix))
-                {
-                    if (!_groundSoundService.IsEnabled)
-                        continue;
-                    var stepName = _groundSoundService.GetSoundName(
-                        sfx.Name.Substring(Domain.Audio.GroundSoundDomain.GroundEventPrefix.Length),
-                        transform.position);
-                    var stepClip = _audioService.GetRandomSoundClip(stepName);
-                    if (stepClip != null)
-                        PrefabProps.NpcSound.PlayOneShot(stepClip);
-                    continue;
-                }
-
-                var clip = _audioService.GetRandomSoundClip(sfx.Name);
-                PrefabProps.NpcSound.clip = clip;
-                PrefabProps.NpcSound.maxDistance = _audioService.GetSfxRangeMeters(sfx.Name, sfx.Range.ToMeter());
-                PrefabProps.NpcSound.Play();
-            }
+            LastSfxEventAnimation = trackInstance.AnimationName;
+            LastSfxEventTime = Time.time;
         }
 
         /// <summary>
@@ -996,83 +967,6 @@ namespace Gothic.Core.Adapters.Animations
             }
             if (candidates.Count > 0)
                 PlayAnimation(candidates[UnityEngine.Random.Range(0, candidates.Count)]);
-        }
-
-        /// <summary>
-        /// *eventPFX (frame, index, name, bone, ATTACH) creates the effect at the
-        /// bone (following it if attached), *eventPFXStop (frame, index) lets it fade out. Joint smoke, bubbles, ...
-        /// </summary>
-        private void ApplyPfxEvents(AnimationTrackInstance trackInstance)
-        {
-            var stops = trackInstance.GetPendingParticleEffectStops();
-            if (stops != null)
-            {
-                foreach (var stop in stops)
-                    StopPfx(stop.Index);
-            }
-
-            var pfxEvents = trackInstance.GetPendingParticleEffects();
-            if (pfxEvents == null)
-                return;
-
-            foreach (var pfx in pfxEvents)
-            {
-                var bone = FindBone(pfx.Position) ?? Go.transform;
-                var pfxGo = pfx.Attached
-                    ? _meshService.CreateVobPfx(pfx.Name, parent: bone.gameObject, destroyAfterPlay: true)
-                    : _meshService.CreateVobPfx(pfx.Name, bone.position, bone.rotation, destroyAfterPlay: true);
-                if (pfxGo == null)
-                {
-                    Logger.LogWarning($"[AnimationPfx] {pfx.Name} couldn't be created ({trackInstance.AnimationName}).",
-                        LogCat.Animation);
-                    continue;
-                }
-
-                var parent = pfxGo.transform.parent;
-                var root = parent != null && parent != bone ? parent.gameObject : pfxGo;
-                foreach (var particleSystem in root.GetComponentsInChildren<ParticleSystem>())
-                {
-                    var main = particleSystem.main;
-                    main.simulationSpace = ParticleSystemSimulationSpace.World;
-                }
-                if (pfx.Index != 0)
-                {
-                    StopPfx(pfx.Index);
-                    _activePfx[pfx.Index] = root;
-                }
-                Destroy(root, _pfxMaxSeconds);
-            }
-        }
-
-        private void StopPfx(int index)
-        {
-            if (!_activePfx.Remove(index, out var pfxGo) || pfxGo == null)
-                return;
-
-            foreach (var particleSystem in pfxGo.GetComponentsInChildren<ParticleSystem>())
-                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmitting);
-            Destroy(pfxGo, _pfxFadeSeconds);
-        }
-
-        private void StopAllPfx()
-        {
-            foreach (var index in _activePfx.Keys.ToList())
-                StopPfx(index);
-        }
-
-        /// <summary>
-        /// MDS bone names differ in case from the bone GameObjects ("Bip01 Head" vs "BIP01 HEAD").
-        /// </summary>
-        private Transform FindBone(string boneName)
-        {
-            if (string.IsNullOrEmpty(boneName))
-                return null;
-            foreach (var child in Go.GetComponentsInChildren<Transform>())
-            {
-                if (child.name.EqualsIgnoreCase(boneName))
-                    return child;
-            }
-            return null;
         }
 
         private void ApplyMorphEvents(AnimationTrackInstance trackInstance)

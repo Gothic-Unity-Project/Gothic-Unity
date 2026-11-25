@@ -45,7 +45,7 @@ namespace Gothic.Core.Services.Vobs
             if (vob is not IInteractiveObject)
                 return false;
 
-            return !((vob is IDoor && !vob.IsBed()) || vob is IContainer);
+            return !vob.IsHingeMob();
         }
 
         /// <summary>
