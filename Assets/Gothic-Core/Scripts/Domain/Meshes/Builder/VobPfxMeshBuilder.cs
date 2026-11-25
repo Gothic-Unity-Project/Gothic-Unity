@@ -215,12 +215,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 // Always disable Unity's built-in gravity - use Force over Lifetime instead
                 mainModule.gravityModifier = 0f;
 
-                // Simulation space from FOR switches (prefer dir FOR if present)
-                var simFor = (pfx.DirForS ?? pfx.ShpForS)?.ToUpperInvariant();
-                if (simFor == "WORLD")
-                    mainModule.simulationSpace = ParticleSystemSimulationSpace.World;
-                else
-                    mainModule.simulationSpace = ParticleSystemSimulationSpace.Local;
+                // Like the engine, an emitted particle lives in the world: it doesn't move or turn with its emitter
+                // afterwards. dirFor/shpFor only say in which frame a particle starts (velocity module below). Local
+                // simulation carried the sparks along with the turning grindstone - a line instead of a falling shower.
+                mainModule.simulationSpace = ParticleSystemSimulationSpace.World;
 
                 // Start size from visSizeStart (cm->m). Allow end scale via Size over Lifetime below.
                 if (!string.IsNullOrEmpty(pfx.VisSizeStartS) && pfx.VisSizeStartS != "=")
@@ -287,6 +285,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 if (gravity.Length == 3)
                 {
                     forceModule.enabled = true;
+                    // flyGravity is a world vector (down is -Y): in the emitter's frame a turned emitter (a grindstone,
+                    // a spell in the hand) pulled its particles sideways.
+                    forceModule.space = ParticleSystemSimulationSpace.World;
                     forceModule.x = gravityX;
                     forceModule.y = gravityY;
                     forceModule.z = gravityZ;
