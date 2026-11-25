@@ -52,8 +52,10 @@ namespace Gothic.Core.Services.World
         }
 
         /// <summary>
-        /// World load (background thread, only touches floorCells): marks the floor cells a room polygon covers with its
-        /// sector if it is level - floors (and ceilings, never at the feet). Bounding box of the polygon.
+        /// World load (background thread, only touches floorCells): marks the floor cells a room polygon covers with
+        /// its sector if it is level - floors (and ceilings, never at the feet). A cell counts when its center lies in
+        /// one of the polygon's triangles: the polygon's bounding box also took the street next to a slanted or
+        /// L-shaped floor (G2 Khorinis: standing at Harad's forge counted as in his house, he sent the hero out).
         /// </summary>
         public static void MarkRoomFloor(ZenKit.IMesh mesh, int sector, IList<int> positionIndices,
             Dictionary<long, int> floorCells)
@@ -61,23 +63,68 @@ namespace Gothic.Core.Services.World
             if (positionIndices.Count < 3)
                 return;
 
-            var a = mesh.GetPosition(positionIndices[0]);
-            var b = mesh.GetPosition(positionIndices[1]);
-            var c = mesh.GetPosition(positionIndices[2]);
-            var normal = Vector3.Cross(new Vector3(b.X - a.X, b.Y - a.Y, b.Z - a.Z),
-                new Vector3(c.X - a.X, c.Y - a.Y, c.Z - a.Z));
+            var corners = new Vector3[positionIndices.Count];
+            for (var i = 0; i < corners.Length; i++)
+            {
+                var p = mesh.GetPosition(positionIndices[i]);
+                corners[i] = new Vector3(p.X, p.Y, p.Z) / 100f;
+            }
+
+            var normal = Vector3.Cross(corners[1] - corners[0], corners[2] - corners[0]);
             if (normal.sqrMagnitude <= 0f || Mathf.Abs(normal.normalized.y) <= _floorMinNormalY)
                 return;
 
-            var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-            var max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-            foreach (var index in positionIndices)
+            var min = corners[0];
+            var max = corners[0];
+            foreach (var corner in corners)
             {
-                var p = mesh.GetPosition(index);
-                var position = new Vector3(p.X, p.Y, p.Z) / 100f;
-                min = Vector3.Min(min, position);
-                max = Vector3.Max(max, position);
+                min = Vector3.Min(min, corner);
+                max = Vector3.Max(max, corner);
             }
+
+            var minX = Mathf.FloorToInt(min.x / FloorCellSize);
+            var minZ = Mathf.FloorToInt(min.z / FloorCellSize);
+            var maxX = Mathf.Min(Mathf.FloorToInt(max.x / FloorCellSize), minX + _maxFloorCellsPerAxis);
+            var maxZ = Mathf.Min(Mathf.FloorToInt(max.z / FloorCellSize), minZ + _maxFloorCellsPerAxis);
+            for (var x = minX; x <= maxX; x++)
+            {
+                for (var z = minZ; z <= maxZ; z++)
+                {
+                    var center = new Vector2((x + 0.5f) * FloorCellSize, (z + 0.5f) * FloorCellSize);
+                    // Polygons are convex fans around their first corner.
+                    for (var i = 1; i + 1 < corners.Length; i++)
+                    {
+                        if (!TryGetHeightInTriangle(center, corners[0], corners[i], corners[i + 1], out var y))
+                            continue;
+
+                        floorCells[ToFloorCell(new Vector3(center.x, y, center.y))] = sector;
+                        break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The point (x, z) lies in the triangle seen from above: its height on the triangle's plane.
+        /// </summary>
+        private static bool TryGetHeightInTriangle(Vector2 point, Vector3 a, Vector3 b, Vector3 c, out float height)
+        {
+            height = 0f;
+            var v0 = new Vector2(b.x - a.x, b.z - a.z);
+            var v1 = new Vector2(c.x - a.x, c.z - a.z);
+            var v2 = new Vector2(point.x - a.x, point.y - a.z);
+            var denominator = v0.x * v1.y - v1.x * v0.y;
+            if (Mathf.Abs(denominator) < 1e-6f)
+                return false;
+
+            var u = (v2.x * v1.y - v1.x * v2.y) / denominator;
+            var v = (v0.x * v2.y - v2.x * v0.y) / denominator;
+            if (u < 0f || v < 0f || u + v > 1f)
+                return false;
+
+            height = a.y + u * (b.y - a.y) + v * (c.y - a.y);
+            return true;
+        }
 
             var steps = Vector3Int.Min(Vector3Int.CeilToInt((max - min) / FloorCellSize),
                 Vector3Int.one * _maxFloorCellsPerAxis);
