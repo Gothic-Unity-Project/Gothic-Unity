@@ -101,7 +101,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             StartCoroutine(ConsumeObject(rootGo, clip, destroyTime, startDelay));
 
             if (IsSmokable(item))
-                StartCoroutine(ExhaleSmoke(item, destroyTime, startDelay));
+                TryExhaleSmoke(TryGetUseAnimation(item), string.Format(_animationSchemeWithSfx, item.SchemeName),
+                    destroyTime, startDelay);
         }
 
         /// <summary>
@@ -115,20 +116,31 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// The animation's own particle effect (LIGHTSMOKE) puffed out in front of the VR head.
+        /// The smoke of a Humans.mds animation - its first particle effect (LIGHTSMOKE) - puffed out in front of the VR
+        /// head after startDelay. animationName only names it in the warning when it has none.
         /// </summary>
-        private IEnumerator ExhaleSmoke(ItemInstance item, float inhaleSeconds, float startDelay)
+        [CanBeNull]
+        private Coroutine TryExhaleSmoke([CanBeNull] IAnimation smokeAnimation, string animationName,
+            float inhaleSeconds, float startDelay)
+        {
+            var pfxName = smokeAnimation?.ParticleEffects.FirstOrDefault()?.Name;
+            if (string.IsNullOrEmpty(pfxName))
+            {
+                Logger.LogWarning($"[VRMouth] No smoke PFX in '{animationName}'.", LogCat.VR);
+                return null;
+            }
+
+            return StartCoroutine(ExhaleSmoke(pfxName, inhaleSeconds, startDelay));
+        }
+
+        /// <summary>
+        /// The particle effect pfxName puffed out in front of the VR head.
+        /// </summary>
+        private IEnumerator ExhaleSmoke(string pfxName, float inhaleSeconds, float startDelay)
         {
             var puffs = Mathf.Max(1, _smokePuffs);
             if (startDelay > 0f)
                 yield return new WaitForSeconds(startDelay);
-
-            var pfxName = TryGetUseAnimation(item)?.ParticleEffects.FirstOrDefault()?.Name;
-            if (string.IsNullOrEmpty(pfxName))
-            {
-                Logger.LogWarning($"[VRMouth] No smoke PFX in 't_{item.SchemeName}_S0_2_Stand'.", LogCat.VR);
-                yield break;
-            }
 
             // Puffs spread over the smoking sound - the first one right with it (it came only after a pause).
             for (var puff = 0; puff < puffs; puff++)
