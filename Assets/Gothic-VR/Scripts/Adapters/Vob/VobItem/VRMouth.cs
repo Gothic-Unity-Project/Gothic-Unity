@@ -39,6 +39,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _smokeExhaleSpeed = 0.35f;
         private const float _smokeRiseSpeed = 0.1f;
         private const int _smokePuffParticles = 12;
+        // A drag of something not used up (water pipe): its puffs are spread over this time.
+        private const float _smokableExhaleSeconds = 3f;
 
         [SerializeField] private AudioSource _mouthAudio;
 
@@ -66,9 +68,18 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         // Do not eat them twice during destroy time.
         private List<GameObject> _objectsInDestroyGracePeriod = new();
 
+        // The part smoked at the mouth right now (a water pipe's mouthpiece) and its drag.
+        private IVrMouthSmokable _smokable;
+        private Collider _smokedPart;
+        private Coroutine _smokableExhale;
+        private float _smokableExhaleStart;
+
 
         private void OnTriggerEnter(Collider other)
         {
+            if (TryStartSmoking(other))
+                return;
+
             var go = other.gameObject;
 
             if (!TryGetItemToEat(go, out var item))
@@ -103,6 +114,64 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (IsSmokable(item))
                 TryExhaleSmoke(TryGetUseAnimation(item), string.Format(_animationSchemeWithSfx, item.SchemeName),
                     destroyTime, startDelay);
+        }
+
+        private void OnTriggerExit(Collider other)
+        {
+            if (other == _smokedPart)
+                StopSmoking();
+        }
+
+        /// <summary>
+        /// A part of something smoked without being used up (IVrMouthSmokable: a water pipe's mouthpiece) touched the
+        /// mouth: after the drag delay its smoke is blown out. true: the collider belongs to such a thing - it's no
+        /// food, whether it is smoked now or not.
+        /// </summary>
+        private bool TryStartSmoking(Collider other)
+        {
+            var smokable = other.GetComponentInParent<IVrMouthSmokable>();
+            if (smokable == null)
+                return false;
+
+            if (other == _smokedPart || !smokable.TryStartSmoking(other))
+                return true;
+
+            StopSmoking();
+            _smokable = smokable;
+            _smokedPart = other;
+            _smokableExhaleStart = Time.time;
+            var startDelay = Mathf.Max(0f, _smokeStartDelay);
+            _smokableExhale = TryExhaleSmoke(TryGetHumansAnimation(smokable.ExhaleAnimation),
+                smokable.ExhaleAnimation, _smokableExhaleSeconds, startDelay);
+            Logger.Log($"[VRMouth] Smoking {other.name}.", LogCat.VR);
+            return true;
+        }
+
+        /// <summary>
+        /// The smoked part left the mouth. Taken away before the drag ended, no smoke comes; puffs already blown out
+        /// drift on.
+        /// </summary>
+        private void StopSmoking()
+        {
+            if (_smokable == null)
+                return;
+
+            if (_smokableExhale != null && Time.time < _smokableExhaleStart + _smokeStartDelay)
+                StopCoroutine(_smokableExhale);
+
+            var smokable = _smokable;
+            var part = _smokedPart;
+            _smokable = null;
+            _smokedPart = null;
+            _smokableExhale = null;
+            if (part != null)
+                smokable.StopSmoking(part);
+        }
+
+        private void OnDisable()
+        {
+            // Coroutines end with the component; the smoked thing must still hear that it left the mouth.
+            StopSmoking();
         }
 
         /// <summary>
@@ -248,8 +317,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [CanBeNull]
         private IAnimation TryGetUseAnimation(ItemInstance item)
         {
+            return TryGetHumansAnimation(string.Format(_animationSchemeWithSfx, item.SchemeName));
+        }
+
+        [CanBeNull]
+        private IAnimation TryGetHumansAnimation(string animationName)
+        {
             var mds = _resourceCacheService.TryGetModelScript("Humans");
-            var animationName = string.Format(_animationSchemeWithSfx, item.SchemeName);
             return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
         }
 
