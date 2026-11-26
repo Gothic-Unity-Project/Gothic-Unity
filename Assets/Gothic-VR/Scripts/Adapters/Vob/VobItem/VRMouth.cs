@@ -44,7 +44,10 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _smokableMinDragSeconds = 0.8f;
         private const float _smokableExhaleSeconds = 0.6f;
         private const int _smokableExhalePuffs = 2;
-        // The joint's smoking sound (SfxInst SMOKE_JOINT, smoke_joint.wav) - the snoring breath-out isn't in every game.
+        // The smoke is held for a moment before it is blown out.
+        private const float _smokableExhaleDelay = 1f;
+        // The joint's smoking sound (SfxInst SMOKE_JOINT, smoke_joint.wav) - the snoring breath-out isn't in
+        // every game.
         private const string _exhaleSound = "SMOKE_JOINT";
 
         [SerializeField] private AudioSource _mouthAudio;
@@ -168,14 +171,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             // Taken from the mouth after a drag: a breath out and a cloud of smoke in front of the face.
             if (isExhaling && Time.time >= _smokableExhaleStart + _smokableMinDragSeconds)
             {
-                var exhaleClip = _audioService.GetRandomSoundClip(_exhaleSound);
-                if (exhaleClip != null)
-                    _mouthAudio.PlayOneShot(exhaleClip);
-                else
-                    Logger.LogWarning($"[VRMouth] No sound '{_exhaleSound}' for breathing out the smoke.", LogCat.VR);
                 _smokableExhale = TryExhaleSmoke(TryGetHumansAnimation(_smokable.ExhaleAnimation),
-                    _smokable.ExhaleAnimation, _smokableExhaleSeconds, 0f, _smokableExhalePuffs);
-                Logger.Log($"[VRMouth] Breathing out the smoke of {_smokedPart?.name}.", LogCat.VR);
+                    _smokable.ExhaleAnimation, _smokableExhaleSeconds, _smokableExhaleDelay, _smokableExhalePuffs);
+                StartCoroutine(PlayExhaleSound(_smokableExhaleDelay));
+                Logger.Log($"[VRMouth] Breathing out the smoke of {_smokedPart?.name} in {_smokableExhaleDelay} s.",
+                    LogCat.VR);
             }
 
             var smokable = _smokable;
@@ -185,6 +185,17 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _smokableExhale = null;
             if (part != null)
                 smokable.StopSmoking(part);
+        }
+
+        private IEnumerator PlayExhaleSound(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+
+            var exhaleClip = _audioService.GetRandomSoundClip(_exhaleSound);
+            if (exhaleClip != null)
+                _mouthAudio.PlayOneShot(exhaleClip);
+            else
+                Logger.LogWarning($"[VRMouth] No sound '{_exhaleSound}' for breathing out the smoke.", LogCat.VR);
         }
 
         private void OnDisable()
