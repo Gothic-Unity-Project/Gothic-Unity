@@ -129,6 +129,15 @@ namespace Gothic.Core.Extensions
         }
 
         /// <summary>
+        /// A door or a chest: in VR it swings on a physical hinge when grabbed (VRMobHinge), it isn't used like other
+        /// mobs (AI_UseMob, the mob grab, its own state animations). Beds are oCMobDoors too, but no hinge (IsBed).
+        /// </summary>
+        public static bool IsHingeMob([CanBeNull] this IVirtualObject vob)
+        {
+            return (vob is IDoor && !vob.IsBed()) || vob is IContainer;
+        }
+
+        /// <summary>
         /// oCMobLockable's fields: doors and chests are both lockable, but ZenKit has no common interface for them.
         /// Returns false if the vob is neither.
         /// </summary>

@@ -35,6 +35,7 @@ namespace Gothic.Core.Services.Vobs
         [Inject] private readonly ConfigService _configService;
         [Inject] private readonly ResourceCacheService _resourceCacheService;
         [Inject] private readonly FireService _fireService;
+        [Inject] private readonly MobAnimationService _mobAnimationService;
 
         /// <summary>
         /// Doors use VR hinge physics and chests their lid physics - not the mob/trigger path.
@@ -45,7 +46,7 @@ namespace Gothic.Core.Services.Vobs
             if (vob is not IInteractiveObject)
                 return false;
 
-            return !((vob is IDoor && !vob.IsBed()) || vob is IContainer);
+            return !vob.IsHingeMob();
         }
 
         /// <summary>
@@ -125,6 +126,7 @@ namespace Gothic.Core.Services.Vobs
             // stateNum (the number of its states), which a save game must keep.
             var container = loader.Container;
             var senderName = container.Vob.Name;
+            var previousState = container.MobState;
             if (container.MobState > 0)
             {
                 container.MobState = 0;
@@ -135,6 +137,9 @@ namespace Gothic.Core.Services.Vobs
                 container.MobState = 1;
                 _vobService.DispatchTrigger(target, senderName);
             }
+
+            // The lever or wheel swings into its new state and stays there (no user keeps it busy).
+            _mobAnimationService.OnStateChanged(container, null, Math.Max(0, previousState), container.MobState);
         }
 
         /// <summary>
@@ -178,6 +183,13 @@ namespace Gothic.Core.Services.Vobs
             try
             {
                 _dialogService.PrepareMobDialog(createDialogAnchor());
+
+                // The mob works while its dialog is open (the anvil sparks while the hero chooses what to forge), like
+                // for a smith. It rests when the dialog closes, or right after its transition if _S1 opens none
+                // (GlobalEventDispatcher.MobDialogEnded). Only after PrepareMobDialog: it ends an old anchor, whose
+                // MobDialogEnded -> StopHeroUse would stop this use at once.
+                _mobAnimationService.StartHeroUse(loader.Container, hero);
+
                 _vmService.CallAsHero(functionName, LogCat.Dialog);
                 Logger.Log($"[MobDialog] Called '{functionName}' for '{loader.name}'.", LogCat.Dialog);
             }
@@ -252,8 +264,15 @@ namespace Gothic.Core.Services.Vobs
                     handItem = tag.Item;
             }
 
-            if (!string.IsNullOrEmpty(mob.OnStateChangeFunction))
+            var isStateFunctionUsed = !string.IsNullOrEmpty(mob.OnStateChangeFunction) &&
                 TryUseMobStateFunction(loader, mob, createDialogAnchor, beginStateFunction, isItemInHand: true);
+
+            // Without a dialog (the forge turns the raw steel into hot steel) the mob works once: there and back.
+            if (!isStateFunctionUsed)
+            {
+                _mobAnimationService.StartHeroUse(loader.Container, hero);
+                _mobAnimationService.StopHeroUse();
+            }
 
             var leaveAnim = mds.Animations.FirstOrDefault(a => a.Name.EqualsIgnoreCase($"T_{scheme}_S1_2_S0"));
             var isPutBack = leaveAnim?.EventTags.Any(e => e.Type == EventType.ItemRemove) ?? false;

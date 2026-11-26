@@ -53,6 +53,7 @@ namespace Gothic.Core.Services.Npc
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly NpcInventoryService _npcInventoryService;
         [Inject] private readonly NpcLookService _npcLookService;
+        [Inject] private readonly MobAnimationService _mobAnimationService;
 
         
         // Supporter class where the whole Init() logic is outsourced for better readability.
@@ -896,6 +897,33 @@ namespace Gothic.Core.Services.Npc
             }
         }
         
+        /// <summary>
+        /// The NPC is no longer the user of its mob: no mob, no slot, the not-in-use state (-1), standing, and the
+        /// mob's own animation stops (MobAnimationService). The one place where a mob usage ends - after the last back
+        /// transition of AI_UseMob(-1), at AI_StandUp(Quick), at death and when the NPC starts over (culled,
+        /// re-enabled: AiHandler). The last user who was in one of the mob's states leaves it at -1 (Wld_GetMobState
+        /// reads 0, a save doesn't keep it) - a smith killed at the anvil frees it. An NPC only walking there
+        /// doesn't touch it (a lever the hero switched keeps its state).
+        /// </summary>
+        public void ReleaseMob(NpcContainer npc)
+        {
+            var prefabProps = npc?.PrefabProps;
+            if (prefabProps == null)
+                return;
+
+            var mob = prefabProps.CurrentInteractable;
+            _mobAnimationService.Stop(mob, npc);
+
+            if (mob != null && npc.Props.CurrentInteractableStateId >= 0 &&
+                !_vobService.GetOtherMobUsers(mob, npc).Any())
+                mob.MobState = -1;
+
+            prefabProps.CurrentInteractable = null;
+            prefabProps.CurrentInteractableSlot = null;
+            npc.Props.CurrentInteractableStateId = -1;
+            npc.Props.BodyState = VmGothicEnums.BodyState.BsStand;
+        }
+
         /// <summary>
         /// An item the NPC holds from AI_UseItemToState (food, a torch, ...) is put away: its mesh in the slot goes,
         /// the item state resets. Like the engine's clearState/AI_StandUp - an NPC interrupted while eating (aggro)

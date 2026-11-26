@@ -30,6 +30,10 @@ namespace Gothic.Core.Domain.Npc
 
         public void Die(NpcContainer npc)
         {
+            // Killed at a mob (a smith at the anvil): the usage ends there, the mob stops and is free for others.
+            if (npc.PrefabProps?.CurrentInteractable != null)
+                _npcService.ReleaseMob(npc);
+
             npc.Props.BodyState = VmGothicEnums.BodyState.BsDead;
             Logger.Log($"[NpcDeath] {npc.Instance.GetName(NpcNameSlot.Slot0)} is dead.", LogCat.Npc);
 

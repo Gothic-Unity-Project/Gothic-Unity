@@ -90,6 +90,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(TouchDamageService));
             containerBuilder.AddSingleton(typeof(MobInteractionService));
             containerBuilder.AddSingleton(typeof(MobLockService));
+            containerBuilder.AddSingleton(typeof(MobAnimationService));
             containerBuilder.AddSingleton(typeof(ParticleService));
             
             // Player
@@ -123,6 +124,7 @@ namespace Gothic.Core
             containerBuilder.AddSingleton(typeof(VisualFxLightFactory), typeof(IVisualFxLightFactory));
             containerBuilder.AddSingleton(typeof(NpcJumpFallFactory), typeof(INpcJumpFallFactory));
             containerBuilder.AddSingleton(typeof(NpcBurnEffectFactory), typeof(INpcBurnEffectFactory));
+            containerBuilder.AddSingleton(typeof(MobAnimatorFactory), typeof(IMobAnimatorFactory));
 
             // Caches
             containerBuilder.AddSingleton(typeof(ResourceCacheService));

@@ -3,6 +3,7 @@ using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Models.Vm;
 using Gothic.Core.Services.Npc;
+using Gothic.Core.Services.Vobs;
 using Gothic.Core.Extensions;
 using JetBrains.Annotations;
 using MyBox;
@@ -15,6 +16,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
     public class UseMob : AbstractWalkAnimationAction2
     {
         [Inject] private readonly NpcHelperService _npcHelperService;
+        [Inject] private readonly NpcService _npcService;
+        [Inject] private readonly MobAnimationService _mobAnimationService;
 
         private const string _mobTransitionAnimationString = "T_{0}{1}{2}_2_{3}";
         private const string _mobLoopAnimationString = "S_{0}{1}S{2}";
@@ -191,10 +194,8 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             // Mobsi isn't in use any longer
             if (Props.CurrentInteractableStateId == -1)
             {
-                PrefabProps.CurrentInteractable = null;
-                PrefabProps.CurrentInteractableSlot = null;
+                _npcService.ReleaseMob(NpcContainer);
                 Props.CurrentItem = -1;
-                Props.BodyState = VmGothicEnums.BodyState.BsStand;
 
                 PhysicsService.EnablePhysicsForNpc(PrefabProps);
             }
@@ -355,6 +356,9 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
 
             _currentMobAnimation = animName;
             PrefabProps.AnimationSystem.PlayAnimation(animName);
+
+            // Like the engine, the mob plays its own transition with the user's (the anvil's sparks, a turning wheel).
+            _mobAnimationService.OnStateChanged(_mobContainer, NpcContainer, current, next);
         }
     }
 }

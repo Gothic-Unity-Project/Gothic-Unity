@@ -340,6 +340,10 @@ namespace Gothic.Core
         // opened submenu.
         public static readonly UnityEvent<GameObject> MenuOpened = new();
 
+        // The hero's mob dialog (a MOBSI's choices at the anvil, a shrine, a bookstand) closed, or the mob's
+        // [onStateFunc]_S1 opened none (DialogService). The mob he used rests again (MobAnimationService).
+        public static readonly UnityEvent MobDialogEnded = new();
+
         // Trading (TradeService) started with this NPC: the VR trade counter opens, the dialog goes on.
         public static readonly UnityEvent<NpcContainer> TradeStarted = new();
         // Trading with this NPC ended (closed, the dialog ended, the world left) - the offers went back.

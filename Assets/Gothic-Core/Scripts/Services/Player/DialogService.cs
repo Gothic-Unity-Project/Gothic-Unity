@@ -453,7 +453,7 @@ namespace Gothic.Core.Manager
             }
 
             if (MobDialogAnchor != null)
-                Object.Destroy(MobDialogAnchor);
+                DestroyMobDialogAnchor();
 
             MobDialogAnchor = anchor;
             _isHeroQueueRunning = false;
@@ -471,8 +471,17 @@ namespace Gothic.Core.Manager
             if (MobDialogAnchor == null || isDialogPending)
                 return;
 
+            DestroyMobDialogAnchor();
+        }
+
+        /// <summary>
+        /// The mob dialog is over (or never opened): its anchor goes, the mob the hero used rests again.
+        /// </summary>
+        private void DestroyMobDialogAnchor()
+        {
             Object.Destroy(MobDialogAnchor);
             MobDialogAnchor = null;
+            GlobalEventDispatcher.MobDialogEnded.Invoke();
         }
 
         /// <summary>
@@ -607,10 +616,7 @@ namespace Gothic.Core.Manager
 
             // EndDialog moved the dialog box away from the anchor - it can go now.
             if (IsMobDialog(npc))
-            {
-                Object.Destroy(MobDialogAnchor);
-                MobDialogAnchor = null;
-            }
+                DestroyMobDialogAnchor();
 
             // Hide subtitles from both dialog partners. A destroyed NPC took its subtitles with it.
             _npcService.GetHeroContainer().PrefabProps.NpcSubtitles.HideSubtitles();
