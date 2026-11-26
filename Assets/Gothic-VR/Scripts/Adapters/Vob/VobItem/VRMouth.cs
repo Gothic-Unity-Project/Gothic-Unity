@@ -133,9 +133,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (smokable == null)
                 return false;
 
-            if (other == _smokedPart || !smokable.TryStartSmoking(other))
+            // In again without having left: its exit was missed (culled at the mouth).
+            if (other == _smokedPart)
+                StopSmoking();
+
+            if (!smokable.TryStartSmoking(other))
                 return true;
 
+            // Another part was still at the mouth.
             StopSmoking();
             _smokable = smokable;
             _smokedPart = other;

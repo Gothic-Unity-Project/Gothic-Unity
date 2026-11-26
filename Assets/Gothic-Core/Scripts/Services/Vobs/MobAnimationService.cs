@@ -143,7 +143,8 @@ namespace Gothic.Core.Services.Vobs
 
         /// <summary>
         /// The hero uses a mob with a dialog (the anvil's smithing choices, the grindstone, a rune table): it works
-        /// like for a smith, S0 -> S1 and its loop, until StopHeroUse (the dialog closed). One at a time.
+        /// like for a smith, S0 -> S1 and its loop, until StopHeroUse (the dialog closed). One at a time. VR: a water
+        /// pipe's mouthpiece at the mouth too (VRWaterPipe) - it bubbles and smokes, nothing else.
         /// </summary>
         public void StartHeroUse([CanBeNull] VobContainer mob, [CanBeNull] NpcContainer hero)
         {
@@ -154,6 +155,16 @@ namespace Gothic.Core.Services.Vobs
             _heroMob = mob;
             _hero = hero;
             OnStateChanged(mob, hero, 0, 1);
+        }
+
+        /// <summary>
+        /// Ends the hero's use only if it is this mob: a water pipe taken from the mouth doesn't stop the anvil whose
+        /// dialog opened meanwhile.
+        /// </summary>
+        public void StopHeroUse([CanBeNull] VobContainer mob)
+        {
+            if (mob != null && mob == _heroMob)
+                StopHeroUse();
         }
 
         public void StopHeroUse()

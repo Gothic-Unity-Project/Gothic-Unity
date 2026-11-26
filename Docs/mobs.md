@@ -72,6 +72,11 @@ dialog (anvil, grindstone, rune table) works like for a smith while its dialog i
 the mob dialog anchor - also when `_S1` opened no dialog: the mob works once, there and back). The forge's item swap
 without a dialog works once too.
 
+VR water pipe (`VRWaterPipe`, ADR 2026-11-26-vr-water-pipe): the hose `BIP01 FLEX0..4` bends towards the hand holding
+the mouthpiece `BIP01 FLEXEND` (its own handle); at the mouth (`VRMouth`) `StartHeroUse`, away from it or let go
+`StopHeroUse(mob)` - it bubbles and smokes, the hero blows out `LIGHTSMOKE`, nothing else; busy (not grabbable) while an
+NPC smokes it.
+
 ### The light player (MobAnimator)
 
 `AnimationSystem` is built for skinned NPCs: a PlayableGraph, an Animator and a Burst job per NPC, layers, blending,

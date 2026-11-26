@@ -8,6 +8,7 @@ using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Player;
 using Gothic.Core.Services.Vobs;
+using Gothic.VR.Adapters.Vob.VobItem;
 using Gothic.VR.Interaction.Components;
 using Gothic.VR.Interaction.Models;
 using Gothic.VR.Interaction.Ports;
@@ -27,11 +28,15 @@ namespace Gothic.VR.Adapters.Vob
     /// - Pulled further than the hose is long (plus a little slack), the mouthpiece slips out of the hand.
     /// - Let go, the links swing back to their rest pose (or to the pose the pipe's own animation gives them).
     /// - Busy while an NPC smokes it (mob state above 0 or an NPC at it): checked when a hand hovers or grabs it.
-    /// Nothing is saved: the hose rests again after a load.
+    /// - At the mouth (VRMouth, IVrMouthSmokable) the pipe works like for an NPC (MobAnimationService.StartHeroUse:
+    ///   PIPE_BUBBLES, FIRE_SMOKE at the bowl) and after a drag the hero blows out LIGHTSMOKE (HUMANS S_SMOKE_S1).
+    ///   Away from the mouth or let go, it rests again (StopHeroUse). Like in the original, nothing else happens: no
+    ///   item is used, no script runs.
+    /// Nothing is saved: the pipe rests again after a load.
     ///
     /// LateUpdate runs only while the mouthpiece is held or swings back, else the component is disabled.
     /// </summary>
-    public class VRWaterPipe : MonoBehaviour
+    public class VRWaterPipe : MonoBehaviour, IVrMouthSmokable
     {
         private const string _mouthpieceNodeName = "BIP01 FLEXEND";
         private static readonly string[] _hoseNodeNames =
@@ -49,11 +54,14 @@ namespace Gothic.VR.Adapters.Vob
         private const int _ikIterations = 4;
         private const float _ikMaxTurnDegrees = 25f;
         private const float _ikTolerance = 0.005f;
+        // The hero's smoking animation: its particle effect (LIGHTSMOKE) is the smoke blown out.
+        private const string _exhaleAnimationName = "S_SMOKE_S1";
 
         [Inject] private readonly IVrBackend _vrBackend;
         [Inject] private readonly VRPlayerService _vrPlayerService;
         [Inject] private readonly VobService _vobService;
         [Inject] private readonly PlayerService _playerService;
+        [Inject] private readonly MobAnimationService _mobAnimationService;
 
         private VobContainer _mob;
         // The mob's VOB name for the logs (this GameObject is its root node, BIP01 PIPE).
@@ -82,6 +90,7 @@ namespace Gothic.VR.Adapters.Vob
         private Vector3 _grabOffset;
         private float _swingBack;
         private bool _isTakeOverPending;
+        private bool _isAtMouth;
 
 
         /// <summary>
@@ -270,6 +279,7 @@ namespace Gothic.VR.Adapters.Vob
 
             _isHeld = false;
             _hand = null;
+            StopHeroUse();
             for (var i = 0; i < _links.Length; i++)
             {
                 _releasedRotations[i] = _links[i].localRotation;
@@ -321,6 +331,48 @@ namespace Gothic.VR.Adapters.Vob
         {
             // Culled with its mob while waiting: the next grab must still work.
             _isTakeOverPending = false;
+            // Culled at the mouth: the mouth's trigger may not report it leaving.
+            StopHeroUse();
+        }
+
+        public string ExhaleAnimation => _exhaleAnimationName;
+
+        /// <summary>
+        /// The held mouthpiece at the mouth: the pipe works for the hero like for a smoking NPC (S0 -> S1 and its
+        /// loop: it bubbles, the bowl smokes).
+        /// </summary>
+        public bool TryStartSmoking(Collider part)
+        {
+            if (part != _handleTrigger || !_isHeld)
+                return false;
+
+            if (_isAtMouth)
+                return true;
+
+            _isAtMouth = true;
+            _mobAnimationService.StartHeroUse(_mob, _playerService.HeroContainer);
+            Logger.Log($"[VRWaterPipe] {_logName}: smoked - it bubbles.", LogCat.VR);
+            return true;
+        }
+
+        public void StopSmoking(Collider part)
+        {
+            if (part == _handleTrigger)
+                StopHeroUse();
+        }
+
+        /// <summary>
+        /// Away from the mouth, let go or culled: the pipe rests again (T_S1_2_S0). Only this pipe - not another mob
+        /// the hero uses meanwhile.
+        /// </summary>
+        private void StopHeroUse()
+        {
+            if (!_isAtMouth)
+                return;
+
+            _isAtMouth = false;
+            _mobAnimationService.StopHeroUse(_mob);
+            Logger.Log($"[VRWaterPipe] {_logName}: away from the mouth - it rests.", LogCat.VR);
         }
 
         private void LateUpdate()
