@@ -89,6 +89,7 @@ namespace Gothic.VR.Adapters.Vob
         private Vector3 _grabOffset;
         private float _swingBack;
         private bool _isTakeOverPending;
+        private bool _isReleasePending;
         private bool _isAtMouth;
 
 
@@ -238,7 +239,7 @@ namespace Gothic.VR.Adapters.Vob
             {
                 _isBusy = true;
                 Logger.Log($"[VRWaterPipe] {_logName}: an NPC smokes it - the mouthpiece is let go again.", LogCat.VR);
-                args.Interactable.ForceRelease();
+                ReleaseAfterGrab();
                 return;
             }
 
@@ -247,7 +248,7 @@ namespace Gothic.VR.Adapters.Vob
             {
                 Logger.LogWarning($"[VRWaterPipe] {_logName}: no {args.HandSide} hand - the mouthpiece is let go.",
                     LogCat.VR);
-                args.Interactable.ForceRelease();
+                ReleaseAfterGrab();
                 return;
             }
 
@@ -258,6 +259,29 @@ namespace Gothic.VR.Adapters.Vob
             _isHeld = true;
             enabled = true;
             Logger.Log($"[VRWaterPipe] {_logName}: mouthpiece taken ({args.HandSide} hand).", LogCat.VR);
+        }
+
+        /// <summary>
+        /// A grab the pipe refuses after all: let go a frame later, not inside the backend's grab event
+        /// (architecture.md "Inside Gothic-VR" 4), like TakeOverGrab.
+        /// </summary>
+        private void ReleaseAfterGrab()
+        {
+            if (_isReleasePending)
+                return;
+
+            _isReleasePending = true;
+            StartCoroutine(ReleaseNextFrame());
+        }
+
+        private IEnumerator ReleaseNextFrame()
+        {
+            yield return null;
+            _isReleasePending = false;
+
+            // Not let go meanwhile, and not taken properly since (_isHeld).
+            if (!_isHeld && _handle.IsHeld)
+                _handle.ForceRelease();
         }
 
         private void OnReleased(VrGrabArgs args)
@@ -328,6 +352,7 @@ namespace Gothic.VR.Adapters.Vob
         {
             // Culled with its mob while waiting: the next grab must still work.
             _isTakeOverPending = false;
+            _isReleasePending = false;
             // Culled at the mouth: the mouth's trigger may not report it leaving.
             StopHeroUse();
         }
