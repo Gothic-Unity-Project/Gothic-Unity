@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Gothic.Core.Const;
 using Gothic.Core.Domain.Audio;
 using Gothic.Core.Logging;
 using Gothic.Core.Models.Container;
@@ -50,9 +51,23 @@ namespace Gothic.Core.Manager
 
         private AudioSource _scriptSoundSource;
 
+        // Gothic.ini soundVolume, read on first use and again when the menu changes it. Stays unset while Gothic.ini
+        // isn't loaded (the player scene runs before a game was picked): the default would stick otherwise.
+        private float? _soundVolume;
+        // Sound effect sources that follow the slider (SetSfxVolume): their volume without it.
+        private readonly Dictionary<AudioSource, float> _sfxSources = new();
+        private readonly List<AudioSource> _destroyedSfxSources = new();
+
         public SoundEffectInstance InvOpen => _vmCacheService.TryGetSfxData("INV_OPEN").GetFirstSound();
         public SoundEffectInstance InvClose => _vmCacheService.TryGetSfxData("INV_CLOSE").GetFirstSound();
-        
+
+        public AudioService()
+        {
+            GlobalEventDispatcher.PlayerPrefUpdated.AddListener(OnSoundOptionUpdated);
+            // The old world's sources are gone by now.
+            GlobalEventDispatcher.WorldSceneLoaded.AddListener(RemoveDestroyedSfxSources);
+        }
+
         //
         // Music
         //
@@ -178,6 +193,67 @@ namespace Gothic.Core.Manager
         }
 
         /// <summary>
+        /// The player's sound effects volume (options slider, Gothic.ini [SOUND] soundVolume), 0..1. Voices and music
+        /// have their own.
+        /// </summary>
+        public float SoundVolume
+        {
+            get
+            {
+                if (_soundVolume.HasValue)
+                    return _soundVolume.Value;
+
+                var volume = Mathf.Clamp01(_configService.GetGothicOption(Constants.IniNames.SoundVolume,
+                    Constants.IniNames.SoundVolumeDefaultValue));
+                if (_configService.Gothic == null)
+                    return volume;
+
+                _soundVolume = volume;
+                Logger.Log($"[SoundVolume] Sound effects at {volume:0.##} (Gothic.ini soundVolume).", LogCat.Audio);
+                return volume;
+            }
+        }
+
+        /// <summary>
+        /// Sets a sound effect source's volume: the sound's own (Gothic's, 0..1) times the player's SoundVolume. The
+        /// source follows the slider from now on - a loop that plays (a VOB's campfire, the forge fire) changes at
+        /// once. Call it again when the source plays another sound with another volume.
+        /// </summary>
+        public void SetSfxVolume(AudioSource source, float soundVolume)
+        {
+            _sfxSources[source] = soundVolume;
+            source.volume = soundVolume * SoundVolume;
+        }
+
+        private void OnSoundOptionUpdated(string key, object value)
+        {
+            if (key != Constants.IniNames.SoundVolume)
+                return;
+
+            _soundVolume = null;
+            var volume = SoundVolume;
+            foreach (var (source, soundVolume) in _sfxSources)
+            {
+                if (source != null)
+                    source.volume = soundVolume * volume;
+            }
+            RemoveDestroyedSfxSources();
+        }
+
+        private void RemoveDestroyedSfxSources()
+        {
+            foreach (var (source, _) in _sfxSources)
+            {
+                if (source == null)
+                    _destroyedSfxSources.Add(source);
+            }
+
+            foreach (var source in _destroyedSfxSources)
+                _sfxSources.Remove(source);
+            _destroyedSfxSources.Clear();
+        }
+
+        /// <summary>
         /// Range (m) in which an animation sound (*eventSFX) is audible: the override of the few sounds that carry
         /// further than Gothic's range, else Gothic's own.
         /// Chosen in play: Fellan's hammering (R:1000 = 10 m) must reach Alwin's sheep pen ~18 m away (his quest asks
@@ -201,7 +277,7 @@ namespace Gothic.Core.Manager
 
             var clip = GetRandomSoundClip(soundName);
             if (clip != null)
-                _scriptSoundSource.PlayOneShot(clip);
+                _scriptSoundSource.PlayOneShot(clip, SoundVolume);
         }
 
         [CanBeNull]

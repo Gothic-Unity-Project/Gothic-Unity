@@ -107,15 +107,16 @@ namespace Gothic.Core.Adapters.Animations
                         sfx.Name.Substring(GroundSoundDomain.GroundEventPrefix.Length), _stepOrigin.position);
                     var stepClip = _audioService.GetRandomSoundClip(stepName, out var stepVolume);
                     if (stepClip != null)
-                        _sound.PlayOneShot(stepClip, stepVolume);
+                        _sound.PlayOneShot(stepClip, stepVolume * _audioService.SoundVolume);
                     continue;
                 }
 
-                // Gothic's volume of the sound (Forge_Sharpen 40 of 127): its source plays one clip at a time.
+                // Gothic's volume of the sound (Forge_Sharpen 40 of 127) and the player's sound volume, which a
+                // long clip (FORGE_FIRE) follows while it plays. Its source plays one clip at a time.
                 var clip = _audioService.GetRandomSoundClip(sfx.Name, out var volume);
                 var clipSource = GetClipSource();
                 clipSource.clip = clip;
-                clipSource.volume = _soundBaseVolume * volume;
+                _audioService.SetSfxVolume(clipSource, _soundBaseVolume * volume);
                 clipSource.maxDistance = _audioService.GetSfxRangeMeters(sfx.Name, sfx.Range.ToMeter());
                 clipSource.Play();
             }

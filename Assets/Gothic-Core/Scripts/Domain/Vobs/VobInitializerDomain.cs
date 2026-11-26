@@ -808,7 +808,8 @@ namespace Gothic.Core.Domain.Vobs
         private void PrepareAudioSource(AudioSource source, Sound soundData, string soundName)
         {
             source.maxDistance = soundData.Radius / 100f; // Gothic's values are in cm, Unity's in m.
-            source.volume = soundData.Volume / 100f; // Gothic's volume is 0...100, Unity's is 0...1.
+            // Gothic's volume is 0...100, Unity's is 0...1. Times the player's sound volume, a loop follows the slider.
+            _audioService.SetSfxVolume(source, soundData.Volume / 100f);
 
             // Random sounds shouldn't play initially, but after certain time.
             source.playOnAwake = soundData.InitiallyPlaying && soundData.Mode != SoundMode.Random;

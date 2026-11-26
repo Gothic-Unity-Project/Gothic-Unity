@@ -249,7 +249,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (startDelay > 0f)
                 yield return new WaitForSeconds(startDelay);
             if (clip != null)
-                _mouthAudio.PlayOneShot(clip, volume);
+                _mouthAudio.PlayOneShot(clip, volume * _audioService.SoundVolume);
 
             yield return new WaitForSeconds(destroyDelay);
 
