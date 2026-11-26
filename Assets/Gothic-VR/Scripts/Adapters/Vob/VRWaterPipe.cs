@@ -27,7 +27,7 @@ namespace Gothic.VR.Adapters.Vob
     ///   hose's links bend towards the hand (HoseIk) - the model's own nodes, no physics.
     /// - Pulled further than the hose is long (plus a little slack), the mouthpiece slips out of the hand.
     /// - Let go, the links swing back to their rest pose (or to the pose the pipe's own animation gives them).
-    /// - Busy while an NPC smokes it (mob state above 0 or an NPC at it): checked when a hand hovers or grabs it.
+    /// - Busy while an NPC smokes it (a living NPC uses it or walks to it): checked when a hand hovers or grabs it.
     /// - At the mouth (VRMouth, IVrMouthSmokable) the pipe works like for an NPC (MobAnimationService.StartHeroUse:
     ///   PIPE_BUBBLES, FIRE_SMOKE at the bowl) and after a drag the hero blows out LIGHTSMOKE (HUMANS S_SMOKE_S1).
     ///   Away from the mouth or let go, it rests again (StopHeroUse). Like in the original, nothing else happens: no
@@ -205,15 +205,16 @@ namespace Gothic.VR.Adapters.Vob
         }
 
         /// <summary>
-        /// An NPC smokes it (ZS_Smoke_Waterpipe: AI_UseMob "SMOKE"): it's in a used state or reserved by an NPC. The
-        /// hero's own use (MobAnimationService.StartHeroUse) changes neither.
+        /// An NPC smokes it right now (ZS_Smoke_Waterpipe: AI_UseMob "SMOKE"): a living NPC uses it or walks to it.
+        /// Not the mob state: a state saved while an NPC smoked comes back with a load, but no NPC uses it then
+        /// (ReleaseMob never resets it). The hero's own use (MobAnimationService.StartHeroUse) sets no user.
         /// </summary>
         private bool IsBusy()
         {
             if (_mob == null)
                 return false;
 
-            return _mob.MobState > 0 || _vobService.GetOtherMobUsers(_mob, _playerService.HeroContainer).Any();
+            return _vobService.GetOtherMobUsers(_mob, _playerService.HeroContainer).Any(i => !i.Props.IsDead);
         }
 
         /// <summary>
