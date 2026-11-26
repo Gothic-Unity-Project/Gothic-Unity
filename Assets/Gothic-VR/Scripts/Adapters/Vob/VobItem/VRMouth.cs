@@ -39,15 +39,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _smokeExhaleSpeed = 0.35f;
         private const float _smokeRiseSpeed = 0.1f;
         private const int _smokePuffParticles = 12;
-        // A water pipe: smoke and the breath out come when the mouthpiece leaves the mouth after at least a short drag.
-        private const float _smokableMinDragSeconds = 0.8f;
-        private const float _smokableExhaleSeconds = 0.6f;
-        private const int _smokableExhalePuffs = 2;
-        // The smoke is held for a moment before it is blown out.
-        private const float _smokableExhaleDelay = 1f;
-        // The joint's smoking sound (SfxInst SMOKE_JOINT, smoke_joint.wav) - the snoring breath-out isn't in
-        // every game.
-        private const string _exhaleSound = "SMOKE_JOINT";
 
         [SerializeField] private AudioSource _mouthAudio;
 
@@ -75,15 +66,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         // Do not eat them twice during destroy time.
         private List<GameObject> _objectsInDestroyGracePeriod = new();
 
-        // The part smoked at the mouth right now (a water pipe's mouthpiece) and its drag.
-        private IVrMouthSmokable _smokable;
-        private Collider _smokedPart;
-        private float _smokableExhaleStart;
+        // A water pipe's mouthpiece at the mouth (created on first use: the services are injected by then).
+        private VRMouthSmoking _smoking;
 
 
         private void OnTriggerEnter(Collider other)
         {
-            if (TryStartSmoking(other))
+            _smoking ??= new VRMouthSmoking(this, _mouthAudio, _audioService);
+            if (_smoking.TryStartSmoking(other))
                 return;
 
             var go = other.gameObject;
@@ -124,100 +114,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         private void OnTriggerExit(Collider other)
         {
-            if (other == _smokedPart)
-                StopSmoking();
-        }
-
-        /// <summary>
-        /// A part of something smoked without being used up (IVrMouthSmokable: a water pipe's mouthpiece) touched the
-        /// mouth: after the drag delay its smoke is blown out. true: the collider belongs to such a thing - it's no
-        /// food, whether it is smoked now or not.
-        /// </summary>
-        private bool TryStartSmoking(Collider other)
-        {
-            var smokable = other.GetComponentInParent<IVrMouthSmokable>();
-            if (smokable == null)
-                return false;
-
-            // In again without having left: its exit was missed (culled at the mouth).
-            if (other == _smokedPart)
-                StopSmoking();
-
-            if (!smokable.TryStartSmoking(other))
-                return true;
-
-            // Another part was still at the mouth.
-            StopSmoking();
-            _smokable = smokable;
-            _smokedPart = other;
-            _smokableExhaleStart = Time.time;
-            // While at the mouth only the pipe works (it bubbles, the bowl smokes); the smoke comes out of the mouth
-            // when the mouthpiece is taken away (StopSmoking).
-            Logger.Log($"[VRMouth] Smoking {other.name}.", LogCat.VR);
-            return true;
-        }
-
-        /// <summary>
-        /// The smoked part left the mouth. Taken away before the drag ended, no smoke comes; puffs already blown out
-        /// drift on. Destroyed or culled at the mouth (its exit never came): the mouth is free again, without smoke.
-        /// </summary>
-        private void StopSmoking(bool isExhaling = true)
-        {
-            if (_smokable == null)
-                return;
-
-            // Cleared first: nothing below may leave the mouth stuck on this part.
-            var smokable = _smokable;
-            var part = _smokedPart;
-            var dragStart = _smokableExhaleStart;
-            _smokable = null;
-            _smokedPart = null;
-
-            if (IsGone(smokable, part))
-            {
-                Logger.Log("[VRMouth] The smoked part is gone - nothing is breathed out.", LogCat.VR);
-                return;
-            }
-
-            // Taken from the mouth after a drag: a breath out and a cloud of smoke in front of the face.
-            if (isExhaling && Time.time >= dragStart + _smokableMinDragSeconds)
-            {
-                TryExhaleSmoke(TryGetHumansAnimation(smokable.ExhaleAnimation), smokable.ExhaleAnimation,
-                    _smokableExhaleSeconds, _smokableExhaleDelay, _smokableExhalePuffs);
-                StartCoroutine(PlayExhaleSound(_smokableExhaleDelay));
-                Logger.Log($"[VRMouth] Breathing out the smoke of {part.name} in {_smokableExhaleDelay} s.", LogCat.VR);
-            }
-
-            smokable.StopSmoking(part);
-        }
-
-        /// <summary>
-        /// The part or its smokable was destroyed or deactivated (culled, world left). Unity's null check first: `?.`
-        /// doesn't do it, and .name of a destroyed collider throws.
-        /// </summary>
-        private static bool IsGone(IVrMouthSmokable smokable, Collider part)
-        {
-            if (part == null || !part.enabled || !part.gameObject.activeInHierarchy)
-                return true;
-
-            return smokable is Behaviour behaviour && (behaviour == null || !behaviour.gameObject.activeInHierarchy);
-        }
-
-        private IEnumerator PlayExhaleSound(float delay)
-        {
-            yield return new WaitForSeconds(delay);
-
-            var exhaleClip = _audioService.GetRandomSoundClip(_exhaleSound);
-            if (exhaleClip != null)
-                _mouthAudio.PlayOneShot(exhaleClip);
-            else
-                Logger.LogWarning($"[VRMouth] No sound '{_exhaleSound}' for breathing out the smoke.", LogCat.VR);
+            _smoking?.OnLeftMouth(other);
         }
 
         private void OnDisable()
         {
             // Coroutines end with the component; the smoked thing must still hear that it left the mouth.
-            StopSmoking(isExhaling: false);
+            _smoking?.StopSmoking(isExhaling: false);
         }
 
         /// <summary>
@@ -228,6 +131,14 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private bool IsSmokable(ItemInstance item)
         {
             return item.SchemeName.EqualsIgnoreCase("JOINT");
+        }
+
+        /// <summary>
+        /// VRMouthSmoking: the smoke of the Humans.mds animation animationName (its first particle effect).
+        /// </summary>
+        internal void TryExhaleHumansSmoke(string animationName, float inhaleSeconds, float startDelay, int puffCount)
+        {
+            TryExhaleSmoke(TryGetHumansAnimation(animationName), animationName, inhaleSeconds, startDelay, puffCount);
         }
 
         /// <summary>

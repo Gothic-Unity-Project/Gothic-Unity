@@ -28,8 +28,9 @@ namespace Gothic.VR.Adapters.Vob
     /// - Let go, the links swing back to their rest pose (or to the pose the pipe's own animation gives them).
     /// - Busy while an NPC smokes it (a living NPC uses it or walks to it): checked when a hand hovers, tries to grab
     ///   (twice a second) or grabs it.
-    /// - At the mouth (VRMouth, IVrMouthSmokable) the pipe works like for an NPC (MobAnimationService.StartHeroUse:
-    ///   PIPE_BUBBLES, FIRE_SMOKE at the bowl) and after a drag the hero blows out LIGHTSMOKE (HUMANS S_SMOKE_S1).
+    /// - At the mouth (VRMouthSmoking, IVrMouthSmokable) the pipe works like for an NPC
+    ///   (MobAnimationService.StartHeroUse: PIPE_BUBBLES, FIRE_SMOKE at the bowl) and after a drag the hero blows out
+    ///   LIGHTSMOKE (HUMANS S_SMOKE_S1).
     ///   Away from the mouth or let go, it rests again (StopHeroUse). Like in the original, nothing else happens: no
     ///   item is used, no script runs.
     /// Nothing is saved: the pipe rests again after a load.
@@ -59,6 +60,8 @@ namespace Gothic.VR.Adapters.Vob
         private const float _busyRecheckSeconds = 0.5f;
         // The hero's smoking animation: its particle effect (LIGHTSMOKE) is the smoke blown out.
         private const string _exhaleAnimationName = "S_SMOKE_S1";
+        // The joint's smoking sound (SfxInst SMOKE_JOINT, smoke_joint.wav) - the snoring breath-out isn't in every game.
+        private const string _exhaleSoundName = "SMOKE_JOINT";
 
         [Inject] private readonly IVrBackend _vrBackend;
         [Inject] private readonly VRPlayerService _vrPlayerService;
@@ -383,6 +386,8 @@ namespace Gothic.VR.Adapters.Vob
         }
 
         public string ExhaleAnimation => _exhaleAnimationName;
+
+        public string ExhaleSound => _exhaleSoundName;
 
         /// <summary>
         /// The held mouthpiece at the mouth: the pipe works for the hero like for a smoking NPC (S0 -> S1 and its
