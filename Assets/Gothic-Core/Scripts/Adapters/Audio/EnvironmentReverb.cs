@@ -78,7 +78,7 @@ namespace Gothic.Core.Adapters.Audio
 
             var averageWallMeters = distance / _wallRays;
             if (isInHouse)
-                return averageWallMeters < _hallMeters ? AudioReverbPreset.Room : AudioReverbPreset.StoneRoom;
+                return averageWallMeters < _hallMeters ? AudioReverbPreset.Room : AudioReverbPreset.Stoneroom;
 
             return averageWallMeters < _narrowMeters ? AudioReverbPreset.StoneCorridor : AudioReverbPreset.Cave;
         }
