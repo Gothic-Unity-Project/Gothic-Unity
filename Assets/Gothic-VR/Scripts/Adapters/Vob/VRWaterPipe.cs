@@ -45,13 +45,13 @@ namespace Gothic.VR.Adapters.Vob
         };
 
         private const string _handleName = "MouthpieceHandle";
-        private const float _handleRadius = 0.07f;
+        private const float _handleRadius = 0.15f;
         // The hand may be this much further from the hose's start than the hose is long before it slips out.
         private const float _slack = 0.15f;
         private const float _swingBackSeconds = 0.3f;
         // A hand grabbing the pipe this close to the mouthpiece takes the mouthpiece (VRMobInteraction).
         private const float _takeOverDistance = 0.15f;
-        private const int _ikIterations = 4;
+        private const int _ikIterations = 10;
         private const float _ikMaxTurnDegrees = 25f;
         private const float _ikTolerance = 0.005f;
         // The hero's smoking animation: its particle effect (LIGHTSMOKE) is the smoke blown out.
@@ -280,6 +280,7 @@ namespace Gothic.VR.Adapters.Vob
             _isHeld = false;
             _hand = null;
             StopHeroUse();
+            _handleTrigger.transform.localPosition = Vector3.zero;
             for (var i = 0; i < _links.Length; i++)
             {
                 _releasedRotations[i] = _links[i].localRotation;
@@ -410,6 +411,10 @@ namespace Gothic.VR.Adapters.Vob
 
             for (var i = 0; i < _links.Length; i++)
                 _solvedRotations[i] = _links[i].localRotation;
+
+            // The mouth meets the mouthpiece where the hand holds it, even when the hose falls a bit short of the hand
+            // (the trigger stayed at the hose's end and never reached the mouth).
+            _handleTrigger.transform.position = target;
         }
 
         private void Slip(string reason)
