@@ -44,7 +44,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _smokableMinDragSeconds = 0.8f;
         private const float _smokableExhaleSeconds = 0.6f;
         private const int _smokableExhalePuffs = 2;
-        private const string _exhaleSound = "Human_SnoreIn"; // G2 SfxInst: Snore_BreathOut_01..03.wav
+        // The joint's smoking sound (SfxInst SMOKE_JOINT, smoke_joint.wav) - the snoring breath-out isn't in every game.
+        private const string _exhaleSound = "SMOKE_JOINT";
 
         [SerializeField] private AudioSource _mouthAudio;
 
@@ -170,6 +171,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 var exhaleClip = _audioService.GetRandomSoundClip(_exhaleSound);
                 if (exhaleClip != null)
                     _mouthAudio.PlayOneShot(exhaleClip);
+                else
+                    Logger.LogWarning($"[VRMouth] No sound '{_exhaleSound}' for breathing out the smoke.", LogCat.VR);
                 _smokableExhale = TryExhaleSmoke(TryGetHumansAnimation(_smokable.ExhaleAnimation),
                     _smokable.ExhaleAnimation, _smokableExhaleSeconds, 0f, _smokableExhalePuffs);
                 Logger.Log($"[VRMouth] Breathing out the smoke of {_smokedPart?.name}.", LogCat.VR);
