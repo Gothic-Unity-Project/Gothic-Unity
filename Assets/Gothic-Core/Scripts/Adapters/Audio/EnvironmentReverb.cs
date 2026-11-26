@@ -3,6 +3,7 @@ using Gothic.Core.Domain.Audio;
 using Gothic.Core.Extensions;
 using Gothic.Core.Logging;
 using Gothic.Core.Services.Vobs;
+using Gothic.Core.Services.World;
 using Reflex.Attributes;
 using UnityEngine;
 using Logger = Gothic.Core.Logging.Logger;
@@ -13,6 +14,8 @@ namespace Gothic.Core.Adapters.Audio
     /// Sounds echo in mines, caves and temples. Gothic set an EAX environment per zone (zCZoneReverb, not read by
     /// ZenKit); this measures it instead: under a ceiling of the world mesh the reverb zone around the listener gets a
     /// room's echo - a cave's when the walls are far, a stone corridor's when they're near. Outside it's off.
+    /// Inside a house (a portal room, RoomService.HeroRoom) it's a small room's short echo - a wooden hut sounded like
+    /// an empty church with the stone corridor; a big hall (town hall, monastery) gets a stone room's.
     /// On Rain.prefab, which follows the player's head (RainFollower) in VR and Flat.
     /// </summary>
     public class EnvironmentReverb : MonoBehaviour
@@ -20,11 +23,14 @@ namespace Gothic.Core.Adapters.Audio
         private const float _checkSeconds = 0.5f;
         private const float _wallRayLength = 20f;
         private const float _narrowMeters = 5f;
+        // Inside a house: walls further than this on average make it a hall (stone room), nearer a small room.
+        private const float _hallMeters = 8f;
         // The zone moves with the head - big enough to always contain the listener.
         private const float _zoneRadius = 1000f;
         private const int _wallRays = 8;
 
         [Inject] private readonly VobService _vobService;
+        [Inject] private readonly RoomService _roomService;
 
         private AudioReverbZone _zone;
         private float _nextCheckTime;
@@ -59,6 +65,7 @@ namespace Gothic.Core.Adapters.Audio
             if (!GroundSoundDomain.IsUnderWorldCeiling(position, _vobService.IsVobCollider))
                 return AudioReverbPreset.Off;
 
+            var isInHouse = !string.IsNullOrEmpty(_roomService.HeroRoom);
             var distance = 0f;
             for (var i = 0; i < _wallRays; i++)
             {
@@ -69,7 +76,11 @@ namespace Gothic.Core.Adapters.Audio
                     : _wallRayLength;
             }
 
-            return distance / _wallRays < _narrowMeters ? AudioReverbPreset.StoneCorridor : AudioReverbPreset.Cave;
+            var averageWallMeters = distance / _wallRays;
+            if (isInHouse)
+                return averageWallMeters < _hallMeters ? AudioReverbPreset.Room : AudioReverbPreset.StoneRoom;
+
+            return averageWallMeters < _narrowMeters ? AudioReverbPreset.StoneCorridor : AudioReverbPreset.Cave;
         }
     }
 }
