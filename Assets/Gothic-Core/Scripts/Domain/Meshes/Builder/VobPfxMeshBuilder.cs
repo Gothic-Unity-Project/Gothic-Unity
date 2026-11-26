@@ -99,7 +99,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
             _subEmitterDepth++;
             try
             {
-                var child = _pfxMeshService.CreateVobPfx(childName, parent: pfxGo, destroyAfterPlay: _destroyAfterPlay);
+                var child = _pfxMeshService.CreateVobPfx(childName, parent: pfxGo, destroyAfterPlay: _destroyAfterPlay,
+                    isFollowingEmitter: _isFollowingEmitter);
                 var childRoot = child != null ? child.transform.parent : null;
                 if (childRoot != null && childRoot.gameObject != pfxGo)
                     childRoot.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
@@ -132,6 +133,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         private string _visualName;
         private bool _destroyAfterPlay;
+        private bool _isFollowingEmitter;
 
 
         public void SetPfxData(string visualName)
@@ -142,6 +144,15 @@ namespace Gothic.Core.Domain.Meshes.Builder
         public void SetDestroyAfterPlay(bool destroyAfterPlay)
         {
             _destroyAfterPlay = destroyAfterPlay;
+        }
+
+        /// <summary>
+        /// An effect that sticks to a moving body (a spell's glow in a hand, an aura on an NPC): its particles move and
+        /// turn with the emitter (Local simulation). Otherwise they live in the world once emitted.
+        /// </summary>
+        public void SetFollowingEmitter(bool isFollowingEmitter)
+        {
+            _isFollowingEmitter = isFollowingEmitter;
         }
 
         /// <summary>
@@ -218,7 +229,10 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 // Like the engine, an emitted particle lives in the world: it doesn't move or turn with its emitter
                 // afterwards. dirFor/shpFor only say in which frame a particle starts (velocity module below). Local
                 // simulation carried the sparks along with the turning grindstone - a line instead of a falling shower.
-                mainModule.simulationSpace = ParticleSystemSimulationSpace.World;
+                // Effects stuck to a moving body (a glow in a hand, an aura) move with it (SetFollowingEmitter).
+                mainModule.simulationSpace = _isFollowingEmitter
+                    ? ParticleSystemSimulationSpace.Local
+                    : ParticleSystemSimulationSpace.World;
 
                 // Start size from visSizeStart (cm->m). Allow end scale via Size over Lifetime below.
                 if (!string.IsNullOrEmpty(pfx.VisSizeStartS) && pfx.VisSizeStartS != "=")

@@ -40,7 +40,8 @@ namespace Gothic.VR.Adapters.Player
             {
                 if (string.IsNullOrEmpty(pfxName))
                     continue;
-                var leaf = meshService.CreateVobPfx(pfxName, parent: parent);
+                // Held in the hand or the ring: follows it (PrepareHeldEffect).
+                var leaf = meshService.CreateVobPfx(pfxName, parent: parent, isFollowingEmitter: true);
                 if (leaf == null)
                     continue;
 
