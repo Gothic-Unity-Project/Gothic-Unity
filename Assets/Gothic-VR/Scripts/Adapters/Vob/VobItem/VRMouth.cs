@@ -40,7 +40,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _smokeRiseSpeed = 0.1f;
         private const int _smokePuffParticles = 12;
         // A drag of something not used up (water pipe): its puffs are spread over this time.
-        private const float _smokableExhaleSeconds = 3f;
+        // A water pipe: smoke and the breath out come when the mouthpiece leaves the mouth after at least a short drag.
+        private const float _smokableMinDragSeconds = 0.8f;
+        private const float _smokableExhaleSeconds = 0.6f;
+        private const int _smokableExhalePuffs = 2;
+        private const string _exhaleSound = "Human_SnoreIn"; // G2 SfxInst: Snore_BreathOut_01..03.wav
 
         [SerializeField] private AudioSource _mouthAudio;
 
@@ -145,9 +149,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _smokable = smokable;
             _smokedPart = other;
             _smokableExhaleStart = Time.time;
-            var startDelay = Mathf.Max(0f, _smokeStartDelay);
-            _smokableExhale = TryExhaleSmoke(TryGetHumansAnimation(smokable.ExhaleAnimation),
-                smokable.ExhaleAnimation, _smokableExhaleSeconds, startDelay);
+            // While at the mouth only the pipe works (it bubbles, the bowl smokes); the smoke comes out of the mouth
+            // when the mouthpiece is taken away (StopSmoking).
             Logger.Log($"[VRMouth] Smoking {other.name}.", LogCat.VR);
             return true;
         }
@@ -156,13 +159,21 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// The smoked part left the mouth. Taken away before the drag ended, no smoke comes; puffs already blown out
         /// drift on.
         /// </summary>
-        private void StopSmoking()
+        private void StopSmoking(bool isExhaling = true)
         {
             if (_smokable == null)
                 return;
 
-            if (_smokableExhale != null && Time.time < _smokableExhaleStart + _smokeStartDelay)
-                StopCoroutine(_smokableExhale);
+            // Taken from the mouth after a drag: a breath out and a cloud of smoke in front of the face.
+            if (isExhaling && Time.time >= _smokableExhaleStart + _smokableMinDragSeconds)
+            {
+                var exhaleClip = _audioService.GetRandomSoundClip(_exhaleSound);
+                if (exhaleClip != null)
+                    _mouthAudio.PlayOneShot(exhaleClip);
+                _smokableExhale = TryExhaleSmoke(TryGetHumansAnimation(_smokable.ExhaleAnimation),
+                    _smokable.ExhaleAnimation, _smokableExhaleSeconds, 0f, _smokableExhalePuffs);
+                Logger.Log($"[VRMouth] Breathing out the smoke of {_smokedPart?.name}.", LogCat.VR);
+            }
 
             var smokable = _smokable;
             var part = _smokedPart;
@@ -176,7 +187,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private void OnDisable()
         {
             // Coroutines end with the component; the smoked thing must still hear that it left the mouth.
-            StopSmoking();
+            StopSmoking(isExhaling: false);
         }
 
         /// <summary>
@@ -195,7 +206,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         /// </summary>
         [CanBeNull]
         private Coroutine TryExhaleSmoke([CanBeNull] IAnimation smokeAnimation, string animationName,
-            float inhaleSeconds, float startDelay)
+            float inhaleSeconds, float startDelay, int puffCount = 0)
         {
             var pfxName = smokeAnimation?.ParticleEffects.FirstOrDefault()?.Name;
             if (string.IsNullOrEmpty(pfxName))
@@ -204,15 +215,15 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return null;
             }
 
-            return StartCoroutine(ExhaleSmoke(pfxName, inhaleSeconds, startDelay));
+            return StartCoroutine(ExhaleSmoke(pfxName, inhaleSeconds, startDelay, puffCount));
         }
 
         /// <summary>
         /// The particle effect pfxName puffed out in front of the VR head.
         /// </summary>
-        private IEnumerator ExhaleSmoke(string pfxName, float inhaleSeconds, float startDelay)
+        private IEnumerator ExhaleSmoke(string pfxName, float inhaleSeconds, float startDelay, int puffCount = 0)
         {
-            var puffs = Mathf.Max(1, _smokePuffs);
+            var puffs = Mathf.Max(1, puffCount > 0 ? puffCount : _smokePuffs);
             if (startDelay > 0f)
                 yield return new WaitForSeconds(startDelay);
 
