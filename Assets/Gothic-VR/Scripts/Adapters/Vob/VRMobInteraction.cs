@@ -23,9 +23,12 @@ namespace Gothic.VR.Adapters.Vob
 
         private bool _mobActivated;
         private VrInteractable _interactable;
+        // The mouthpiece of a water pipe (null for other mobs).
+        private VRWaterPipe _waterPipe;
 
         /// <summary>
-        /// Subscribed in Start (not Awake), so that e.g. VRSeat handles a grab first (as before).
+        /// Subscribed in Start (not Awake), so that e.g. VRSeat handles a grab first (as before). The mob's model is
+        /// built by then: a water pipe's mouthpiece becomes a handle of its own (VRWaterPipe).
         /// </summary>
         private void Start()
         {
@@ -34,6 +37,7 @@ namespace Gothic.VR.Adapters.Vob
 
             _interactable.Grabbed += OnGrabbed;
             _interactable.Released += OnReleased;
+            _waterPipe = VRWaterPipe.TryAdd(gameObject);
         }
 
         private void OnDestroy()
@@ -48,6 +52,10 @@ namespace Gothic.VR.Adapters.Vob
         private void OnGrabbed(VrGrabArgs args)
         {
             if (_mobActivated)
+                return;
+
+            // The hand closed at a water pipe's mouthpiece but caught the pipe: it takes the mouthpiece instead.
+            if (_waterPipe != null && _waterPipe.TryTakeOverGrab(args))
                 return;
 
             var vobLoader = GetComponentInParent<VobLoader>();

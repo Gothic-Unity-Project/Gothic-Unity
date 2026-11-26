@@ -66,9 +66,16 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         // Do not eat them twice during destroy time.
         private List<GameObject> _objectsInDestroyGracePeriod = new();
 
+        // A water pipe's mouthpiece at the mouth (created on first use: the services are injected by then).
+        private VRMouthSmoking _smoking;
+
 
         private void OnTriggerEnter(Collider other)
         {
+            _smoking ??= new VRMouthSmoking(this, _mouthAudio, _audioService);
+            if (_smoking.TryStartSmoking(other))
+                return;
+
             var go = other.gameObject;
 
             if (!TryGetItemToEat(go, out var item))
@@ -101,7 +108,19 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             StartCoroutine(ConsumeObject(rootGo, clip, destroyTime, startDelay));
 
             if (IsSmokable(item))
-                StartCoroutine(ExhaleSmoke(item, destroyTime, startDelay));
+                TryExhaleSmoke(TryGetUseAnimation(item), string.Format(_animationSchemeWithSfx, item.SchemeName),
+                    destroyTime, startDelay);
+        }
+
+        private void OnTriggerExit(Collider other)
+        {
+            _smoking?.OnLeftMouth(other);
+        }
+
+        private void OnDisable()
+        {
+            // Coroutines end with the component; the smoked thing must still hear that it left the mouth.
+            _smoking?.StopSmoking(isExhaling: false);
         }
 
         /// <summary>
@@ -115,20 +134,39 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         }
 
         /// <summary>
-        /// The animation's own particle effect (LIGHTSMOKE) puffed out in front of the VR head.
+        /// VRMouthSmoking: the smoke of the Humans.mds animation animationName (its first particle effect).
         /// </summary>
-        private IEnumerator ExhaleSmoke(ItemInstance item, float inhaleSeconds, float startDelay)
+        internal void TryExhaleHumansSmoke(string animationName, float inhaleSeconds, float startDelay, int puffCount)
         {
-            var puffs = Mathf.Max(1, _smokePuffs);
-            if (startDelay > 0f)
-                yield return new WaitForSeconds(startDelay);
+            TryExhaleSmoke(TryGetHumansAnimation(animationName), animationName, inhaleSeconds, startDelay, puffCount);
+        }
 
-            var pfxName = TryGetUseAnimation(item)?.ParticleEffects.FirstOrDefault()?.Name;
+        /// <summary>
+        /// The smoke of a Humans.mds animation - its first particle effect (LIGHTSMOKE) - puffed out in front of the VR
+        /// head after startDelay. animationName only names it in the warning when it has none.
+        /// </summary>
+        [CanBeNull]
+        private Coroutine TryExhaleSmoke([CanBeNull] IAnimation smokeAnimation, string animationName,
+            float inhaleSeconds, float startDelay, int puffCount = 0)
+        {
+            var pfxName = smokeAnimation?.ParticleEffects.FirstOrDefault()?.Name;
             if (string.IsNullOrEmpty(pfxName))
             {
-                Logger.LogWarning($"[VRMouth] No smoke PFX in 't_{item.SchemeName}_S0_2_Stand'.", LogCat.VR);
-                yield break;
+                Logger.LogWarning($"[VRMouth] No smoke PFX in '{animationName}'.", LogCat.VR);
+                return null;
             }
+
+            return StartCoroutine(ExhaleSmoke(pfxName, inhaleSeconds, startDelay, puffCount));
+        }
+
+        /// <summary>
+        /// The particle effect pfxName puffed out in front of the VR head.
+        /// </summary>
+        private IEnumerator ExhaleSmoke(string pfxName, float inhaleSeconds, float startDelay, int puffCount = 0)
+        {
+            var puffs = Mathf.Max(1, puffCount > 0 ? puffCount : _smokePuffs);
+            if (startDelay > 0f)
+                yield return new WaitForSeconds(startDelay);
 
             // Puffs spread over the smoking sound - the first one right with it (it came only after a pause).
             for (var puff = 0; puff < puffs; puff++)
@@ -236,8 +274,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         [CanBeNull]
         private IAnimation TryGetUseAnimation(ItemInstance item)
         {
+            return TryGetHumansAnimation(string.Format(_animationSchemeWithSfx, item.SchemeName));
+        }
+
+        [CanBeNull]
+        private IAnimation TryGetHumansAnimation(string animationName)
+        {
             var mds = _resourceCacheService.TryGetModelScript("Humans");
-            var animationName = string.Format(_animationSchemeWithSfx, item.SchemeName);
             return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
         }
 

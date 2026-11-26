@@ -1124,6 +1124,16 @@ namespace Gothic.Core.Services.Vobs
                  i.Props.CurrentAction is Gothic.Core.Domain.Npc.Actions.AnimationActions.UseMob));
         }
 
+        /// <summary>
+        /// A living NPC other than except uses this mob right now or walks to it (GetOtherMobUsers) - "busy" for a
+        /// mob the hero takes hold of (a VR water pipe). Not MobState: above 0 it also means switched or open (levers,
+        /// lids), and a state saved while an NPC used the mob comes back with a load without that NPC at it.
+        /// </summary>
+        public bool IsUsedByOtherNpc(VobContainer mob, NpcContainer except)
+        {
+            return mob != null && GetOtherMobUsers(mob, except).Any(i => !i.Props.IsDead);
+        }
+
         private int GetSlotCount(VobContainer mob)
         {
             var slots = GetSlots(mob.Go);

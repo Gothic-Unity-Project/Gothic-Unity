@@ -113,10 +113,47 @@ namespace Gothic.VR.Interaction.Backends.Xri
         {
             if (interactor is not XriSocketBridge &&
                 (IsLockedInSocket || IsHeldByOtherHand(interactor) || IsTooFarFor(interactor) ||
-                 IsDistanceGrabOfHeldItem(interactor) || IsOutOfLineReach(interactor)))
+                 IsDistanceGrabOfHeldItem(interactor) || IsOutOfLineReach(interactor) || IsGrabRefused(interactor)))
                 return false;
 
             return base.IsSelectableBy(interactor);
+        }
+
+        /// <summary>
+        /// VrInteractable.CanGrab says no (a water pipe an NPC smokes). Only for a new grab: XRI asks again while the
+        /// hand holds it.
+        /// </summary>
+        private bool IsGrabRefused(IXRSelectInteractor interactor)
+        {
+            if (interactorsSelecting.Contains(interactor))
+                return false;
+
+            _vrInteractable ??= GetComponent<VrInteractable>();
+            var canGrab = _vrInteractable != null ? _vrInteractable.CanGrab : null;
+            return canGrab != null && !canGrab();
+        }
+
+        /// <summary>
+        /// Set up as a handle (IVrBackend.AddHandle, a water pipe's mouthpiece) before its GameObject is activated:
+        /// held without being moved (tracking off, kinematic, like a door leaf), never thrown or unparented, only right
+        /// at a hand and by one hand at a time.
+        /// </summary>
+        internal void SetUpAsHandle()
+        {
+            movementType = MovementType.Kinematic;
+            trackPosition = false;
+            trackRotation = false;
+            trackScale = false;
+            throwOnDetach = false;
+            unparentTransformOnGrab = false;
+            IsDistanceGrabbable = false;
+            _isOneHandOnly = true;
+
+            if (TryGetComponent<Rigidbody>(out var body))
+            {
+                body.isKinematic = true;
+                body.useGravity = false;
+            }
         }
 
         /// <summary>
