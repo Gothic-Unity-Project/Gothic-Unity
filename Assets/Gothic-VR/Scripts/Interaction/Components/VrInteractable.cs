@@ -54,6 +54,12 @@ namespace Gothic.VR.Interaction.Components
         public Func<Vector3, bool> CanSecondHandGrabAt { get; set; }
 
         /// <summary>
+        /// May a hand take it now? null = yes. Asked by the XRI backend while a hand tries to grab it (each frame
+        /// then): answer from a cached state, without allocations. VRWaterPipe: not while an NPC smokes the pipe.
+        /// </summary>
+        public Func<bool> CanGrab { get; set; }
+
+        /// <summary>
         /// See IVrInteractableBackend.IsGrabEnabled.
         /// </summary>
         public bool IsGrabEnabled

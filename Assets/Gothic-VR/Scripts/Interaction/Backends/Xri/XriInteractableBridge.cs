@@ -224,6 +224,14 @@ namespace Gothic.VR.Interaction.Backends.Xri
         }
 
         /// <summary>
+        /// The trigger colliders hands grab it by, for a bridge added at runtime (XriBackend.AddHandle) - before Start.
+        /// </summary>
+        internal void SetGrabTriggers(params Collider[] grabTriggers)
+        {
+            _grabTriggers = grabTriggers;
+        }
+
+        /// <summary>
         /// Called by GothicGrabInteractable before XRI moves the interactable (BeforeGrabbed of HVR).
         /// </summary>
         internal void OnSelectEntering(SelectEnterEventArgs args)
