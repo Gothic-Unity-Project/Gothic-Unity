@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Linq;
 using Gothic.Core.Adapters.Vob;
 using Gothic.Core.Const;
 using Gothic.Core.Extensions;
@@ -205,16 +204,12 @@ namespace Gothic.VR.Adapters.Vob
         }
 
         /// <summary>
-        /// An NPC smokes it right now (ZS_Smoke_Waterpipe: AI_UseMob "SMOKE"): a living NPC uses it or walks to it.
-        /// Not the mob state: a state saved while an NPC smoked comes back with a load, but no NPC uses it then
-        /// (ReleaseMob never resets it). The hero's own use (MobAnimationService.StartHeroUse) sets no user.
+        /// An NPC smokes it right now (ZS_Smoke_Waterpipe: AI_UseMob "SMOKE") - Core decides (VobService). The hero's
+        /// own use (MobAnimationService.StartHeroUse) sets no user.
         /// </summary>
         private bool IsBusy()
         {
-            if (_mob == null)
-                return false;
-
-            return _vobService.GetOtherMobUsers(_mob, _playerService.HeroContainer).Any(i => !i.Props.IsDead);
+            return _vobService.IsUsedByOtherNpc(_mob, _playerService.HeroContainer);
         }
 
         /// <summary>
