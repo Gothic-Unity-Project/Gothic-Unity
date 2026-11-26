@@ -33,7 +33,7 @@ namespace Gothic.Core.Const
 
             // Gothic's own [SOUND] 0..1, the options' sound effects slider (AudioService.SoundVolume).
             public const string SoundVolume = "soundVolume";
-            public const float SoundVolumeDefaultValue = 1f;
+            public const float SoundVolumeDefaultValue = 0.75f; // Gothic's own volume (AudioService)
 
             // [VIDEO] 0..1, vanilla 0.5 = neutral (the menu's Brightness slider).
             public const string VideoBrightness = "zVidBrightness";

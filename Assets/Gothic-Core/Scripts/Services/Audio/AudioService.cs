@@ -192,9 +192,12 @@ namespace Gothic.Core.Manager
             _scriptSoundSource = audioSource;
         }
 
+        // The slider position that plays the sounds at Gothic's own volume: the slider's top end is louder (1/0.75).
+        private const float _ownVolumeSliderPosition = 0.75f;
+
         /// <summary>
-        /// The player's sound effects volume (options slider, Gothic.ini [SOUND] soundVolume), 0..1. Voices and music
-        /// have their own.
+        /// The player's sound effects gain (options slider, Gothic.ini [SOUND] soundVolume 0..1): the slider at 0.75
+        /// plays Gothic's own volume, the top end a third louder. Voices and music have their own.
         /// </summary>
         public float SoundVolume
         {
@@ -203,13 +206,16 @@ namespace Gothic.Core.Manager
                 if (_soundVolume.HasValue)
                     return _soundVolume.Value;
 
-                var volume = Mathf.Clamp01(_configService.GetGothicOption(Constants.IniNames.SoundVolume,
+                var slider = Mathf.Clamp01(_configService.GetGothicOption(Constants.IniNames.SoundVolume,
                     Constants.IniNames.SoundVolumeDefaultValue));
+                var volume = slider / _ownVolumeSliderPosition;
                 if (_configService.Gothic == null)
                     return volume;
 
                 _soundVolume = volume;
-                Logger.Log($"[SoundVolume] Sound effects at {volume:0.##} (Gothic.ini soundVolume).", LogCat.Audio);
+                Logger.Log($"[SoundVolume] Sound effects slider {slider:0.##} (Gothic.ini soundVolume), gain " +
+                           $"{volume:0.##}.",
+                    LogCat.Audio);
                 return volume;
             }
         }
