@@ -161,30 +161,49 @@ namespace Gothic.VR.Adapters.Vob.VobItem
 
         /// <summary>
         /// The smoked part left the mouth. Taken away before the drag ended, no smoke comes; puffs already blown out
-        /// drift on.
+        /// drift on. Destroyed or culled at the mouth (its exit never came): the mouth is free again, without smoke.
         /// </summary>
         private void StopSmoking(bool isExhaling = true)
         {
             if (_smokable == null)
                 return;
 
-            // Taken from the mouth after a drag: a breath out and a cloud of smoke in front of the face.
-            if (isExhaling && Time.time >= _smokableExhaleStart + _smokableMinDragSeconds)
-            {
-                _smokableExhale = TryExhaleSmoke(TryGetHumansAnimation(_smokable.ExhaleAnimation),
-                    _smokable.ExhaleAnimation, _smokableExhaleSeconds, _smokableExhaleDelay, _smokableExhalePuffs);
-                StartCoroutine(PlayExhaleSound(_smokableExhaleDelay));
-                Logger.Log($"[VRMouth] Breathing out the smoke of {_smokedPart?.name} in {_smokableExhaleDelay} s.",
-                    LogCat.VR);
-            }
-
+            // Cleared first: nothing below may leave the mouth stuck on this part.
             var smokable = _smokable;
             var part = _smokedPart;
+            var dragStart = _smokableExhaleStart;
             _smokable = null;
             _smokedPart = null;
             _smokableExhale = null;
-            if (part != null)
-                smokable.StopSmoking(part);
+
+            if (IsGone(smokable, part))
+            {
+                Logger.Log("[VRMouth] The smoked part is gone - nothing is breathed out.", LogCat.VR);
+                return;
+            }
+
+            // Taken from the mouth after a drag: a breath out and a cloud of smoke in front of the face.
+            if (isExhaling && Time.time >= dragStart + _smokableMinDragSeconds)
+            {
+                TryExhaleSmoke(TryGetHumansAnimation(smokable.ExhaleAnimation), smokable.ExhaleAnimation,
+                    _smokableExhaleSeconds, _smokableExhaleDelay, _smokableExhalePuffs);
+                StartCoroutine(PlayExhaleSound(_smokableExhaleDelay));
+                Logger.Log($"[VRMouth] Breathing out the smoke of {part.name} in {_smokableExhaleDelay} s.", LogCat.VR);
+            }
+
+            smokable.StopSmoking(part);
+        }
+
+        /// <summary>
+        /// The part or its smokable was destroyed or deactivated (culled, world left). Unity's null check first: `?.`
+        /// doesn't do it, and .name of a destroyed collider throws.
+        /// </summary>
+        private static bool IsGone(IVrMouthSmokable smokable, Collider part)
+        {
+            if (part == null || !part.enabled || !part.gameObject.activeInHierarchy)
+                return true;
+
+            return smokable is Behaviour behaviour && (behaviour == null || !behaviour.gameObject.activeInHierarchy);
         }
 
         private IEnumerator PlayExhaleSound(float delay)
