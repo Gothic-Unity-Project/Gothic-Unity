@@ -52,6 +52,8 @@ namespace Gothic.Core.Services.Vobs
         {
             GlobalEventDispatcher.WorldSceneLoaded.AddListener(WarmWorldMobs);
             GlobalEventDispatcher.MobDialogEnded.AddListener(StopHeroUse);
+            GlobalEventDispatcher.LoadGameStart.AddListener(ForgetHeroUse);
+            GlobalEventDispatcher.LoadingSceneLoaded.AddListener(ForgetHeroUse);
         }
 
         /// <summary>
@@ -164,6 +166,16 @@ namespace Gothic.Core.Services.Vobs
             _heroMob = null;
             _hero = null;
             Stop(mob, hero);
+        }
+
+        /// <summary>
+        /// The world is left (world change, a loaded game): its mobs are gone with it, so the hero's mob is just
+        /// forgotten - a dialog anchor that went with the world never raised MobDialogEnded.
+        /// </summary>
+        private void ForgetHeroUse()
+        {
+            _heroMob = null;
+            _hero = null;
         }
 
         /// <summary>

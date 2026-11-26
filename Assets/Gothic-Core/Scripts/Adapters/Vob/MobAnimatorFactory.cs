@@ -1,7 +1,9 @@
 using Gothic.Core.Extensions;
+using Gothic.Core.Logging;
 using Gothic.Core.Models.Animations;
 using Gothic.Core.Models.Container;
 using Gothic.Core.Services.Vobs;
+using Logger = Gothic.Core.Logging.Logger;
 
 namespace Gothic.Core.Adapters.Vob
 {
@@ -17,7 +19,11 @@ namespace Gothic.Core.Adapters.Vob
 
             // The nodes are mapped once: a lazily loaded mob without its mesh yet gets its animator later.
             if (mob.Go.TryGetComponent<VobLoader>(out var loader) && !loader.IsLoaded)
+            {
+                Logger.LogEditor($"[MobAnimation] {mob.Vob?.Name} isn't loaded yet - its animation is skipped.",
+                    LogCat.Vob);
                 return null;
+            }
 
             animator = mob.Go.AddComponent<MobAnimator>().Inject();
             animator.Init(mob, skeleton);
