@@ -90,7 +90,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             Logger.Log($"Eating item: {go.name}", LogCat.VR);
 
             var destroyTime = 1f;
-            if (TryExtractSfx(item, out var clip))
+            if (TryExtractSfx(item, out var clip, out var volume))
                 destroyTime = clip.length;
             else
                 Logger.LogWarning("No SFX for eating/drinking item found. Removing item anyways after 1 second.", LogCat.VR);
@@ -98,7 +98,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _objectsInDestroyGracePeriod.Add(rootGo);
             // Smoking: a drag first, then the sound and the smoke (_smokeStartDelay).
             var startDelay = IsSmokable(item) ? Mathf.Max(0f, _smokeStartDelay) : 0f;
-            StartCoroutine(ConsumeObject(rootGo, clip, destroyTime, startDelay));
+            StartCoroutine(ConsumeObject(rootGo, clip, volume, destroyTime, startDelay));
 
             if (IsSmokable(item))
                 StartCoroutine(ExhaleSmoke(item, destroyTime, startDelay));
@@ -196,9 +196,11 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             return true;
         }
 
-        private bool TryExtractSfx(ItemInstance item, out AudioClip clip)
+        /// <param name="volume">Gothic's volume of the sound (SMOKE_JOINT 20 of 127), 0..1.</param>
+        private bool TryExtractSfx(ItemInstance item, out AudioClip clip, out float volume)
         {
             clip = null;
+            volume = 1f;
 
             var animationName = string.Format(_animationSchemeWithSfx, item.SchemeName);
             var anim = TryGetUseAnimation(item);
@@ -226,7 +228,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return false;
             }
 
-            clip = _audioService.CreateAudioClip(sfxContainer.GetRandomSound());
+            clip = _audioService.CreateAudioClip(sfxContainer.GetRandomSound(out volume));
             if (clip == null)
                 return false;
 
@@ -241,13 +243,13 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             return mds?.Animations.FirstOrDefault(i => i.Name.EqualsIgnoreCase(animationName));
         }
 
-        private IEnumerator ConsumeObject(GameObject go, [CanBeNull] AudioClip clip, float destroyDelay,
+        private IEnumerator ConsumeObject(GameObject go, [CanBeNull] AudioClip clip, float volume, float destroyDelay,
             float startDelay = 0f)
         {
             if (startDelay > 0f)
                 yield return new WaitForSeconds(startDelay);
             if (clip != null)
-                _mouthAudio.PlayOneShot(clip);
+                _mouthAudio.PlayOneShot(clip, volume);
 
             yield return new WaitForSeconds(destroyDelay);
 

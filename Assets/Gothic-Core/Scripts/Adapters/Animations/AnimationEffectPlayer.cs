@@ -46,10 +46,17 @@ namespace Gothic.Core.Adapters.Animations
             public ParticleSystem[] Systems;
         }
 
+        private const string _clipSourceName = "_AnimationSfx";
+
         private readonly Transform _boneRoot;
         private readonly Transform _stepOrigin;
         private readonly AudioSource _sound;
+        private readonly bool _isSoundShared;
+        // The volume the given source had: Gothic's volume of each sound is applied on top of it.
+        private readonly float _soundBaseVolume;
         private readonly bool _isReusingPfx;
+        // Plays the *eventSFX clips: the given source, or an own one next to it if that's shared (see GetClipSource).
+        private AudioSource _clipSource;
 
         // One-off mode: effects with an index, until their *eventPFXStop.
         private readonly Dictionary<int, GameObject> _activePfx = new();
@@ -63,13 +70,20 @@ namespace Gothic.Core.Adapters.Animations
         /// </param>
         /// <param name="stepOrigin">Where a step sound (*eventSFXGrnd) asks for the ground below.</param>
         /// <param name="sound">Plays the *eventSFX sounds (one at a time, like the engine's model sound).</param>
+        /// <param name="isSoundShared">Others play on the source too (an NPC's NpcSound): its clips get an own source
+        /// next to it, see GetClipSource().</param>
         /// <param name="isReusingPfx">Build each effect once and replay it (mobs), see class summary.</param>
-        public AnimationEffectPlayer(Transform boneRoot, Transform stepOrigin, AudioSource sound, bool isReusingPfx)
+        public AnimationEffectPlayer(Transform boneRoot, Transform stepOrigin, AudioSource sound, bool isSoundShared,
+            bool isReusingPfx)
         {
             _boneRoot = boneRoot;
             _stepOrigin = stepOrigin;
             _sound = sound;
+            _isSoundShared = isSoundShared;
+            _soundBaseVolume = sound != null ? sound.volume : 1f;
             _isReusingPfx = isReusingPfx;
+            if (!isSoundShared)
+                _clipSource = sound;
         }
 
         /// <summary>
@@ -91,19 +105,55 @@ namespace Gothic.Core.Adapters.Animations
                         continue;
                     var stepName = _groundSoundService.GetSoundName(
                         sfx.Name.Substring(GroundSoundDomain.GroundEventPrefix.Length), _stepOrigin.position);
-                    var stepClip = _audioService.GetRandomSoundClip(stepName);
+                    var stepClip = _audioService.GetRandomSoundClip(stepName, out var stepVolume);
                     if (stepClip != null)
-                        _sound.PlayOneShot(stepClip);
+                        _sound.PlayOneShot(stepClip, stepVolume);
                     continue;
                 }
 
-                var clip = _audioService.GetRandomSoundClip(sfx.Name);
-                _sound.clip = clip;
-                _sound.maxDistance = _audioService.GetSfxRangeMeters(sfx.Name, sfx.Range.ToMeter());
-                _sound.Play();
+                // Gothic's volume of the sound (Forge_Sharpen 40 of 127): its source plays one clip at a time.
+                var clip = _audioService.GetRandomSoundClip(sfx.Name, out var volume);
+                var clipSource = GetClipSource();
+                clipSource.clip = clip;
+                clipSource.volume = _soundBaseVolume * volume;
+                clipSource.maxDistance = _audioService.GetSfxRangeMeters(sfx.Name, sfx.Range.ToMeter());
+                clipSource.Play();
             }
 
             return sfxEvents.Count > 0;
+        }
+
+        /// <summary>
+        /// The source of the *eventSFX clips. An NPC's NpcSound is shared - hits, weapon draws and steps play on it as
+        /// one-shots, which a clip's volume (Gothic's of each sound) would turn down, and so would its range. Its clips
+        /// get an own source next to it instead, created on the first one with NpcSound's settings.
+        /// </summary>
+        private AudioSource GetClipSource()
+        {
+            if (_clipSource != null || !_isSoundShared)
+                return _clipSource;
+
+            var existing = _sound.transform.Find(_clipSourceName);
+            if (existing != null && existing.TryGetComponent(out _clipSource))
+                return _clipSource;
+
+            var clipGo = new GameObject(_clipSourceName);
+            clipGo.transform.SetParent(_sound.transform, false);
+            _clipSource = clipGo.AddComponent<AudioSource>();
+            _clipSource.playOnAwake = false;
+            _clipSource.outputAudioMixerGroup = _sound.outputAudioMixerGroup;
+            _clipSource.spatialBlend = _sound.spatialBlend;
+            _clipSource.priority = _sound.priority;
+            _clipSource.dopplerLevel = _sound.dopplerLevel;
+            _clipSource.spread = _sound.spread;
+            _clipSource.reverbZoneMix = _sound.reverbZoneMix;
+            _clipSource.rolloffMode = _sound.rolloffMode;
+            _clipSource.minDistance = _sound.minDistance;
+            _clipSource.maxDistance = _sound.maxDistance;
+            if (_sound.rolloffMode == AudioRolloffMode.Custom)
+                _clipSource.SetCustomCurve(AudioSourceCurveType.CustomRolloff,
+                    _sound.GetCustomCurve(AudioSourceCurveType.CustomRolloff));
+            return _clipSource;
         }
 
         /// <summary>

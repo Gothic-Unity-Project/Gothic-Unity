@@ -255,7 +255,17 @@ namespace Gothic.Core.Manager
         /// </summary>
         public AudioClip GetRandomSoundClip(string soundName)
         {
+            return GetRandomSoundClip(soundName, out _);
+        }
+
+        /// <summary>
+        /// Like GetRandomSoundClip(), with Gothic's volume of the picked sound (its C_SFX_DEF vol as 0..1 - a random
+        /// variant _A1, _A2 has its own, Forge_Sharpen is quiet). A .wav file name has none: 1.
+        /// </summary>
+        public AudioClip GetRandomSoundClip(string soundName, out float volume)
+        {
             AudioClip clip;
+            volume = 1f;
 
             if (soundName.EqualsIgnoreCase(NoSoundName))
             {
@@ -279,7 +289,7 @@ namespace Gothic.Core.Manager
                 if (sfxContainer.GetFirstSound() == null || sfxContainer.GetFirstSound()!.File.EqualsIgnoreCase(NoSoundName))
                     return null;
 
-                clip = CreateAudioClip(sfxContainer.GetRandomSound());
+                clip = CreateAudioClip(sfxContainer.GetRandomSound(out volume));
             }
 
             return clip;

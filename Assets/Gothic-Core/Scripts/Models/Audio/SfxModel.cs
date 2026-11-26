@@ -22,8 +22,13 @@ namespace Gothic.Core.Models.Audio
         // TODO - Injecting in a Model wasn't intended. Try to use it without injecting.
         [Inject] private readonly GameStateService _gameStateService;
 
+        // C_SFX_DEF vol is 0..127 (the prototype's default 127).
+        private const float _maxGothicVolume = 127f;
+
         private string soundKey;
         private SoundEffectInstance[]  _soundEffects;
+        // Gothic's volume of each instance (vol, 0..1), same index as _soundEffects.
+        private float[] _volumes;
 
         public int Count => _soundEffects.Length;
 
@@ -46,15 +51,26 @@ namespace Gothic.Core.Models.Audio
         [CanBeNull]
         public SoundEffectInstance GetRandomSound()
         {
+            return GetRandomSound(out _);
+        }
+
+        /// <summary>
+        /// Like GetRandomSound(), with Gothic's volume of the picked instance (vol as 0..1): a random variant
+        /// (BreathBubbles_A1) has its own. 1 if there's none.
+        /// </summary>
+        [CanBeNull]
+        public SoundEffectInstance GetRandomSound(out float volume)
+        {
             if (_soundEffects == null)
                 LoadSoundEffects();
 
+            volume = 1f;
             if (_soundEffects.IsEmpty())
                 return null;
-            else if (_soundEffects!.Length == 1)
-                return _soundEffects.First();
-            else
-                return _soundEffects.GetRandom();
+
+            var index = _soundEffects!.Length == 1 ? 0 : UnityEngine.Random.Range(0, _soundEffects.Length);
+            volume = _volumes[index];
+            return _soundEffects[index];
         }
 
         private void LoadSoundEffects()
@@ -71,6 +87,7 @@ namespace Gothic.Core.Models.Audio
                 // SFX symbol missing from Gothic's SFX scripts — expected for some broken VOBs (e.g. Wood_Night2 was never defined).
                 Logger.LogWarning($"SFX symbol not found in VM: '{soundKey}' — no sound will play.", LogCat.Audio);
                 _soundEffects = Array.Empty<SoundEffectInstance>();
+                _volumes = Array.Empty<float>();
                 return;
             }
 
@@ -109,6 +126,10 @@ namespace Gothic.Core.Models.Audio
             }
 
             _soundEffects = sounds.ToArray();
+
+            _volumes = new float[_soundEffects.Length];
+            for (var i = 0; i < _soundEffects.Length; i++)
+                _volumes[i] = UnityEngine.Mathf.Clamp01(_soundEffects[i].Volume / _maxGothicVolume);
         }
     }
 }
