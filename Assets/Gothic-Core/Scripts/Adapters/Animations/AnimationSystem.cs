@@ -139,8 +139,8 @@ namespace Gothic.Core.Adapters.Animations
             _initialMeshBonePos = _bones.Select(i => i.localPosition).ToArray();
             _initialMeshBoneRot = _bones.Select(i => i.localRotation).ToArray();
 
-            _effectPlayer = new AnimationEffectPlayer(Go.transform, transform, PrefabProps.NpcSound, isReusingPfx: false)
-                .Inject();
+            _effectPlayer = new AnimationEffectPlayer(Go.transform, transform, PrefabProps.NpcSound,
+                isSoundShared: true, isReusingPfx: false).Inject();
 
             CreateGraph();
             ResizeRootCollider();

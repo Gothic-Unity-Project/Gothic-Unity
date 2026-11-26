@@ -63,7 +63,8 @@ namespace Gothic.Core.Adapters.Vob
             _sound.spatialBlend = 1f;
             _sound.rolloffMode = AudioRolloffMode.Linear;
             _sound.minDistance = 0f;
-            _effectPlayer = new AnimationEffectPlayer(transform, transform, _sound, isReusingPfx: true).Inject();
+            _effectPlayer = new AnimationEffectPlayer(transform, transform, _sound, isSoundShared: false,
+                isReusingPfx: true).Inject();
 
             Rest(isSoundStopped: true);
         }
