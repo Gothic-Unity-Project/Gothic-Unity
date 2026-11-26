@@ -26,7 +26,8 @@ namespace Gothic.VR.Adapters.Vob
     ///   hose's links bend towards the hand (HoseIk) - the model's own nodes, no physics.
     /// - Pulled further than the hose is long (plus a little slack), the mouthpiece slips out of the hand.
     /// - Let go, the links swing back to their rest pose (or to the pose the pipe's own animation gives them).
-    /// - Busy while an NPC smokes it (a living NPC uses it or walks to it): checked when a hand hovers or grabs it.
+    /// - Busy while an NPC smokes it (a living NPC uses it or walks to it): checked when a hand hovers, tries to grab
+    ///   (twice a second) or grabs it.
     /// - At the mouth (VRMouth, IVrMouthSmokable) the pipe works like for an NPC (MobAnimationService.StartHeroUse:
     ///   PIPE_BUBBLES, FIRE_SMOKE at the bowl) and after a drag the hero blows out LIGHTSMOKE (HUMANS S_SMOKE_S1).
     ///   Away from the mouth or let go, it rests again (StopHeroUse). Like in the original, nothing else happens: no
@@ -53,6 +54,9 @@ namespace Gothic.VR.Adapters.Vob
         private const int _ikIterations = 10;
         private const float _ikMaxTurnDegrees = 25f;
         private const float _ikTolerance = 0.005f;
+        // While a hand tries to grab the mouthpiece, whether an NPC smokes it is asked again this often (not each
+        // frame: IsBusy walks all NPCs).
+        private const float _busyRecheckSeconds = 0.5f;
         // The hero's smoking animation: its particle effect (LIGHTSMOKE) is the smoke blown out.
         private const string _exhaleAnimationName = "S_SMOKE_S1";
 
@@ -85,11 +89,14 @@ namespace Gothic.VR.Adapters.Vob
 
         private bool _isHeld;
         private bool _isBusy;
+        private float _busyCheckTime;
         private Transform _hand;
         private Vector3 _grabOffset;
         private float _swingBack;
-        private bool _isTakeOverPending;
-        private bool _isReleasePending;
+        // The frame a take-over or a refused grab's release was deferred in (-1: none). A frame, not a flag: culling
+        // stops the coroutine, and OnDisable doesn't come while the component is disabled (idle).
+        private int _takeOverFrame = -1;
+        private int _releaseFrame = -1;
         private bool _isAtMouth;
 
 
@@ -214,19 +221,38 @@ namespace Gothic.VR.Adapters.Vob
         }
 
         /// <summary>
-        /// VrInteractable.CanGrab: answered from the hover's check, the backend asks while a hand tries to grab.
+        /// VrInteractable.CanGrab: answered from the cached check, the backend asks each frame while a hand tries to
+        /// grab. An NPC may sit down or get up meanwhile: the check is made again every _busyRecheckSeconds.
         /// </summary>
         private bool CanGrab()
         {
+            if (Time.time >= _busyCheckTime + _busyRecheckSeconds)
+                RefreshBusy(isLogged: false);
+
             return !_isBusy;
         }
 
         private void OnHoverEntered(VrGrabArgs args)
         {
+            RefreshBusy(isLogged: true);
+        }
+
+        private void RefreshBusy(bool isLogged)
+        {
+            var wasBusy = _isBusy;
             _isBusy = IsBusy();
-            if (_isBusy)
+            _busyCheckTime = Time.time;
+            if (_isBusy && (isLogged || !wasBusy))
                 Logger.LogEditor($"[VRWaterPipe] {_logName}: an NPC smokes it - the mouthpiece can't be taken.",
                     LogCat.VR);
+            else if (!_isBusy && wasBusy)
+                Logger.LogEditor($"[VRWaterPipe] {_logName}: no NPC smokes it any more - the mouthpiece is free.",
+                    LogCat.VR);
+        }
+
+        private static bool IsPending(int frame)
+        {
+            return frame >= 0 && Time.frameCount - frame <= 1;
         }
 
         private void OnGrabbed(VrGrabArgs args)
@@ -238,6 +264,7 @@ namespace Gothic.VR.Adapters.Vob
             if (IsBusy())
             {
                 _isBusy = true;
+                _busyCheckTime = Time.time;
                 Logger.Log($"[VRWaterPipe] {_logName}: an NPC smokes it - the mouthpiece is let go again.", LogCat.VR);
                 ReleaseAfterGrab();
                 return;
@@ -267,17 +294,17 @@ namespace Gothic.VR.Adapters.Vob
         /// </summary>
         private void ReleaseAfterGrab()
         {
-            if (_isReleasePending)
+            if (IsPending(_releaseFrame))
                 return;
 
-            _isReleasePending = true;
+            _releaseFrame = Time.frameCount;
             StartCoroutine(ReleaseNextFrame());
         }
 
         private IEnumerator ReleaseNextFrame()
         {
             yield return null;
-            _isReleasePending = false;
+            _releaseFrame = -1;
 
             // Not let go meanwhile, and not taken properly since (_isHeld).
             if (!_isHeld && _handle.IsHeld)
@@ -320,7 +347,7 @@ namespace Gothic.VR.Adapters.Vob
         /// </summary>
         public bool TryTakeOverGrab(VrGrabArgs args)
         {
-            if (args.Kind != VrGrabberKind.Hand || _handle == null || _isHeld || _isTakeOverPending)
+            if (args.Kind != VrGrabberKind.Hand || _handle == null || _isHeld || IsPending(_takeOverFrame))
                 return false;
 
             var hand = _vrPlayerService.Rig?.GetHandVisual(args.HandSide);
@@ -328,11 +355,11 @@ namespace Gothic.VR.Adapters.Vob
                 (hand.position - _mouthpiece.position).sqrMagnitude > _takeOverDistance * _takeOverDistance)
                 return false;
 
-            _isBusy = IsBusy();
+            RefreshBusy(isLogged: true);
             if (_isBusy)
                 return false;
 
-            _isTakeOverPending = true;
+            _takeOverFrame = Time.frameCount;
             StartCoroutine(TakeOverGrab(args.HandSide));
             return true;
         }
@@ -340,7 +367,7 @@ namespace Gothic.VR.Adapters.Vob
         private IEnumerator TakeOverGrab(VrHandSide side)
         {
             yield return null;
-            _isTakeOverPending = false;
+            _takeOverFrame = -1;
 
             var rig = _vrPlayerService.Rig;
             if (rig == null || !rig.TryGrabIntoHand(side, _handle))
@@ -350,10 +377,8 @@ namespace Gothic.VR.Adapters.Vob
 
         private void OnDisable()
         {
-            // Culled with its mob while waiting: the next grab must still work.
-            _isTakeOverPending = false;
-            _isReleasePending = false;
-            // Culled at the mouth: the mouth's trigger may not report it leaving.
+            // Culled at the mouth (held, so enabled): the mouth's trigger may not report it leaving. Also called by
+            // enabled = false (Init, after the swing-back) - nothing is at the mouth then.
             StopHeroUse();
         }
 

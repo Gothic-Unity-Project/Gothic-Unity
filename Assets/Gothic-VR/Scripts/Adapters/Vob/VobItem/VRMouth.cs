@@ -39,7 +39,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         private const float _smokeExhaleSpeed = 0.35f;
         private const float _smokeRiseSpeed = 0.1f;
         private const int _smokePuffParticles = 12;
-        // A drag of something not used up (water pipe): its puffs are spread over this time.
         // A water pipe: smoke and the breath out come when the mouthpiece leaves the mouth after at least a short drag.
         private const float _smokableMinDragSeconds = 0.8f;
         private const float _smokableExhaleSeconds = 0.6f;
@@ -79,7 +78,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
         // The part smoked at the mouth right now (a water pipe's mouthpiece) and its drag.
         private IVrMouthSmokable _smokable;
         private Collider _smokedPart;
-        private Coroutine _smokableExhale;
         private float _smokableExhaleStart;
 
 
@@ -174,7 +172,6 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             var dragStart = _smokableExhaleStart;
             _smokable = null;
             _smokedPart = null;
-            _smokableExhale = null;
 
             if (IsGone(smokable, part))
             {
