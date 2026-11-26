@@ -90,8 +90,10 @@ namespace Gothic.Core.Services.Meshes
                 anchor.transform.SetPositionAndRotation(position, Quaternion.identity);
                 if (follow != null)
                     anchor.transform.SetParent(follow, true);
+                // An effect that follows someone (sleep over the head, an aura, the hit effect on an NPC) moves with
+                // him - in the world it trailed behind a walking NPC.
                 var pfxGo = _meshService.CreateVobPfx(fx.VisNameS, parent: anchor, destroyAfterPlay: !isLooping,
-                    isFullRate: true);
+                    isFullRate: true, isFollowingEmitter: follow != null);
                 if (pfxGo == null)
                 {
                     UnityEngine.Object.Destroy(anchor);

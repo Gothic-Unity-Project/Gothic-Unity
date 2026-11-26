@@ -144,7 +144,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                 return;
             }
             var pfxName = pfxNameOverride ?? $"MFX_{mfxName.ToUpper()}_INIT";
-            var pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            // The charge stays in the hand (follows the emitter, PrepareHeldEffect below).
+            var pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo, isFollowingEmitter: true);
             // The spell's own VISUALFX visual before the generic fallbacks: MFX_ICEWAVE_INIT doesn't exist,
             // spellFX_Icewave uses MFX_IceCUBE_INIT (a fireball was shown in the hand).
             if (pfxLeaf == null && pfxNameOverride == null)
@@ -162,7 +163,7 @@ namespace Gothic.VR.Adapters.Vob.VobItem
                     if (string.IsNullOrEmpty(visName))
                         continue;
                     pfxName = visName;
-                    pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
+                    pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo, isFollowingEmitter: true);
                     if (pfxLeaf != null)
                         break;
                 }
@@ -170,12 +171,12 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             if (pfxLeaf == null)
             {
                 pfxName = "MFX_FIREBALL_INIT";
-                pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
+                pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo, isFollowingEmitter: true);
             }
             if (pfxLeaf == null)
             {
                 pfxName = "MFX_FIREBOLT_INIT";
-                pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo);
+                pfxLeaf = _meshService.CreateVobPfx(pfxName, parent: handGo, isFollowingEmitter: true);
             }
 
             if (pfxLeaf != null)
@@ -522,7 +523,8 @@ namespace Gothic.VR.Adapters.Vob.VobItem
             _stationaryLightsService.ClaimHeroLight(lightGo);
             stationaryLight.Init();
 
-            _meshService.CreateVobPfx("MFX_LIGHT_INIT", parent: lightGo);
+            // The light's glow moves with the hero - in the world it trailed behind him.
+            _meshService.CreateVobPfx("MFX_LIGHT_INIT", parent: lightGo, isFollowingEmitter: true);
 
             hero.ActiveLightGo = lightGo;
             Logger.Log("[VRSpellFx] Light spell ON", LogCat.VR);

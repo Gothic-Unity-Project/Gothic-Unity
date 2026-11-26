@@ -113,16 +113,20 @@ namespace Gothic.Core.Domain.Npc.Actions.AnimationActions
             if (NpcContainer.ActiveSpellVfxGo != null)
                 Object.Destroy(NpcContainer.ActiveSpellVfxGo);
             var pfxName = $"MFX_{mfxName.ToUpper()}_INIT";
-            NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo);
+            // The glow stays in the hand (follows the emitter) - in the world it streaked behind the mage's arm.
+            NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo,
+                isFollowingEmitter: true);
             if (NpcContainer.ActiveSpellVfxGo == null)
             {
                 pfxName = "MFX_FIREBALL_INIT"; // G2 fire fallback
-                NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo);
+                NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo,
+                    isFollowingEmitter: true);
             }
             if (NpcContainer.ActiveSpellVfxGo == null)
             {
                 pfxName = "MFX_FIREBOLT_INIT"; // G1 fire fallback
-                NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo);
+                NpcContainer.ActiveSpellVfxGo = _meshService.CreateVobPfx(pfxName, parent: handGo,
+                    isFollowingEmitter: true);
             }
 
             // Force looping so the glow stays on hand until undraw/attack

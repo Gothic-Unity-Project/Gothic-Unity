@@ -34,6 +34,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
             if (pfx.DirModeS.EqualsIgnoreCase("DIR"))
             {
+                var toVelocitySpace = GetVelocityRotation(pfx.DirForS.EqualsIgnoreCase("WORLD"), pfxGo,
+                    out var velocitySpace);
                 var minSpeed = Mathf.Max(0f, (pfx.VelAvg - pfx.VelVar) * _velocityScale);
                 var maxSpeed = Mathf.Max(0f, (pfx.VelAvg + pfx.VelVar) * _velocityScale);
                 var min = Vector3.positiveInfinity;
@@ -45,8 +47,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
                         var heading = (pfx.DirAngleHead + headStep * pfx.DirAngleHeadVar) * Mathf.Deg2Rad;
                         var elevation = Mathf.Clamp(pfx.DirAngleElev + elevStep * pfx.DirAngleElevVar, -90f, 90f) *
                                         Mathf.Deg2Rad;
-                        var sample = new Vector3(Mathf.Cos(elevation) * Mathf.Sin(heading), Mathf.Sin(elevation),
-                            Mathf.Cos(elevation) * Mathf.Cos(heading));
+                        var sample = toVelocitySpace * new Vector3(Mathf.Cos(elevation) * Mathf.Sin(heading),
+                            Mathf.Sin(elevation), Mathf.Cos(elevation) * Mathf.Cos(heading));
                         foreach (var speed in new[] { minSpeed, maxSpeed })
                         {
                             min = Vector3.Min(min, sample * speed);
@@ -59,9 +61,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 main.startSpeed = 0f;
                 var velocity = particleSystem.velocityOverLifetime;
                 velocity.enabled = true;
-                velocity.space = pfx.DirForS.EqualsIgnoreCase("WORLD")
-                    ? ParticleSystemSimulationSpace.World
-                    : ParticleSystemSimulationSpace.Local;
+                velocity.space = velocitySpace;
                 velocity.x = new ParticleSystem.MinMaxCurve(min.x, max.x);
                 velocity.y = new ParticleSystem.MinMaxCurve(min.y, max.y);
                 velocity.z = new ParticleSystem.MinMaxCurve(min.z, max.z);
@@ -78,6 +78,27 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     System.Globalization.CultureInfo.InvariantCulture, out var key) ? key : 1f;
             pfxGo.AddComponent<Gothic.Core.Adapters.Vob.PfxShapeScaler>().Init(particleSystem, keys, pfx.ShpScaleFps,
                 Convert.ToBoolean(pfx.ShpScaleIsLooping), Convert.ToBoolean(pfx.ShpScaleIsSmooth));
+        }
+
+        /// <summary>
+        /// The space of the velocity module and the rotation that takes a direction there from its frame (the world or
+        /// the emitter). With World simulation a Local velocity is turned with the emitter's current rotation every
+        /// frame - a turning emitter (the grindstone) curved particles that are already flying. So the direction is
+        /// taken into the world once, with the emitter's rotation at creation (dirFor OBJECT: the frame a particle
+        /// starts in). Limitation: an emitter that turns after it was built (reparented, a turning mover, a swung
+        /// torch) keeps the direction it had then - Unity has no per-particle frame for velocity over lifetime.
+        /// Effects that follow their emitter keep both Local (the direction turns with it, like before).
+        /// </summary>
+        private Quaternion GetVelocityRotation(bool isWorldDir, GameObject pfxGo,
+            out ParticleSystemSimulationSpace space)
+        {
+            if (_isFollowingEmitter)
+            {
+                space = isWorldDir ? ParticleSystemSimulationSpace.World : ParticleSystemSimulationSpace.Local;
+                return Quaternion.identity;
+            }
+            space = ParticleSystemSimulationSpace.World;
+            return isWorldDir ? Quaternion.identity : pfxGo.transform.rotation;
         }
 
         private const float _velocityScale = 10f;
@@ -99,7 +120,8 @@ namespace Gothic.Core.Domain.Meshes.Builder
             _subEmitterDepth++;
             try
             {
-                var child = _pfxMeshService.CreateVobPfx(childName, parent: pfxGo, destroyAfterPlay: _destroyAfterPlay);
+                var child = _pfxMeshService.CreateVobPfx(childName, parent: pfxGo, destroyAfterPlay: _destroyAfterPlay,
+                    isFollowingEmitter: _isFollowingEmitter);
                 var childRoot = child != null ? child.transform.parent : null;
                 if (childRoot != null && childRoot.gameObject != pfxGo)
                     childRoot.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
@@ -132,6 +154,7 @@ namespace Gothic.Core.Domain.Meshes.Builder
 
         private string _visualName;
         private bool _destroyAfterPlay;
+        private bool _isFollowingEmitter;
 
 
         public void SetPfxData(string visualName)
@@ -142,6 +165,15 @@ namespace Gothic.Core.Domain.Meshes.Builder
         public void SetDestroyAfterPlay(bool destroyAfterPlay)
         {
             _destroyAfterPlay = destroyAfterPlay;
+        }
+
+        /// <summary>
+        /// An effect that sticks to a moving body (a spell's glow in a hand, an aura on an NPC): its particles move and
+        /// turn with the emitter (Local simulation). Otherwise they live in the world once emitted.
+        /// </summary>
+        public void SetFollowingEmitter(bool isFollowingEmitter)
+        {
+            _isFollowingEmitter = isFollowingEmitter;
         }
 
         /// <summary>
@@ -215,12 +247,13 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 // Always disable Unity's built-in gravity - use Force over Lifetime instead
                 mainModule.gravityModifier = 0f;
 
-                // Simulation space from FOR switches (prefer dir FOR if present)
-                var simFor = (pfx.DirForS ?? pfx.ShpForS)?.ToUpperInvariant();
-                if (simFor == "WORLD")
-                    mainModule.simulationSpace = ParticleSystemSimulationSpace.World;
-                else
-                    mainModule.simulationSpace = ParticleSystemSimulationSpace.Local;
+                // Like the engine, an emitted particle lives in the world: it doesn't move or turn with its emitter
+                // afterwards. dirFor/shpFor only say in which frame a particle starts (velocity module below). Local
+                // simulation carried the sparks along with the turning grindstone - a line instead of a falling shower.
+                // Effects stuck to a moving body (a glow in a hand, an aura) move with it (SetFollowingEmitter).
+                mainModule.simulationSpace = _isFollowingEmitter
+                    ? ParticleSystemSimulationSpace.Local
+                    : ParticleSystemSimulationSpace.World;
 
                 // Start size from visSizeStart (cm->m). Allow end scale via Size over Lifetime below.
                 if (!string.IsNullOrEmpty(pfx.VisSizeStartS) && pfx.VisSizeStartS != "=")
@@ -287,6 +320,9 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 if (gravity.Length == 3)
                 {
                     forceModule.enabled = true;
+                    // flyGravity is a world vector (down is -Y): in the emitter's frame a turned emitter (a grindstone,
+                    // a spell in the hand) pulled its particles sideways.
+                    forceModule.space = ParticleSystemSimulationSpace.World;
                     forceModule.x = gravityX;
                     forceModule.y = gravityY;
                     forceModule.z = gravityZ;
@@ -497,6 +533,12 @@ namespace Gothic.Core.Domain.Meshes.Builder
                 shapeModule.alignToDirection = false; // Don't align to direction for blood splatter
             }
 
+            // Only a requested position. Quaternion's == / != compare by dot product (default != default is true) -
+            // Equals() compares the components. Before the velocity: it takes the emitter's rotation into the world.
+            var hasRotation = !RootRotation.Equals(default(Quaternion));
+            if (RootPosition != Vector3.zero || hasRotation)
+                RootGo.transform.SetPositionAndRotation(RootPosition, hasRotation ? RootRotation : Quaternion.identity);
+
             ApplyGothicShapeAndDirection(pfx, particleSystem, pfxGo);
 
             // Velocity over Lifetime module (for directional spread and TARGET)
@@ -521,12 +563,15 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     {
                         var target = new Vector3(tx / 100f, ty / 100f, tz / 100f);
                         var origin = Vector3.zero; // assuming emitter origin in Local space by default
-                        var dir = (target - origin).normalized;
+                        // The target is in the emitter's frame (as before) - into the world with the emitter's
+                        // rotation at creation (GetVelocityRotation).
+                        var toVelocitySpace = GetVelocityRotation(false, pfxGo, out var velocitySpace);
+                        var dir = toVelocitySpace * (target - origin).normalized;
 
                         // Use average speed
                         var speed = Mathf.Max(0f, pfx.VelAvg);
                         velocityModule.enabled = true;
-                        velocityModule.space = ParticleSystemSimulationSpace.Local;
+                        velocityModule.space = velocitySpace;
                         velocityModule.x = new ParticleSystem.MinMaxCurve(dir.x * speed);
                         velocityModule.y = new ParticleSystem.MinMaxCurve(dir.y * speed);
                         velocityModule.z = new ParticleSystem.MinMaxCurve(dir.z * speed);
@@ -588,12 +633,6 @@ namespace Gothic.Core.Domain.Meshes.Builder
                     }
                 }
             }
-
-            // Only a requested position. Quaternion's == / != compare by dot product (default != default is true) -
-            // Equals() compares the components.
-            var hasRotation = !RootRotation.Equals(default(Quaternion));
-            if (RootPosition != Vector3.zero || hasRotation)
-                RootGo.transform.SetPositionAndRotation(RootPosition, hasRotation ? RootRotation : Quaternion.identity);
 
             particleSystem.Play();
             CreateSubEmitter(pfx, pfxGo);
